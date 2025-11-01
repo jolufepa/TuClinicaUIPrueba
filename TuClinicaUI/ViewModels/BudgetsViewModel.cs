@@ -1,0 +1,466 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection; // Para IServiceProvider
+using System;
+using System.Collections.ObjectModel; // Para ObservableCollection
+using System.ComponentModel;
+using System.Diagnostics; // Para Process.Start (abrir PDF)
+using System.IO; // Para Path
+using System.Linq; // Para Sum, etc.
+using System.Threading.Tasks;
+using System.Windows; // Para MessageBox
+using TuClinica.Core.Enums; // Para BudgetStatus
+using TuClinica.Core.Interfaces.Repositories;
+using TuClinica.Core.Interfaces.Services;
+using TuClinica.Core.Models;
+using TuClinica.UI.Views;
+
+namespace TuClinica.UI.ViewModels
+{
+    public partial class BudgetsViewModel : BaseViewModel
+    {
+        // --- Servicios Inyectados ---
+        private readonly IPatientRepository _patientRepository;
+        private readonly ITreatmentRepository _treatmentRepository;
+        private readonly IBudgetRepository _budgetRepository;
+        private readonly IPdfService _pdfService;
+        private readonly IServiceProvider _serviceProvider; // Para diálogos o vistas
+        public IRelayCommand SelectPatientCommand { get; }
+
+        // --- Estado del ViewModel (Formulario de Creación) ---
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsPatientSelected))]
+        [NotifyCanExecuteChangedFor(nameof(GenerateBudgetCommand))] // Habilitar generar si hay paciente e items
+        [NotifyPropertyChangedFor(nameof(CurrentPatientDisplay))]
+        private Patient? _currentPatient;
+
+        [ObservableProperty]
+        private ObservableCollection<Treatment> _availableTreatments = [];
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Subtotal))] // Recalcular subtotal
+        [NotifyPropertyChangedFor(nameof(DiscountAmount))] // Recalcular descuento
+        [NotifyPropertyChangedFor(nameof(VatAmount))] // Recalcular IVA
+        [NotifyPropertyChangedFor(nameof(TotalAmount))] // Recalcular total
+        [NotifyCanExecuteChangedFor(nameof(GenerateBudgetCommand))] // Habilitar generar si hay paciente e items
+        private ObservableCollection<BudgetLineItem> _budgetItems = new ObservableCollection<BudgetLineItem>();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DiscountAmount))]
+        [NotifyPropertyChangedFor(nameof(VatAmount))]
+        [NotifyPropertyChangedFor(nameof(TotalAmount))]
+        private decimal _discountPercent = 0; // Por defecto 0%
+        [ObservableProperty]
+        private string _currentPatientDisplay = "Ningún paciente seleccionado";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(VatAmount))]
+        [NotifyPropertyChangedFor(nameof(TotalAmount))]
+        private decimal _vatPercent = 0; // Por defecto 0% IVA 
+
+        // --- Propiedades para el HISTORIAL ---
+        [ObservableProperty]
+        private ObservableCollection<Budget> _budgetHistory = new();
+
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(OpenPdfCommand))]
+        // *** NUEVO: Notificar a los comandos de estado cuando la selección cambie ***
+        [NotifyCanExecuteChangedFor(nameof(MarkAsAcceptedCommand))]
+        [NotifyCanExecuteChangedFor(nameof(MarkAsRejectedCommand))]
+        [NotifyCanExecuteChangedFor(nameof(MarkAsPendingCommand))]
+        private Budget? _selectedBudgetFromHistory;
+        // *** FIN NUEVO ***
+
+        // --- Propiedades Calculadas (Formulario Creación) ---
+        public decimal Subtotal => BudgetItems?.Sum(item => item.Quantity * item.UnitPrice) ?? 0;
+        public decimal DiscountAmount => Subtotal * (DiscountPercent / 100);
+        public decimal BaseImponible => Subtotal - DiscountAmount;
+        public decimal VatAmount => BaseImponible * (VatPercent / 100);
+        public decimal TotalAmount => BaseImponible + VatAmount;
+
+        public bool IsPatientSelected => CurrentPatient != null;
+        public bool CanGenerateBudget => IsPatientSelected && BudgetItems.Any();
+
+
+        // --- Constructor ---
+        public BudgetsViewModel(
+            IPatientRepository patientRepository,
+            ITreatmentRepository treatmentRepository,
+            IBudgetRepository budgetRepository,
+            IPdfService pdfService,
+            IServiceProvider serviceProvider)
+        {
+            _patientRepository = patientRepository;
+            _treatmentRepository = treatmentRepository;
+            _budgetRepository = budgetRepository;
+            _pdfService = pdfService;
+            _serviceProvider = serviceProvider;
+
+            SelectPatientCommand = new RelayCommand(SelectPatient);
+
+            // Escuchar cambios en la colección de items para recalcular
+            BudgetItems.CollectionChanged += (s, e) => RecalculateTotalsOnItemChange();
+
+            // Cargar tratamientos disponibles al inicio
+            _ = LoadAvailableTreatmentsAsync();
+
+            // Cargar historial al iniciar
+            _ = LoadBudgetHistoryAsync();
+        }
+        // Este método se llama automáticamente cuando CurrentPatient cambia
+        partial void OnCurrentPatientChanged(Patient? value)
+        {
+            // Actualiza la propiedad de display, usando la lógica del modelo Patient
+            CurrentPatientDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
+        }
+        // Método para cargar tratamientos activos
+        private async Task LoadAvailableTreatmentsAsync()
+        {
+            var treatments = await _treatmentRepository.GetAllAsync();
+            AvailableTreatments.Clear();
+            if (treatments != null)
+            {
+                foreach (var treatment in treatments.Where(t => t.IsActive))
+                {
+                    AvailableTreatments.Add(treatment);
+                }
+            }
+        }
+
+        // Método llamado cuando se añade/quita un item o cambian sus propiedades internas
+        private void RecalculateTotalsOnItemChange()
+        {
+            OnPropertyChanged(nameof(Subtotal));
+            OnPropertyChanged(nameof(DiscountAmount));
+            OnPropertyChanged(nameof(BaseImponible));
+            OnPropertyChanged(nameof(VatAmount));
+            OnPropertyChanged(nameof(TotalAmount));
+            GenerateBudgetCommand.NotifyCanExecuteChanged();
+        }
+
+        // --- Comandos (Formulario Creación) ---
+
+
+
+        // Método que ejecuta el comando SelectPatientCommand (Corregido)
+        private void SelectPatient()
+        {
+            try
+            {
+                var dialog = _serviceProvider.GetRequiredService<PatientSelectionDialog>();
+
+                // --- ASIGNACIÓN DE PROPIETARIO MÁS SEGURA ---
+                Window? ownerWindow = Application.Current.MainWindow;
+                // Comprobar si MainWindow existe y NO es el propio diálogo
+                if (ownerWindow != null && ownerWindow != dialog)
+                {
+                    dialog.Owner = ownerWindow;
+                }
+                else
+                {
+                    // Si no se puede asignar (ej. MainWindow aún no lista), el diálogo se abrirá centrado en la pantalla.
+                }
+                // --- FIN ASIGNACIÓN SEGURA ---
+
+                var result = dialog.ShowDialog(); // Muestra el diálogo modalmente
+
+                var dialogViewModel = dialog.ViewModel;
+                if (dialogViewModel == null)
+                {
+                    MessageBox.Show("Error interno: No se pudo obtener el ViewModel del diálogo de selección.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (result == true && dialogViewModel.SelectedPatientFromList != null)
+                {
+                    CurrentPatient = dialogViewModel.SelectedPatientFromList;
+                }
+                else
+                {
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al abrir la selección de paciente:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }// Fin del método SelectPatient
+
+        [RelayCommand]
+        private void AddPredefinedTreatment(Treatment? selectedTreatment)
+        {
+            if (selectedTreatment != null)
+            {
+                var newItem = new BudgetLineItem
+                {
+                    Description = selectedTreatment.Name,
+                    Quantity = 1,
+                    UnitPrice = selectedTreatment.DefaultPrice
+                };
+                BudgetItems.Add(newItem);
+                HookPropertyChanged(newItem);
+            }
+        }
+
+        [RelayCommand]
+        private void AddManualTreatment()
+        {
+            var newItem = new BudgetLineItem
+            {
+                Description = "Tratamiento Manual",
+                Quantity = 1,
+                UnitPrice = 0
+            };
+            BudgetItems.Add(newItem);
+            HookPropertyChanged(newItem);
+        }
+
+        [RelayCommand]
+        private void RemoveBudgetItem(BudgetLineItem? itemToRemove)
+        {
+            if (itemToRemove != null)
+            {
+                UnhookPropertyChanged(itemToRemove);
+                BudgetItems.Remove(itemToRemove);
+            }
+        }
+
+        // Método para escuchar cambios en Quantity/UnitPrice de un item
+        private void HookPropertyChanged(BudgetLineItem item)
+        {
+            if (item is INotifyPropertyChanged npc)
+            {
+                npc.PropertyChanged += BudgetItem_PropertyChanged;
+            }
+        }
+
+        // Método para dejar de escuchar
+        private void UnhookPropertyChanged(BudgetLineItem item)
+        {
+            if (item is INotifyPropertyChanged npc)
+            {
+                npc.PropertyChanged -= BudgetItem_PropertyChanged;
+            }
+        }
+
+        // Handler que recalcula totales cuando cambia Quantity o UnitPrice
+        private void BudgetItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BudgetLineItem.Quantity) || e.PropertyName == nameof(BudgetLineItem.UnitPrice))
+            {
+                RecalculateTotalsOnItemChange();
+            }
+        }
+
+
+        [RelayCommand(CanExecute = nameof(CanGenerateBudget))]
+        private async Task GenerateBudgetAsync()
+        {
+            if (CurrentPatient == null) return;
+
+            // --- 1. Crear el objeto Budget ---
+            var newBudget = new Budget
+            {
+                PatientId = CurrentPatient.Id,
+                IssueDate = DateTime.Now,
+                BudgetNumber = await _budgetRepository.GetNextBudgetNumberAsync(),
+                Items = new List<BudgetLineItem>(BudgetItems.Select(bi => new BudgetLineItem
+                {
+                    Description = bi.Description,
+                    Quantity = bi.Quantity,
+                    UnitPrice = bi.UnitPrice,
+                })),
+                Subtotal = Subtotal,
+                DiscountPercent = DiscountPercent,
+                VatPercent = VatPercent,
+                TotalAmount = TotalAmount,
+                Status = BudgetStatus.Pendiente,
+                Patient = null
+            };
+
+            // --- 2. Guardar en BD ---
+            try
+            {
+                await _budgetRepository.AddAsync(newBudget);
+                await _budgetRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al guardar el presupuesto en la base de datos:\n{ex.Message}", "Error BD", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // --- 3. Generar PDF ---
+            string pdfPath = string.Empty;
+            try
+            {
+                
+
+                pdfPath = await _pdfService.GenerateBudgetPdfAsync(newBudget);
+                newBudget.PdfFilePath = pdfPath; // Guardamos la ruta
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al generar el archivo PDF:\n{ex.Message}", "Error PDF", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // --- 4. Actualizar BD con la ruta del PDF ---
+            try
+            {
+                _budgetRepository.Update(newBudget);
+                await _budgetRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al actualizar la ruta del PDF en la base de datos:\n{ex.Message}", "Error BD", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+
+            // --- 5. Mostrar PDF y Preguntar Imprimir (Tu requisito) ---
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo(pdfPath) { UseShellExecute = true };
+                Process.Start(psi);
+
+                var printResult = MessageBox.Show("Presupuesto generado y guardado.\n¿Desea imprimirlo ahora?",
+                                                  "Imprimir Presupuesto", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (printResult == MessageBoxResult.Yes)
+                {
+                    MessageBox.Show("Por favor, use la opción de imprimir de su visor de PDF.", "Imprimir", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error Abrir PDF", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // --- 6. Limpiar formulario ---
+            ClearBudget();
+
+            // Refrescar el historial
+            await LoadBudgetHistoryAsync();
+        }
+
+        [RelayCommand]
+        private void ClearBudget()
+        {
+            CurrentPatient = null;
+            BudgetItems.Clear();
+            DiscountPercent = 0;
+            VatPercent = 21;
+        }
+
+        // --- Métodos y Comandos para el HISTORIAL ---
+
+        [RelayCommand]
+        private async Task LoadBudgetHistoryAsync()
+        {
+            try
+            {
+                var history = await _budgetRepository.FindBudgetsAsync();
+                BudgetHistory.Clear();
+                foreach (var budget in history)
+                {
+                    BudgetHistory.Add(budget);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar el historial de presupuestos:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        [RelayCommand(CanExecute = nameof(CanOpenPdf))]
+        private void OpenPdf(Budget? budgetToOpen)
+        {
+            var budget = budgetToOpen ?? SelectedBudgetFromHistory;
+
+            if (budget == null) return;
+
+            if (string.IsNullOrEmpty(budget.PdfFilePath) || !File.Exists(budget.PdfFilePath))
+            {
+                MessageBox.Show($"No se encontró el archivo PDF para este presupuesto.\n{budget.PdfFilePath}", "Archivo no encontrado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo(budget.PdfFilePath) { UseShellExecute = true };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // Propiedad para habilitar el botón "Abrir PDF"
+        private bool CanOpenPdf(Budget? budget)
+        {
+            var budgetToCheck = budget ?? SelectedBudgetFromHistory;
+            return budgetToCheck != null && !string.IsNullOrEmpty(budgetToCheck.PdfFilePath) && File.Exists(budgetToCheck.PdfFilePath);
+        }
+
+
+        // *** NUEVO: Comandos para actualizar el estado del presupuesto ***
+
+        // Helper CanExecute para los comandos de estado
+        private bool CanUpdateStatus()
+        {
+            return SelectedBudgetFromHistory != null;
+        }
+
+        [RelayCommand(CanExecute = nameof(CanUpdateStatus))]
+        private async Task MarkAsAcceptedAsync()
+        {
+            await UpdateSelectedBudgetStatusAsync(BudgetStatus.Aceptado);
+        }
+
+        [RelayCommand(CanExecute = nameof(CanUpdateStatus))]
+        private async Task MarkAsRejectedAsync()
+        {
+            await UpdateSelectedBudgetStatusAsync(BudgetStatus.Rechazado);
+        }
+
+        [RelayCommand(CanExecute = nameof(CanUpdateStatus))]
+        private async Task MarkAsPendingAsync()
+        {
+            // Solo si queremos permitir volver a "Pendiente" un presupuesto
+            await UpdateSelectedBudgetStatusAsync(BudgetStatus.Pendiente);
+        }
+
+        // Método principal que actualiza la BD y la UI
+        private async Task UpdateSelectedBudgetStatusAsync(BudgetStatus newStatus)
+        {
+            if (SelectedBudgetFromHistory == null)
+            {
+                MessageBox.Show("Por favor, selecciona un presupuesto del historial.", "Selección requerida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Opcional: Confirmación
+            var result = MessageBox.Show($"¿Estás seguro de que quieres marcar este presupuesto como '{newStatus}'?",
+                                         "Confirmar cambio de estado", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.No) return;
+
+            var budgetToUpdate = SelectedBudgetFromHistory;
+
+            try
+            {
+                // 1. Actualizar la base de datos
+                await _budgetRepository.UpdateStatusAsync(budgetToUpdate.Id, newStatus);
+
+                // 2. Recargar el historial para reflejar el cambio en la UI
+                // Esta es la forma más robusta de asegurar que la UI está sincronizada.
+                await LoadBudgetHistoryAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al actualizar el estado del presupuesto:\n{ex.Message}", "Error de base de datos", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        // *** FIN NUEVO ***
+    }
+}

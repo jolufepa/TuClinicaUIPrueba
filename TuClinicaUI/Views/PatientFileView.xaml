@@ -1,0 +1,100 @@
+﻿<UserControl x:Class="TuClinica.UI.Views.PatientFileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:TuClinica.UI.Views"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance Type=viewmodels:PatientFileViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Fila para el Header del Paciente -->
+            <RowDefinition Height="*"/>
+            <!-- Fila para el TabControl -->
+        </Grid.RowDefinitions>
+
+        <!-- =================================================== -->
+        <!-- 1. Header del Paciente (Info rápida)                -->
+        <!-- =================================================== -->
+        <Border Grid.Row="0" Background="#007ACC" Padding="20" Effect="{StaticResource ShadowZ2}">
+            <StackPanel>
+                <!-- CORREGIDO: Eliminado el 'Text=""' duplicado -->
+                <TextBlock TextElement.FontWeight="Bold" 
+                           FontSize="24" 
+                           Foreground="White">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0} {1}">
+                            <Binding Path="CurrentPatient.Name"/>
+                            <Binding Path="CurrentPatient.Surname"/>
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+                <TextBlock Text="{Binding CurrentPatient.DniNie}" FontSize="14" Foreground="#E0E0E0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- =================================================== -->
+        <!-- 2. Pestañas Principales (Datos, Ficha, Planes...)   -->
+        <!-- =================================================== -->
+        <mah:MetroTabControl Grid.Row="1" Margin="0,10,0,0">
+
+            <mah:MetroTabItem Header="Datos Personales">
+                <Grid Background="#FFFBF8ED">
+                    <Border Margin="30"
+                            Background="#FFFDFBF5" 
+                            BorderBrush="#FFDEDAD0" 
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="25"
+                            Effect="{StaticResource ShadowZ3}">
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <Label Content="Nombre:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Name}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="Apellidos:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Surname}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="DNI/NIE:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.DniNie}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="Teléfono:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Phone}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="Email:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Email}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="Dirección:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Address}" Style="{StaticResource FichaTextBoxStyle}"/>
+
+                                <Label Content="Notas:" Style="{StaticResource FichaLabelStyle}"/>
+                                <TextBox Text="{Binding CurrentPatient.Notes}" MinHeight="100" TextWrapping="Wrap" AcceptsReturn="True" Style="{StaticResource FichaTextBoxStyle}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Ficha Clínica">
+                <TextBlock Text="Módulo de Ficha Clínica (Odontograma, Evoluciones...) irá aquí." Margin="20" FontSize="16"/>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Planes de tratamiento">
+                <TextBlock Text="Módulo de Planes de Tratamiento irá aquí." Margin="20" FontSize="16"/>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Facturación y Pagos">
+                <TextBlock Text="Módulo de Facturación irá aquí." Margin="20" FontSize="16"/>
+            </mah:MetroTabItem>
+
+        </mah:MetroTabControl>
+    </Grid>
+</UserControl>
+
+

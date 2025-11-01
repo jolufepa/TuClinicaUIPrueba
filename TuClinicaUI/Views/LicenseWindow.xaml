@@ -1,0 +1,65 @@
+﻿<Window x:Class="TuClinica.UI.Views.LicenseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TuClinica.UI.Views"
+        xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        mc:Ignorable="d"
+        
+        d:DataContext="{d:DesignInstance Type=viewmodels:LicenseViewModel}"
+        
+        Title="Activación de Licencia - Clínica PD" 
+        Height="400" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow">
+    <i:Interaction.Triggers>
+        <i:DataTrigger Binding="{Binding CloseWindowFlag}" Value="True">
+            <i:InvokeCommandAction Command="{Binding CloseWindowCommand}"
+                                   CommandParameter="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"/>
+        </i:DataTrigger>
+    </i:Interaction.Triggers>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" FontSize="18" FontWeight="Bold" Text="Activación Requerida" HorizontalAlignment="Center"/>
+
+        <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,15,0,0">
+            Esta copia del software no está activada. Para obtener su licencia, por favor,
+            copie el <Run FontWeight="Bold">Machine ID</Run> de esta máquina y envíelo al proveedor del software.
+        </TextBlock>
+
+        <GroupBox Grid.Row="2" Header="Su Machine ID" Margin="0,20,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding MachineId}" IsReadOnly="True" FontSize="16" FontWeight="Bold" VerticalContentAlignment="Center"/>
+                <Button Grid.Column="1" Content="Copiar" Command="{Binding CopyMachineIdCommand}" Margin="10,0,0,0"/>
+            </Grid>
+        </GroupBox>
+
+        <TextBlock Grid.Row="3" Text="{Binding ErrorMessage}" Foreground="Red" Margin="0,10,0,0" VerticalAlignment="Top"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Importar Licencia..."
+                    Command="{Binding ImportLicenseCommand}"
+                    Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                    Margin="0,0,10,0"/>
+
+            <Button Content="Salir"
+                    Command="{Binding CloseWindowCommand}"
+                    CommandParameter="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"/>
+        </StackPanel>
+    </Grid>
+</Window>

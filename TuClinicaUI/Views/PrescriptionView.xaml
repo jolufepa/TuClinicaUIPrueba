@@ -1,0 +1,142 @@
+﻿<UserControl x:Class="TuClinica.UI.Views.PrescriptionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:TuClinica.UI.Views"
+             xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance Type=viewmodels:PrescriptionViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <Grid>
+        <mah:MetroTabControl>
+
+            <mah:MetroTabItem Header="Crear Receta">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="Paciente Seleccionado:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="14" Margin="0,0,10,0">
+                                <Run Text="{Binding SelectedPatientFullNameDisplay}"/>>
+                            </TextBlock>
+
+                            <Button Grid.Column="1" 
+                                    Content="Seleccionar Paciente..."
+                                    Command="{Binding SelectPatientCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                    <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
+                    <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
+                    <ComboBox Grid.Row="2" Margin="0,5,0,15"
+                          ItemsSource="{Binding Medications}"
+                           FontSize="21"
+          
+                          SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
+          
+                          DisplayMemberPath="FullDisplay"  IsEditable="True"
+                          Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <Label Content="Pauta (Ej: 1 cada 8 horas):" FontWeight="SemiBold"/>
+                            <ComboBox ItemsSource="{Binding Dosages}"
+                                      DisplayMemberPath="Pauta"
+                                      IsEditable="True"
+                                      Text="{Binding DosageSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                            <Label Content="Duración (Ej: 10 días):" FontWeight="SemiBold"/>
+                            <TextBox Text="{Binding TreatmentDuration, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Margin="10,0,0,0">
+                            <Label Content="Cantidad (Ej: 1 envase):" FontWeight="SemiBold"/>
+                            <TextBox Text="{Binding MedicationQuantity, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBox Grid.Row="4" Margin="0,15,0,0"
+                             mah:TextBoxHelper.Watermark="Instrucciones adicionales para el paciente (Ej: Tomar después de las comidas)..."
+                             Text="{Binding Instructions, UpdateSourceTrigger=PropertyChanged}"
+                             Height="100" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+
+                    <Button Grid.Row="5" 
+                            Content="Generar Receta PDF"
+                            Command="{Binding GeneratePrescriptionPdfCommand}" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                            HorizontalAlignment="Right" Margin="0,20,0,0"/>
+                </Grid>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Gestionar Medicamentos">
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <DataGrid Grid.Column="0" ItemsSource="{Binding Medications}" SelectedItem="{Binding SelectedMedication}"
+                              AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Presentación" Binding="{Binding Presentation}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Añadir Nuevo Medicamento" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <Label Content="Nombre (Ej: Amoxicilina):"/>
+                        <TextBox Text="{Binding NewMedicationName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <Label Content="Presentación (Ej: 750mg Comp.):"/>
+                        <TextBox Text="{Binding NewMedicationPresentation, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <Button Content="Guardar Medicamento" Command="{Binding SaveMedicationCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Gestionar Pautas">
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <DataGrid Grid.Column="0" ItemsSource="{Binding Dosages}" SelectedItem="{Binding SelectedDosage}"
+                              AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Pauta" Binding="{Binding Pauta}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Añadir Nueva Pauta" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <Label Content="Pauta (Ej: 1 cada 8 horas):"/>
+                        <TextBox Text="{Binding NewDosagePauta, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <Button Content="Guardar Pauta" Command="{Binding SaveDosageCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </mah:MetroTabItem>
+        </mah:MetroTabControl>
+    </Grid>
+</UserControl>

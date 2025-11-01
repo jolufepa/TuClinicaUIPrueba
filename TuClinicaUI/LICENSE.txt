@@ -1,0 +1,31 @@
+﻿**TÉRMINOS DE LICENCIA DE SOFTWARE PARA TuClínica.UI**
+
+POR FAVOR, LEA ATENTAMENTE ESTOS TÉRMINOS ANTES DE USAR EL SOFTWARE. LA INSTALACIÓN O USO DEL SOFTWARE "TuClínica P&D" (en adelante, "el Software") POR PARTE DE LA CLÍNICA DENTAL [Nombre de la Clínica Cliente, si es específica] (en adelante, "el Licenciatario") IMPLICA LA ACEPTACIÓN DE ESTOS TÉRMINOS ESTABLECIDOS POR [Tu Nombre o Nombre de tu Empresa] (en adelante, "el Licenciante"). SI NO ESTÁ DE ACUERDO, NO INSTALE NI UTILICE EL SOFTWARE.
+
+**1. CONCESIÓN DE LICENCIA:**
+El Licenciante concede al Licenciatario una licencia limitada, personal, no exclusiva e intransferible para instalar y utilizar el Software en un único ordenador dentro de las instalaciones del Licenciatario, sujeto a la activación mediante el archivo de licencia proporcionado por el Licenciante y vinculado al hardware específico de dicho ordenador.
+
+**2. RESTRICCIONES:**
+El Licenciatario NO puede, ni permitir que terceros lo hagan:
+   (a) realizar ingeniería inversa, descompilar, desensamblar o intentar descubrir el código fuente del Software;
+   (b) modificar, adaptar, traducir o crear trabajos derivados basados en el Software;
+   (c) copiar el Software (excepto una copia de seguridad únicamente con fines de archivo);
+   (d) alquilar, arrendar, prestar, vender, sublicenciar, distribuir o transferir el Software a terceros (fuera del uso interno de la clínica licenciada);
+   (e) eliminar o alterar cualquier aviso de copyright, marca registrada u otros avisos de propiedad contenidos en el Software.
+
+**3. PROPIEDAD INTELECTUAL:**
+El Software está protegido por leyes de derechos de autor y tratados internacionales de propiedad intelectual. El Licenciante conserva todos los derechos, títulos e intereses sobre el Software, incluidos todos los derechos de propiedad intelectual. Esta licencia no otorga al Licenciatario ninguna propiedad sobre el Software, sino únicamente un derecho limitado de uso conforme a estos términos.
+
+**4. EXCLUSIÓN DE GARANTÍAS:**
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, YA SEA EXPRESA O IMPLÍCITA, INCLUIDAS, ENTRE OTRAS, LAS GARANTÍAS IMPLÍCITAS DE COMERCIABILIDAD, IDONEIDAD PARA UN FIN DETERMINADO Y NO INFRACCIÓN. EL LICENCIANTE NO GARANTIZA QUE EL SOFTWARE SATISFAGA LAS NECESIDADES DEL LICENCIATARIO O QUE SU FUNCIONAMIENTO SEA ININTERRUMPIDO O LIBRE DE ERRORES.
+
+**5. LIMITACIÓN DE RESPONSABILIDAD:**
+EN NINGÚN CASO EL LICENCIANTE SERÁ RESPONSABLE DE NINGÚN DAÑO ESPECIAL, INCIDENTAL, INDIRECTO O CONSECUENTE (INCLUIDOS, ENTRE OTROS, DAÑOS POR PÉRDIDA DE BENEFICIOS, INTERRUPCIÓN DE LA ACTIVIDAD COMERCIAL, PÉRDIDA DE INFORMACIÓN COMERCIAL O CUALQUIER OTRA PÉRDIDA PECUNIARIA) DERIVADO DEL USO O LA IMPOSIBILIDAD DE USO DEL SOFTWARE POR PARTE DEL LICENCIATARIO, INCLUSO SI EL LICENCIANTE HA SIDO ADVERTIDO DE LA POSIBILIDAD DE TALES DAÑOS.
+
+**6. TERMINACIÓN:**
+Esta licencia se rescindirá automáticamente si el Licenciatario incumple cualquiera de sus términos y condiciones. Tras la rescisión, el Licenciatario deberá dejar de usar el Software y destruir todas las copias del mismo.
+
+**7. LEY APLICABLE:**
+Esta licencia se regirá e interpretará de acuerdo con las leyes de España. Cualquier disputa que surja en relación con esta licencia se someterá a la jurisdicción exclusiva de los tribunales de Barcelona, España.
+
+**Copyright (c) 2025 [Jose Luis Fernandez]. Todos los derechos reservados.**
