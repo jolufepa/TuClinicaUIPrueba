@@ -1,70 +1,84 @@
-# 🦷 TuClínica.UI - Sistema de Gestión para Clínicas Dentales
+# 🦷 TuClínica P\&D - Sistema de Gestión Dental
 
-**TuClínica P&D** es una aplicación de escritorio robusta y segura diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia y la integridad de los datos.
-
----
+**TuClínica P\&D** es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
 
 ## 🚀 Características Principales
 
-El sistema ofrece una gestión completa de las operaciones clínicas y administrativas:
+  * **Gestión de Pacientes (CRUD):** Fichas de pacientes detalladas, historial, y funcionalidad de archivo (soft-delete) para mantener la historia clínica.
+  * **Módulo de Presupuestos:** Creación de presupuestos con cálculos automáticos (IVA, descuentos) y exportación a PDF (usando **QuestPDF**).
+  * **Módulo de Recetas:** Prescripción de medicamentos, gestión de pautas (dosages) y fármacos, y exportación a PDF (usando plantillas **iTextSharp**).
+  * **Gestión de Tratamientos:** Catálogo de tratamientos con precios predeterminados.
+  * **Gestión de Usuarios:** Control de acceso basado in roles (Administrador, Doctor, Recepcionista).
+  * **Seguridad y Auditoría (Nivel Profesional):**
+      * **Base de Datos Cifrada:** Almacenamiento local seguro usando **SQLite (SQLCipher)**. La clave se protege con Windows DPAPI.
+      * **Hashing de Contraseñas:** Autenticación robusta con **BCrypt**.
+      * **Backups Cifrados:** Importación/Exportación de copias de seguridad cifradas con **AES-GCM**.
+      * **Sistema de Licencias:** Activación por hardware (Machine ID) con firmas **RSA**.
+      * **Registro de Actividad (Logs):** Auditoría automática de creación, modificación y borrado de datos sensibles (pacientes) interceptando `DbContext.SaveChangesAsync`.
+      * **Visor de Auditoría:** Panel de administrador para la revisión y exportación de todos los logs de actividad.
 
-* **Gestión de Pacientes (CRUD):** Fichas de pacientes detalladas, incluyendo la funcionalidad de archivo (soft-delete) para mantener la historia clínica.
-* **Gestión de Usuarios:** Roles de acceso definidos (Administrador, Doctor, Recepcionista) y control de actividad.
-* **Gestión de Tratamientos:** Catálogo de tratamientos con precios predeterminados y estado de actividad.
-* **Generación de Presupuestos:** Creación de presupuestos detallados con cálculo automático de subtotales, descuentos e IVA.
-    * **Documentación Profesional:** Exportación inmediata de presupuestos en formato PDF (usando QuestPDF).
-* **Generación de Recetas (Nuevo):** Módulo especializado para la prescripción de medicamentos.
-    * **Documentación Específica:** Generación de Recetas en formato PDF utilizando una plantilla base (**iTextSharp/PDF Forms**), asegurando el cumplimiento de los estándares de prescripción.
-* **Seguridad y Auditoría:** Autenticación de usuarios con hashing de contraseñas y sistema de gestión de licencias basado en ID de hardware.
-* **Mantenimiento de Datos:** Funcionalidades de Exportación e Importación de copias de seguridad de la base de datos (**cifradas** con AES-GCM) para la recuperación ante desastres.
+## ⚙️ Arquitectura y Tecnologías
 
----
-
-## ⚙️ Estructura y Tecnologías
-
-El proyecto se adhiere al patrón de diseño **MVVM (Model-View-ViewModel)** y sigue una arquitectura limpia de N-Capas para garantizar la separación de responsabilidades y la alta testabilidad.
+El proyecto sigue una arquitectura limpia de N-Capas y el patrón **MVVM (Model-View-ViewModel)** para garantizar la separación de responsabilidades y la alta testabilidad.
 
 ### Arquitectura de Capas
 
 | Proyecto | Responsabilidad |
 | :--- | :--- |
 | **TuClinica.UI** | Presentación (WPF) y ViewModels. Interfaz con el usuario. |
-| **TuClinica.Services** | Lógica de Negocio (Auth, Validación, PDF, Licencia, Backup). |
+| **TuClinica.Services** | Lógica de Negocio (Auth, Validación, PDF, Licencia, Backup, Auditoría). |
 | **TuClinica.DataAccess** | Persistencia de Datos (Entity Framework Core y Repositorios). |
 | **TuClinica.Core** | Contratos de Negocio (Modelos, Interfaces, Enums). |
+| **TuClinica.Services.Tests**| Pruebas Unitarias (MSTest & Moq) para la lógica de negocio. |
 
 ### Stack Tecnológico
 
 | Componente | Tecnología/Librería | Propósito |
 | :--- | :--- | :--- |
-| **Frontend** | WPF (.NET 8) | Interfaz de usuario de escritorio. |
+| **Framework** | .NET 8 (WPF) | Interfaz de usuario de escritorio. |
 | **Estilo** | MahApps.Metro | Estilización moderna y controles personalizados. |
-| **Base de Datos**| SQLite (SQLCipher) | Almacenamiento local seguro y cifrado de datos. |
+| **Patrón** | MVVM (CommunityToolkit.Mvvm) | Separación lógica de la UI. |
+| **Inyección de Dependencias**| Microsoft.Extensions.Hosting | Gestión del ciclo de vida de servicios (DI). |
+| **Base de Datos**| SQLite (SQLCipher) | Almacenamiento local seguro y cifrado. |
 | **ORM** | Entity Framework Core 8 | Mapeo Objeto-Relacional. |
 | **Generación PDF (Ptos)**| QuestPDF | Documentos "Code-First" (Presupuestos). |
 | **Generación PDF (Recetas)**| iTextSharp (Plantillas) | Relleno de formularios PDF (Recetas). |
-| **Patrón** | MVVM (Manual/Community Toolkit) | Separación lógica de la UI. |
-| **Cifrado** | BCrypt & AES-GCM | Seguridad de contraseñas y Backups. |
+| **Cifrado** | BCrypt, AES-GCM, RSA | Seguridad de contraseñas, backups y licencias. |
+| **Testing** | MSTest & Moq | Pruebas unitarias y Mocks. |
 
----
-
-## 🛠️ Instalación y Configuración
+## 🛠️ Ejecución
 
 ### Requisitos Previos
 
-* .NET 8 SDK
-* Visual Studio 2022 (o superior)
+  * .NET 8 SDK
+  * Visual Studio 2022
 
-### Ejecución
+### Primer Arranque
 
-1.  **Clonar el repositorio:** (Asumido)
-2.  **Configurar la DB:** En el primer arranque, la aplicación ejecutará las migraciones de Entity Framework Core para crear la base de datos cifrada (`DentalClinic.db`) y generará una clave de cifrado (`db.key`) de forma local.
-3.  **Usuario Inicial:** El sistema creará automáticamente un usuario administrador por defecto:
-    * **Usuario:** `admin`
-    * **Contraseña:** `admin123`
-4.  **Activación de Licencia:** La aplicación requerirá la activación. Copie el **Machine ID** que se muestra y solicite un archivo `license.dat` para importarlo.
+1.  Al ejecutar la aplicación por primera vez, se crearán los archivos de base de datos cifrados (`DentalClinic.db` y `db.key`) en la carpeta local de datos (`%LOCALAPPDATA%/TuClinicaPD/Data`).
+2.  Se creará un usuario administrador por defecto:
+      * **Usuario:** `admin`
+      * **Contraseña:** `admin123`
+3.  La aplicación solicitará la activación. Importa el archivo `license.dat` proporcionado por el administrador.
 
-### Notas del Desarrollador
+## ⚠️ Nota Importante de Seguridad para GitHub
 
-* Todos los ViewModels clave han sido refactorizados a la **implementación manual de ICommand** para asegurar la estabilidad del *DataBinding* en WPF y evitar conflictos de reflexión con los generadores de código.
-* Los presupuestos y recetas se guardan en carpetas separadas (`/presupuestos` y `/recetas`) dentro del directorio local de datos de la aplicación.# TuClinica
+Este repositorio utiliza un sistema de licencias basado en un par de claves Criptográficas RSA (Pública/Privada) para generar activaciones.
+
+  * La **Clave Pública** (`PublicKey`) está incrustada de forma segura dentro de `TuClinica.Services/Implementation/LicenseService.cs`. Es pública y no representa un riesgo.
+  * La **Clave Privada** (`PrivateKey.xml`) se utiliza en el proyecto del **Generador de Licencias** (que debe mantenerse separado de este repositorio) para *firmar* y crear los archivos `.dat` de licencia.
+
+## 💡 Notas del Desarrollador
+
+### [RelayCommand] vs. Implementación Manual de ICommand
+
+Durante el desarrollo, se detectó una inconsistencia en la implementación de `ICommand` en los ViewModels:
+
+  * La mayoría de ViewModels (ej. `AdminViewModel`, `BudgetsViewModel`) usan los generadores de código modernos `[RelayCommand]` de CommunityToolkit.Mvvm.
+  * El `LoginViewModel` utiliza una implementación manual (Propiedad `ICommand` + inicialización en el constructor).
+
+**Esto no es un error, es una decisión de diseño deliberada.**
+
+El `LoginViewModel` se instancia **inmediatamente** al arrancar la aplicación, al mismo tiempo que el `DataContext` de `LoginWindow` se está enlazando (binding). Esto crea una *race condition* (carrera de condiciones) donde el binding del XAML (`Command="{Binding LoginAsyncCommand}"`) se ejecuta *antes* de que el generador `[RelayCommand]` haya tenido tiempo de crear e inicializar la propiedad del comando. El binding falla silenciosamente.
+
+La **solución manual** (inicializar el comando *dentro* del constructor) garantiza que la propiedad `LoginAsyncCommand` existe y tiene un valor asignado *antes* de que el `DataContext` se enlace al XAML, asegurando un arranque robusto. Los otros ViewModels no sufren este problema porque se crean más tarde, bajo demanda del usuario.
