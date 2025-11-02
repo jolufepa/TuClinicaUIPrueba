@@ -23,6 +23,8 @@ using TuClinica.Services.Implementation; // Para Implementaciones de Servicio
 using TuClinica.UI.ViewModels; // Para ViewModels
 using TuClinica.UI.Views; // Para Vistas (Ventanas)
 using System.Windows.Input; // Para InputManager
+using TuClinica.UI.Services;
+
 
 using System.Linq; // Para .OfType<MainWindow>()
 
@@ -241,6 +243,8 @@ namespace TuClinica.UI
                     ));
                     services.AddScoped<IActivityLogService, ActivityLogService>();
                     services.AddSingleton<IInactivityService, InactivityService>();
+                    services.AddSingleton<IDialogService, DialogService>();
+
 
                     // ViewModels
                     services.AddTransient<PatientsViewModel>();
@@ -253,6 +257,7 @@ namespace TuClinica.UI
                     services.AddTransient<LicenseViewModel>();
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
+                   
 
                     // *******************************************************************
                     // *** AQUÍ ESTÁN LOS CAMBIOS PARA LA NUEVA FICHA DE PACIENTE ***

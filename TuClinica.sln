@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.Services", "TuCli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.UI", "TuClinicaUI\TuClinica.UI.csproj", "{B6E1E183-9B11-4C96-B10C-2D4BA36DA38A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.Services.Tests", "TuClinica.Services.Tests\TuClinica.Services.Tests.csproj", "{BB3222DD-EA7F-4AE1-B7BA-EFDD920A782C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{B6E1E183-9B11-4C96-B10C-2D4BA36DA38A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B6E1E183-9B11-4C96-B10C-2D4BA36DA38A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B6E1E183-9B11-4C96-B10C-2D4BA36DA38A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB3222DD-EA7F-4AE1-B7BA-EFDD920A782C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB3222DD-EA7F-4AE1-B7BA-EFDD920A782C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB3222DD-EA7F-4AE1-B7BA-EFDD920A782C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB3222DD-EA7F-4AE1-B7BA-EFDD920A782C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,9 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces.Repositories;
-using TuClinica.Core.Interfaces.Services; // <-- Asegúrate de tener este
+using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
-using System.Windows;
+//using System.Windows; // Ya no necesitamos 'System.Windows' para MessageBox
 using System.Windows.Input;
 using System.ComponentModel;
 using System.Collections.Generic;
@@ -15,6 +15,8 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using TuClinica.UI.Views;
 using System.Linq.Expressions;
+// Usamos un alias para evitar conflictos entre nuestro enum y el de WPF
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -25,6 +27,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly PatientFileViewModel _patientFileViewModel;
         private readonly IActivityLogService _activityLogService; // <-- Inyección del Log
+        private readonly IDialogService _dialogService; // <-- CAMBIO: Servicio de Diálogo
         private ICommand? _navigateToPatientFileCommand;
 
         // --- Propiedades Observables ---
@@ -61,18 +64,18 @@ namespace TuClinica.UI.ViewModels
                                  IValidationService validationService,
                                  IServiceProvider serviceProvider,
                                  PatientFileViewModel patientFileViewModel,
-                                 IActivityLogService activityLogService) // <-- Inyección
+                                 IActivityLogService activityLogService,
+                                 IDialogService dialogService) // <-- Inyección
         {
             _patientRepository = patientRepository;
             _validationService = validationService;
             _serviceProvider = serviceProvider;
             _patientFileViewModel = patientFileViewModel;
-            _activityLogService = activityLogService; // <-- Asignación
+            _activityLogService = activityLogService;
+            _dialogService = dialogService; // <-- CAMBIO: Asignación
 
             // Inicialización de comandos
-            // === CORRECCIÓN 1: Apuntar al nuevo método "LoggedSearchAsync" ===
             SearchPatientsCommand = new AsyncRelayCommand(LoggedSearchAsync);
-
             SetNewPatientFormCommand = new RelayCommand(SetNewPatientForm);
             EditPatientCommand = new RelayCommand(EditPatient, () => IsPatientSelected);
             SavePatientCommand = new AsyncRelayCommand(SavePatientAsync);
@@ -80,8 +83,7 @@ namespace TuClinica.UI.ViewModels
             CreatePrescriptionCommand = new RelayCommand(CreatePrescription, () => IsPatientSelected);
             ViewPatientDetailsCommand = new RelayCommand(ViewPatientDetails, () => IsPatientSelected);
 
-            // === CORRECCIÓN 2: Carga inicial SIN log ===
-            _ = SearchPatientsAsync(); // Carga inicial (Llama al método base)
+            _ = SearchPatientsAsync();
         }
 
         public void SetNavigationCommand(ICommand navigationCommand)
@@ -94,7 +96,8 @@ namespace TuClinica.UI.ViewModels
             if (SelectedPatient == null) return;
             if (_navigateToPatientFileCommand == null)
             {
-                MessageBox.Show("Error de navegación. El comando no está configurado.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // --- CAMBIO ---
+                _dialogService.ShowMessage("Error de navegación. El comando no está configurado.", "Error");
                 return;
             }
 
@@ -112,29 +115,27 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al navegar a la ficha del paciente:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // --- CAMBIO ---
+                _dialogService.ShowMessage($"Error al navegar a la ficha del paciente:\n{ex.Message}", "Error");
             }
         }
 
 
         // --- MÉTODOS DE COMANDOS ---
 
-        // === CORRECCIÓN 3: Nuevo método "Wrapper" que SÍ registra el log ===
         private async Task LoggedSearchAsync()
         {
-            // 1. Registrar la acción de búsqueda
+            // ... (Sin cambios)
             string logDetails = string.IsNullOrWhiteSpace(SearchText) ?
                 "Vio la lista completa de pacientes" :
                 $"Buscó pacientes: '{SearchText}'";
             _activityLogService.LogAccessAsync(logDetails);
-
-            // 2. Ejecutar la búsqueda real
             await SearchPatientsAsync();
         }
 
-        // --- Método de búsqueda base (SIN log y SIN parámetros) ---
         private async Task SearchPatientsAsync()
         {
+            // ... (Sin cambios)
             Patients.Clear();
             IEnumerable<Patient>? patientsFromDb;
             if (!string.IsNullOrWhiteSpace(SearchText))
@@ -147,7 +148,7 @@ namespace TuClinica.UI.ViewModels
             }
             if (patientsFromDb != null)
             {
-                foreach (var patient in patientsFromDb.OrderBy(p => p.Surname).ThenBy(p => p.Name)) // Ordenado
+                foreach (var patient in patientsFromDb.OrderBy(p => p.Surname).ThenBy(p => p.Name))
                 {
                     Patients.Add(patient);
                 }
@@ -157,14 +158,14 @@ namespace TuClinica.UI.ViewModels
         private void SetNewPatientForm()
         {
             PatientFormModel = new Patient();
+            SelectedPatient = null; 
             IsFormEnabled = true;
-            SelectedPatient = null;
         }
 
         private void EditPatient()
         {
+            // ... (Sin cambios)
             if (SelectedPatient == null) return;
-            // Clonar paciente seleccionado al formulario
             PatientFormModel = new Patient
             {
                 Id = SelectedPatient.Id,
@@ -183,7 +184,6 @@ namespace TuClinica.UI.ViewModels
         // (No se necesita log aquí, el DbContext lo hace)
         private async Task SavePatientAsync()
         {
-            // ... (Tu código existente para guardar) ...
             // Normalización
             PatientFormModel.Name = ToTitleCase(PatientFormModel.Name);
             PatientFormModel.Surname = ToTitleCase(PatientFormModel.Surname);
@@ -193,7 +193,8 @@ namespace TuClinica.UI.ViewModels
             // Validación Formato
             if (!_validationService.IsValidDniNie(PatientFormModel.DniNie))
             {
-                MessageBox.Show("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE InválIDO", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // (Esta ya la tenías cambiada, ¡bien!)
+                _dialogService.ShowMessage("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE Inválido");
                 return;
             }
 
@@ -204,11 +205,13 @@ namespace TuClinica.UI.ViewModels
                     var existingByDni = await _patientRepository.FindAsync(p => p.DniNie.ToUpper() == PatientFormModel.DniNie);
                     if (existingByDni != null && existingByDni.Any())
                     {
-                        MessageBox.Show($"El DNI/NIE '{PatientFormModel.DniNie}' ya existe.", "DNI/NIE Duplicado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        // --- CAMBIO ---
+                        _dialogService.ShowMessage($"El DNI/NIE '{PatientFormModel.DniNie}' ya existe.", "DNI/NIE Duplicado");
                         return;
                     }
                     await _patientRepository.AddAsync(PatientFormModel);
-                    MessageBox.Show("Paciente creado con éxito.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // --- CAMBIO ---
+                    _dialogService.ShowMessage("Paciente creado con éxito.", "Éxito");
                 }
                 else // Editar
                 {
@@ -220,7 +223,8 @@ namespace TuClinica.UI.ViewModels
                             var duplicateCheck = await _patientRepository.FindAsync(p => p.DniNie.ToUpper() == PatientFormModel.DniNie && p.Id != PatientFormModel.Id);
                             if (duplicateCheck != null && duplicateCheck.Any())
                             {
-                                MessageBox.Show($"El DNI/NIE '{PatientFormModel.DniNie}' ya está asignado a otro paciente.", "DNI/NIE Duplicado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                // --- CAMBIO ---
+                                _dialogService.ShowMessage($"El DNI/NIE '{PatientFormModel.DniNie}' ya está asignado a otro paciente.", "DNI/NIE Duplicado");
                                 return;
                             }
                         }
@@ -233,11 +237,13 @@ namespace TuClinica.UI.ViewModels
                         existingPatient.Email = PatientFormModel.Email;
                         existingPatient.Notes = PatientFormModel.Notes;
                         _patientRepository.Update(existingPatient);
-                        MessageBox.Show("Paciente actualizado con éxito.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+                        // --- CAMBIO ---
+                        _dialogService.ShowMessage("Paciente actualizado con éxito.", "Éxito");
                     }
                     else
                     {
-                        MessageBox.Show("Error: No se encontró el paciente que intentaba editar.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        // --- CAMBIO ---
+                        _dialogService.ShowMessage("Error: No se encontró el paciente que intentaba editar.", "Error");
                         return;
                     }
                 }
@@ -249,7 +255,8 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al guardar el paciente:\n{ex.Message}", "Error Base de Datos", MessageBoxButton.OK, MessageBoxImage.Error);
+                // --- CAMBIO ---
+                _dialogService.ShowMessage($"Error al guardar el paciente:\n{ex.Message}", "Error Base de Datos");
             }
         }
 
@@ -257,8 +264,10 @@ namespace TuClinica.UI.ViewModels
         private async Task DeletePatientAsync()
         {
             if (SelectedPatient == null) return;
-            var result = MessageBox.Show($"¿Eliminar/archivar '{SelectedPatient.Name} {SelectedPatient.Surname}'?", "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result == MessageBoxResult.No) return;
+
+            // (Esta ya la tenías cambiada, ¡bien!)
+            var result = _dialogService.ShowConfirmation($"¿Eliminar/archivar '{SelectedPatient.Name} {SelectedPatient.Surname}'?", "Confirmar");
+            if (result == CoreDialogResult.No) return;
 
             bool hasHistory = await _patientRepository.HasHistoryAsync(SelectedPatient.Id);
             if (hasHistory)
@@ -268,19 +277,23 @@ namespace TuClinica.UI.ViewModels
                 {
                     p.IsActive = false; // <-- Esto es un "Update" que el DbContext registrará
                     await _patientRepository.SaveChangesAsync();
-                    MessageBox.Show("Paciente archivado (tenía historial).", "Archivado", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // --- CAMBIO ---
+                    _dialogService.ShowMessage("Paciente archivado (tenía historial).", "Archivado");
                 }
             }
             else
             {
-                var conf = MessageBox.Show("ELIMINACIÓN PERMANENTE. ¿Seguro?", "¡ADVERTENCIA!", MessageBoxButton.YesNo, MessageBoxImage.Stop);
-                if (conf == MessageBoxResult.No) return;
+                // --- CAMBIO ---
+                var conf = _dialogService.ShowConfirmation("ELIMINACIÓN PERMANENTE. ¿Seguro?", "¡ADVERTENCIA!");
+                if (conf == CoreDialogResult.No) return; // <-- CAMBIO (usar CoreDialogResult)
+
                 var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
                 if (p != null)
                 {
                     _patientRepository.Remove(p); // <-- Esto es un "Delete" que el DbContext registrará
                     await _patientRepository.SaveChangesAsync();
-                    MessageBox.Show("Paciente eliminado permanentemente.", "Eliminado", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // --- CAMBIO ---
+                    _dialogService.ShowMessage("Paciente eliminado permanentemente.", "Eliminado");
                 }
             }
             await SearchPatientsAsync(); // Recarga la lista (sin log)
@@ -293,16 +306,19 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedPatient == null)
             {
-                MessageBox.Show("Seleccione un paciente primero.", "Paciente no seleccionado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // --- CAMBIO ---
+                _dialogService.ShowMessage("Seleccione un paciente primero.", "Paciente no seleccionado");
                 return;
             }
-            MessageBox.Show($"Funcionalidad pendiente: Abrir diálogo de receta para {SelectedPatient.Name} (ID: {SelectedPatient.Id}).", "Pendiente");
+            // --- CAMBIO ---
+            _dialogService.ShowMessage($"Funcionalidad pendiente: Abrir diálogo de receta para {SelectedPatient.Name} (ID: {SelectedPatient.Id}).", "Pendiente");
         }
 
         // --- MÉTODOS PARCIALES (Notificación de cambios) ---
 
         partial void OnSelectedPatientChanged(Patient? value)
         {
+            // ... (Sin cambios)
             IsFormEnabled = false;
             EditPatientCommand.NotifyCanExecuteChanged();
             DeletePatientAsyncCommand.NotifyCanExecuteChanged();
@@ -312,13 +328,14 @@ namespace TuClinica.UI.ViewModels
 
         partial void OnSearchTextChanged(string value)
         {
-            // === CORRECCIÓN 4: Apuntar al método con log ===
+            // ... (Sin cambios)
             _ = LoggedSearchAsync();
         }
 
         // Método de Ayuda
         private string ToTitleCase(string text)
         {
+            // ... (Sin cambios)
             if (string.IsNullOrWhiteSpace(text)) return text;
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text.ToLower());
         }
