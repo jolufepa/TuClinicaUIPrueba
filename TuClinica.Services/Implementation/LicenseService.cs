@@ -9,18 +9,20 @@ namespace TuClinica.Services.Implementation
 {
     public class LicenseService : ILicenseService
     {
-        // Pega aquí el contenido COMPLETO de PublicKey.xml
+       
         private const string PublicKey = "<RSAKeyValue><Modulus>snGRwTgPekWoChK9PtvraFBNDjsJCNwF+8HmgYoifatUZT7y91m9w9skD3zAJ0fmieQGWd8xRN219fgmIHbBB/m894tZvP5dGhFsBHbsy0FZeeH2A4AdV6AukA7o8YD6JgS6E50PgGKZikRgEE8XKec0Jd/9HYHxbX4ANtpavVmRf7HVPeN5TAIFDXDT8aq0C1rAeWr6UoYH4IEBE2aQMpySqwdctHibvdm8YI2eP6hTwiH2MuHTxk9hSYA6l4Q9tmPhAdxfj5lVBTc1nqzNFjTUsREngYjX2ToITqwTTAieGXhPOsVA4xMjO8SfrZbB7TOWTzX7ZgRRrimXSjvBnQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
         private readonly string _licenseFilePath;
+        private readonly IFileSystemService _fileSystemService;
 
-        public LicenseService()
+        public LicenseService(IFileSystemService fileSystemService)
         {
             string baseDir = AppContext.BaseDirectory;
             _licenseFilePath = Path.Combine(baseDir, "license.dat");
+            _fileSystemService = fileSystemService;
         }
 
-        public string GetMachineIdString()
+        public virtual string GetMachineIdString()
         {
             try
             {
@@ -36,7 +38,6 @@ namespace TuClinica.Services.Implementation
             }
             catch (Exception ex)
             {
-                // Loggear el error sería buena idea aquí
                 return "Error_No_HW_ID: " + Environment.MachineName;
             }
         }
@@ -70,14 +71,14 @@ namespace TuClinica.Services.Implementation
 
         public bool IsLicenseValid()
         {
-            if (!File.Exists(_licenseFilePath))
+            if (!_fileSystemService.FileExists(_licenseFilePath))
             {
                 return false;
             }
 
             try
             {
-                string fileContent = File.ReadAllText(_licenseFilePath);
+                string fileContent = _fileSystemService.ReadAllText(_licenseFilePath);
                 string[] parts = fileContent.Split(new[] { "\n--SIGNATURE--\n" }, StringSplitOptions.None);
 
                 if (parts.Length != 2) return false;
@@ -95,7 +96,6 @@ namespace TuClinica.Services.Implementation
                     // *** CORRECCIÓN AQUÍ: Orden correcto de argumentos ***
                     // Antes era: VerifyData(licenseBytes, HashAlgorithmName.SHA256, signatureBytes, ...)
                     bool isSignatureValid = rsa.VerifyData(licenseBytes, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-
 
                     if (!isSignatureValid) return false;
                 }
@@ -118,7 +118,6 @@ namespace TuClinica.Services.Implementation
                 string currentMachineId = GetMachineIdString();
 
                 return licensedMachineId.Equals(currentMachineId, StringComparison.OrdinalIgnoreCase);
-
             }
             catch (FormatException) { return false; }
             catch (CryptographicException) { return false; }
