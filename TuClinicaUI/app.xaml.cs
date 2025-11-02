@@ -244,6 +244,7 @@ namespace TuClinica.UI
                     services.AddScoped<IActivityLogService, ActivityLogService>();
                     services.AddSingleton<IInactivityService, InactivityService>();
                     services.AddSingleton<IDialogService, DialogService>();
+                    services.AddSingleton<IFileDialogService, FileDialogService>();
 
 
                     // ViewModels

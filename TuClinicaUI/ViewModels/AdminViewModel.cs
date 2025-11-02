@@ -3,7 +3,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Win32;
+//using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -14,6 +14,7 @@ using TuClinica.Core.Interfaces.Repositories; // Para IUserRepository, IReposito
 using TuClinica.Core.Interfaces.Services;   // Para IBackupService
 using TuClinica.Core.Models;                 // Para User, ActivityLog
 using TuClinica.UI.Views;
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -25,6 +26,8 @@ namespace TuClinica.UI.ViewModels
         private readonly IBackupService _backupService;
         private readonly IRepository<ActivityLog> _logRepository;
         private readonly IActivityLogService _activityLogService;
+        private readonly IDialogService _dialogService; 
+        private readonly IFileDialogService _fileDialogService;
 
         // --- Colecciones para la Vista ---
         [ObservableProperty]
@@ -50,13 +53,17 @@ namespace TuClinica.UI.ViewModels
             IServiceProvider serviceProvider,
             IBackupService backupService,
             IRepository<ActivityLog> logRepository, 
-            IActivityLogService activityLogService)
+            IActivityLogService activityLogService,
+            IDialogService dialogService,             
+            IFileDialogService fileDialogService)
         {
             _userRepository = userRepository;
             _serviceProvider = serviceProvider;
             _backupService = backupService;
             _logRepository = logRepository;
             _activityLogService = activityLogService;
+            _dialogService = dialogService;             
+            _fileDialogService = fileDialogService;
 
             // Comandos
             LoadLogsCommand = new AsyncRelayCommand(LoadLogsAsync);
@@ -65,7 +72,7 @@ namespace TuClinica.UI.ViewModels
 
             // Carga inicial de datos
             _ = LoadUsersAsync();
-            _ = LoadLogsAsync(); // <--- NUEVA CARGA INICIAL
+            _ = LoadLogsAsync(); 
         }
 
         // --- Métodos de Carga ---
@@ -84,7 +91,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar la lista de usuarios:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al cargar la lista de usuarios:\n{ex.Message}", "Error");
             }
         }
 
@@ -103,7 +110,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar el registro de actividad:\n{ex.Message}", "Error de Logs", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al cargar el registro de actividad:\n{ex.Message}", "Error de Logs");
             }
         }
         // --- FIN MÉTODO NUEVO ---
@@ -137,10 +144,8 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error fatal al intentar abrir el editor de usuarios:\n{ex.Message}\n\nStackTrace:\n{ex.StackTrace}",
-                                "Error de Aplicación",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error fatal al intentar abrir el editor de usuarios:\n{ex.Message}\n\nStackTrace:\n{ex.StackTrace}",
+                                "Error de Aplicación");
             }
         }
 
@@ -149,6 +154,9 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand(CanExecute = nameof(CanExecuteOnSelectedUser))]
         private async Task EditUserAsync()
         {
+            // ... (La lógica interna de AddNewUserAsync y EditUserAsync 
+            //      ya usa servicios (GetRequiredService) y no MessageBox,
+            //      por lo que está bien como está) ...
             try
             {
                 if (SelectedUser == null) return;
@@ -156,7 +164,6 @@ namespace TuClinica.UI.ViewModels
                 var dialog = _serviceProvider.GetRequiredService<UserEditDialog>();
                 var viewModel = _serviceProvider.GetRequiredService<UserEditViewModel>();
 
-                // Copiamos todas las propiedades, incluyendo las nuevas de doctor
                 var userCopy = new User
                 {
                     Id = SelectedUser.Id,
@@ -187,10 +194,8 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error fatal al intentar editar el usuario:\n{ex.Message}",
-                                "Error de Aplicación",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error fatal al intentar editar el usuario:\n{ex.Message}",
+                                "Error de Aplicación");
             }
         }
 
@@ -200,28 +205,21 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedUser == null) return;
 
-            if (!SelectedUser.IsActive && SelectedUser.Role == Core.Enums.UserRole.Administrador)
-            {
-                // (Aquí podrías añadir una lógica para evitar desactivar/eliminar el último admin)
-            }
-
             string action = SelectedUser.IsActive ? "desactivar" : "activar";
-            var result = MessageBox.Show($"¿Estás seguro de que quieres {action} al usuario '{SelectedUser.Username}'?", "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result == MessageBoxResult.Yes)
+            var result = _dialogService.ShowConfirmation($"¿Estás seguro de que quieres {action} al usuario '{SelectedUser.Username}'?", "Confirmar");
+
+            if (result == CoreDialogResult.Yes)
             {
                 try
                 {
                     SelectedUser.IsActive = !SelectedUser.IsActive;
-                    // Usamos el Update síncrono y SaveChangesAsync para que
-                    // el DbContext pueda interceptar el cambio (como en PatientsViewModel).
                     _userRepository.Update(SelectedUser);
                     await _userRepository.SaveChangesAsync();
                     await LoadUsersAsync();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al {action} al usuario:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    // Revertir cambio local si falla
+                    _dialogService.ShowMessage($"Error al {action} al usuario:\n{ex.Message}", "Error");
                     if (SelectedUser != null) SelectedUser.IsActive = !SelectedUser.IsActive;
                 }
             }
@@ -232,105 +230,64 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand]
         private async Task ExportBackupAsync()
         {
-            PasswordPromptDialog? passwordDialog = null;
-            SaveFileDialog? saveFileDialog = null;
-
             try
             {
-                try
+                // 1. Pedir Password
+                var (passOk, password) = _dialogService.ShowPasswordPrompt();
+                if (!passOk || string.IsNullOrWhiteSpace(password))
                 {
-                    passwordDialog = new PasswordPromptDialog();
-
-                    Window? owner = Application.Current.MainWindow;
-                    if (owner != null && owner != passwordDialog)
-                    {
-                        passwordDialog.Owner = owner;
-                    }
-
-                    bool? passwordResult = passwordDialog.ShowDialog();
-
-                    if (passwordResult != true)
-                    {
-                        return;
-                    }
-                }
-                catch (Exception pwdEx)
-                {
-                    MessageBox.Show($"Error al preparar la solicitud de contraseña:\n{pwdEx.Message}", "Error Interno", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    return; // Usuario canceló o dejó vacío
                 }
 
-                string password = passwordDialog.Password;
-                if (string.IsNullOrWhiteSpace(password))
+                // 2. Pedir Ruta para Guardar
+                var (fileOk, filePath) = _fileDialogService.ShowSaveDialog(
+                    filter: "Backup Files (*.bak)|*.bak",
+                    title: "Guardar Copia de Seguridad",
+                    defaultFileName: $"TuClinicaBackup_{DateTime.Now:yyyyMMdd_HHmm}.bak"
+                );
+
+                if (!fileOk)
                 {
-                    return;
+                    return; // Usuario canceló
                 }
 
-                try
+                // 3. Ejecutar Lógica
+                bool success = await _backupService.ExportBackupAsync(filePath, password);
+
+                // 4. Mostrar Resultado
+                if (success)
                 {
-                    saveFileDialog = new SaveFileDialog
-                    {
-                        Filter = "Backup Files (*.bak)|*.bak",
-                        Title = "Guardar Copia de Seguridad",
-                        FileName = $"TuClinicaBackup_{DateTime.Now:yyyyMMdd_HHmm}.bak"
-                    };
-
-                    bool? saveResult = saveFileDialog.ShowDialog();
-
-                    if (saveResult != true)
-                    {
-                        return;
-                    }
+                    _dialogService.ShowMessage($"Copia guardada:\n{filePath}", "Éxito");
                 }
-                catch (Exception fileEx)
+                else
                 {
-                    MessageBox.Show($"Error al preparar la selección de archivo:\n{fileEx.Message}", "Error Interno", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    _dialogService.ShowMessage("Error al exportar. La operación fue cancelada.", "Error");
                 }
-
-                string filePath = saveFileDialog.FileName;
-
-                bool success = false;
-                try
-                {
-                    success = await _backupService.ExportBackupAsync(filePath, password);
-                }
-                catch (Exception backupEx)
-                {
-                    MessageBox.Show($"Error durante el proceso de exportación:\n{backupEx.Message}", "Error de Exportación", MessageBoxButton.OK, MessageBoxImage.Error);
-                    success = false;
-                }
-
-                MessageBox.Show(success ? $"Copia guardada:\n{filePath}" : "Error al exportar.", success ? "Éxito" : "Error", MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Error);
-
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error inesperado al iniciar la exportación:\n{ex.Message}", "Error Crítico", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error inesperado al exportar la copia:\n{ex.Message}", "Error Crítico");
             }
         }
         // --- LÓGICA DE EXPORTAR ---
         private async Task ExportLogsAsync()
         {
-            // 1. Pide al usuario dónde guardar el archivo
-            var saveFileDialog = new SaveFileDialog
-            {
-                Filter = "Archivo CSV (*.csv)|*.csv",
-                Title = "Exportar Registro de Actividad",
-                FileName = $"TuClinica_Logs_{DateTime.Now:yyyyMMdd}.csv"
-            };
+            var (ok, filePath) = _fileDialogService.ShowSaveDialog(
+                filter: "Archivo CSV (*.csv)|*.csv",
+                title: "Exportar Registro de Actividad",
+                defaultFileName: $"TuClinica_Logs_{DateTime.Now:yyyyMMdd}.csv"
+            );
 
-            if (saveFileDialog.ShowDialog() == true)
+            if (ok)
             {
                 try
                 {
-                    // 2. Llama al servicio con la ruta seleccionada
-                    string filePath = await _activityLogService.ExportLogsAsCsvAsync(saveFileDialog.FileName);
-                    MessageBox.Show($"Logs exportados correctamente a:\n{filePath}", "Exportación Completa", MessageBoxButton.OK, MessageBoxImage.Information);
+                    string exportedPath = await _activityLogService.ExportLogsAsCsvAsync(filePath);
+                    _dialogService.ShowMessage($"Logs exportados correctamente a:\n{exportedPath}", "Exportación Completa");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al exportar los logs:\n{ex.Message}", "Error de Exportación", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _dialogService.ShowMessage($"Error al exportar los logs:\n{ex.Message}", "Error de Exportación");
                 }
             }
         }
@@ -338,128 +295,81 @@ namespace TuClinica.UI.ViewModels
         // --- LÓGICA DE PURGAR ---
         private async Task PurgeOldLogsAsync()
         {
-            // 1. Define la política de 2 AÑOS que pediste
             int yearsToKeep = 2;
             var retentionDate = DateTime.UtcNow.AddYears(-yearsToKeep);
 
-            // 2. Pide confirmación al usuario (¡muy importante!)
-            var result = MessageBox.Show($"¿Está seguro de que desea eliminar PERMANENTEMENTE todos los registros de logs anteriores al {retentionDate:dd/MM/yyyy}?\n\nEsta acción no se puede deshacer.",
-                                         "Confirmar Purga de Logs",
-                                         MessageBoxButton.YesNo,
-                                         MessageBoxImage.Warning);
+            var result = _dialogService.ShowConfirmation(
+                $"¿Está seguro de que desea eliminar PERMANENTEMENTE todos los registros de logs anteriores al {retentionDate:dd/MM/yyyy}?\n\nEsta acción no se puede deshacer.",
+                "Confirmar Purga de Logs"
+            );
 
-            if (result == MessageBoxResult.Yes)
+            if (result == CoreDialogResult.Yes)
             {
                 try
                 {
-                    // 3. Llama al servicio con la fecha límite
                     int deletedCount = await _activityLogService.PurgeOldLogsAsync(retentionDate);
-                    MessageBox.Show($"Se han eliminado {deletedCount} registros antiguos.", "Purga Completa", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                    // 4. Recarga la lista en la UI
-                    await LoadLogsAsync();
+                    _dialogService.ShowMessage($"Se han eliminado {deletedCount} registros antiguos.", "Purga Completa");
+                    await LoadLogsAsync(); // Recargar la lista
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al purgar los logs:\n{ex.Message}", "Error de Purga", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _dialogService.ShowMessage($"Error al purgar los logs:\n{ex.Message}", "Error de Purga");
                 }
             }
         }
         [RelayCommand]
         private async Task ImportBackupAsync()
         {
-            OpenFileDialog? openFileDialog = null;
-            PasswordPromptDialog? passwordDialog = null;
-
             try
             {
-                try
-                {
-                    openFileDialog = new OpenFileDialog
-                    {
-                        Filter = "Backup Files (*.bak)|*.bak",
-                        Title = "Abrir Copia de Seguridad"
-                    };
+                // 1. Pedir Archivo
+                var (fileOk, filePath) = _fileDialogService.ShowOpenDialog(
+                    filter: "Backup Files (*.bak)|*.bak",
+                    title: "Abrir Copia de Seguridad"
+                );
 
-                    bool? openResult = openFileDialog.ShowDialog();
-
-                    if (openResult != true)
-                    {
-                        return;
-                    }
-                }
-                catch (Exception fileEx)
+                if (!fileOk)
                 {
-                    MessageBox.Show($"Error al preparar la selección de archivo:\n{fileEx.Message}", "Error Interno", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    return; // Usuario canceló
                 }
 
-                string filePath = openFileDialog.FileName;
-
-                var confirmation = MessageBox.Show(
+                // 2. Confirmación de borrado
+                var confirmation = _dialogService.ShowConfirmation(
                     "ADVERTENCIA: Esto BORRARÁ TODOS LOS DATOS ACTUALES.\n\n¿Continuar?",
-                    "Confirmar Importación",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
+                    "Confirmar Importación"
+                );
 
-                if (confirmation != MessageBoxResult.Yes)
+                if (confirmation == CoreDialogResult.No)
                 {
                     return;
                 }
 
-                string password = string.Empty;
-                try
+                // 3. Pedir Password
+                var (passOk, password) = _dialogService.ShowPasswordPrompt();
+                if (!passOk || string.IsNullOrWhiteSpace(password))
                 {
-                    passwordDialog = new PasswordPromptDialog();
-
-                    Window? owner = Application.Current.MainWindow;
-                    if (owner != null && owner != passwordDialog)
-                    {
-                        passwordDialog.Owner = owner;
-                    }
-
-                    bool? passwordResult = passwordDialog.ShowDialog();
-
-                    if (passwordResult != true)
-                    {
-                        return;
-                    }
-
-                    password = passwordDialog.Password;
-                    if (string.IsNullOrWhiteSpace(password))
-                    {
-                        MessageBox.Show("Se requiere una contraseña.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        return;
-                    }
-                }
-                catch (Exception pwdEx)
-                {
-                    MessageBox.Show($"Error al solicitar la contraseña:\n{pwdEx.Message}", "Error Interno", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _dialogService.ShowMessage("Se requiere una contraseña.", "Error");
                     return;
                 }
 
-                bool success = false;
-                try
-                {
-                    success = await _backupService.ImportBackupAsync(filePath, password);
-                }
-                catch (Exception importEx)
-                {
-                    MessageBox.Show($"Error durante el proceso de importación:\n{importEx.Message}", "Error de Importación", MessageBoxButton.OK, MessageBoxImage.Error);
-                    success = false;
-                }
+                // 4. Ejecutar Lógica
+                bool success = await _backupService.ImportBackupAsync(filePath, password);
 
-                MessageBox.Show(success ? "Importación completada.\nRecargando datos." : "Error al importar.\nContraseña incorrecta o archivo corrupto.", success ? "Éxito" : "Error", MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Error);
-
+                // 5. Mostrar Resultado
                 if (success)
                 {
-                    await LoadUsersAsync(); // Recargar usuarios si éxito
-                    await LoadLogsAsync();  // Recargar logs también
+                    _dialogService.ShowMessage("Importación completada.\nRecargando datos.", "Éxito");
+                    await LoadUsersAsync();
+                    await LoadLogsAsync();
+                }
+                else
+                {
+                    _dialogService.ShowMessage("Error al importar.\nContraseña incorrecta o archivo corrupto.", "Error");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error inesperado al iniciar la importación:\n{ex.Message}", "Error Crítico", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error inesperado al importar la copia:\n{ex.Message}", "Error Crítico");
             }
         }
     }

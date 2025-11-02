@@ -1,5 +1,6 @@
 ﻿using System.Windows; // Necesitamos este using para MessageBox
 using TuClinica.Core.Interfaces.Services;
+using TuClinica.UI.Views;
 
 namespace TuClinica.UI.Services
 {
@@ -14,6 +15,27 @@ namespace TuClinica.UI.Services
                 DialogResult.OK => MessageBoxButton.OK,
                 _ => MessageBoxButton.OK
             };
+        }
+        public (bool Ok, string Password) ShowPasswordPrompt()
+        {
+            var dialog = new PasswordPromptDialog();
+
+            // La implementación del servicio es responsable de encontrar la ventana principal
+            if (Application.Current != null && Application.Current.MainWindow != null)
+            {
+                dialog.Owner = Application.Current.MainWindow;
+            }
+
+            var result = dialog.ShowDialog();
+
+            if (result == true)
+            {
+                return (true, dialog.Password);
+            }
+            else
+            {
+                return (false, string.Empty);
+            }
         }
 
         public void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK)

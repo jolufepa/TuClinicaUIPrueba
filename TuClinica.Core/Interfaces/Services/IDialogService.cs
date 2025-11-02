@@ -13,5 +13,6 @@
     {
         void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK);
         DialogResult ShowConfirmation(string message, string title);
+        (bool Ok, string Password) ShowPasswordPrompt();
     }
 }
