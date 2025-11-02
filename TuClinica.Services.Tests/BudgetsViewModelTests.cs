@@ -17,6 +17,7 @@ namespace TuClinica.Services.Tests
         private Mock<IBudgetRepository> _budgetRepoMock;
         private Mock<IPdfService> _pdfServiceMock;
         private Mock<IServiceProvider> _serviceProviderMock;
+        private Mock<IDialogService> _dialogServiceMock;
 
         // 2. Declaramos la variable para el ViewModel que vamos a probar
         private BudgetsViewModel _viewModel;
@@ -31,6 +32,7 @@ namespace TuClinica.Services.Tests
             _budgetRepoMock = new Mock<IBudgetRepository>();
             _pdfServiceMock = new Mock<IPdfService>();
             _serviceProviderMock = new Mock<IServiceProvider>();
+            _dialogServiceMock = new Mock<IDialogService>();
 
             // 4. Creamos el ViewModel, pasándole los objetos "falsos" (.Object)
             _viewModel = new BudgetsViewModel(
@@ -38,7 +40,8 @@ namespace TuClinica.Services.Tests
                 _treatmentRepoMock.Object,
                 _budgetRepoMock.Object,
                 _pdfServiceMock.Object,
-                _serviceProviderMock.Object
+                _serviceProviderMock.Object,
+                _dialogServiceMock.Object
             );
         }
 

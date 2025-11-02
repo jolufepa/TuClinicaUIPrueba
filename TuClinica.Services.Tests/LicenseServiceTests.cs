@@ -3,6 +3,8 @@ using Moq;
 using System.Text;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Services.Implementation;
+using System.Security.Cryptography;
+using System.Diagnostics;
 
 namespace TuClinica.Services.Tests
 {
@@ -16,12 +18,13 @@ namespace TuClinica.Services.Tests
         private const string FakeLicenseData = "TWFjaGluZUlEPUZJTkFMX1RFU1RfMTIz";
 
         // Firma (Base64) correspondiente a "FINAL_TEST_123" y tu PublicKey
-        private const string FakeSignature = "A2LV88iN9rM9KQNnZHg5E2d9dCtJmQfLqgD7bYw/OqS9yBv5wR3oMJ32sUS2pB52uAsr+tmG/MhWJdCtPDpL5lZNJIYcx6iNbmkP1P+bLhW1bY8Z3V+N3cQ4e2sW6qW7uY8P5fR8aV6wQ5fY8Z4W1fR8eV6sQ5cW7vY8=";
+        private const string FakeSignature = "enUGb5K5KgJQ44qSfUeIpPTFWAMqwdeEsHkeHBpjSsohRcRoBbw+KFlUis1JVHee3IIlnJ0++BFmfey/gD2aKIikQZhYE6lC0kpRJef5CxpMS16y0ftppD1Jgx1oUL9GY1J6Lz9rLxItbJaSC0D1csJ7bl3DdktJS5WyLBZX1Ls2fdNmtxLJ4Je31S5j7IdlvXWmdqbZlPjAQbCuN6ApfQvbCFGBlqldQWYA+a1W3E26fH6TN80XDxuP23q/DiG3pL3IsVLV2Me1qOWW+tSGte27lnLgFen0pkyyHqoav++cRq/V7haFvXh/6vn+8ydMfsdVnWF433pecDTq6mqJGg==";
 
         private const string FakeLicenseFileContent = FakeLicenseData + "\n--SIGNATURE--\n" + FakeSignature;
 
         private Mock<LicenseService> _licenseServiceMock;
 
+        
         [TestInitialize]
         public void Setup()
         {

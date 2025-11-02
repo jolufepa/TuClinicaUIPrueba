@@ -10,7 +10,7 @@ namespace TuClinica.Services.Implementation
     public class LicenseService : ILicenseService
     {
        
-        private const string PublicKey = "<RSAKeyValue><Modulus>snGRwTgPekWoChK9PtvraFBNDjsJCNwF+8HmgYoifatUZT7y91m9w9skD3zAJ0fmieQGWd8xRN219fgmIHbBB/m894tZvP5dGhFsBHbsy0FZeeH2A4AdV6AukA7o8YD6JgS6E50PgGKZikRgEE8XKec0Jd/9HYHxbX4ANtpavVmRf7HVPeN5TAIFDXDT8aq0C1rAeWr6UoYH4IEBE2aQMpySqwdctHibvdm8YI2eP6hTwiH2MuHTxk9hSYA6l4Q9tmPhAdxfj5lVBTc1nqzNFjTUsREngYjX2ToITqwTTAieGXhPOsVA4xMjO8SfrZbB7TOWTzX7ZgRRrimXSjvBnQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+        private const string PublicKey = "<RSAKeyValue><Modulus>11lRQe0V/qB6S3f9Ru2IIU+wWvrQ3qL520RoaZj5kGvmit/87p/GmrTMkHvYDQjNVlHwtRv9RgQit8pMIkaK6fid0MoSoElpO+fFZCSjL3dqpEekHo0F9vwXsxE3206Hwt/1Gs4ndNa0GQ2GyNau35jUfy9edcA0+1ysLbP4htV6lVsxJ1O8s4ujdpuimWbi5uIU0IgL0mAb2I0m3tRu7dJf7sLjqN1JXvVI8OtrCHLvs/kQnlEGE4LnVdlOxvcOFZW2bqY9OtPyX0753N+Y85Y8W+C/vZfPiCI4GUTc/jdXtcIg8Iro0qpIqL9oi0erBxT8WbqwOU+c+vwm75iNxQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
         private readonly string _licenseFilePath;
         private readonly IFileSystemService _fileSystemService;

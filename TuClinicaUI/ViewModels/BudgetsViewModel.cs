@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection; // Para IServiceProvider
 using System;
 using System.Collections.ObjectModel; // Para ObservableCollection
@@ -13,7 +14,10 @@ using TuClinica.Core.Enums; // Para BudgetStatus
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
+using TuClinica.UI.Services;
 using TuClinica.UI.Views;
+
+
 
 namespace TuClinica.UI.ViewModels
 {
@@ -24,7 +28,9 @@ namespace TuClinica.UI.ViewModels
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IBudgetRepository _budgetRepository;
         private readonly IPdfService _pdfService;
-        private readonly IServiceProvider _serviceProvider; // Para diálogos o vistas
+        private readonly IServiceProvider _serviceProvider;
+        private readonly IDialogService _dialogService;
+
         public IRelayCommand SelectPatientCommand { get; }
 
         // --- Estado del ViewModel (Formulario de Creación) ---
@@ -88,13 +94,15 @@ namespace TuClinica.UI.ViewModels
             ITreatmentRepository treatmentRepository,
             IBudgetRepository budgetRepository,
             IPdfService pdfService,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IDialogService dialogService)
         {
             _patientRepository = patientRepository;
             _treatmentRepository = treatmentRepository;
             _budgetRepository = budgetRepository;
             _pdfService = pdfService;
             _serviceProvider = serviceProvider;
+            _dialogService = dialogService;
 
             SelectPatientCommand = new RelayCommand(SelectPatient);
 
@@ -277,15 +285,51 @@ namespace TuClinica.UI.ViewModels
                 Patient = null
             };
 
-            // --- 2. Guardar en BD ---
-            try
+            // --- 2. Guardar en BD (con manejo de reintentos) ---
+            bool guardadoConExito = false;
+            int intentosMaximos = 3; // Para evitar un bucle infinito
+
+            for (int i = 0; i < intentosMaximos; i++)
             {
-                await _budgetRepository.AddAsync(newBudget);
-                await _budgetRepository.SaveChangesAsync();
+                try
+                {
+                    // Obtenemos el número DENTRO del bucle
+                    newBudget.BudgetNumber = await _budgetRepository.GetNextBudgetNumberAsync();
+
+                    await _budgetRepository.AddAsync(newBudget);
+                    await _budgetRepository.SaveChangesAsync();
+
+                    guardadoConExito = true; // Si llega aquí, se guardó
+                    break; // Salimos del bucle
+                }
+                catch (DbUpdateException ex)
+                {
+                    // Comprobamos si el error es por la restricción UNIQUE
+                    if (ex.InnerException != null && ex.InnerException.Message.Contains("UNIQUE constraint failed: Budgets.BudgetNumber"))
+                    {
+                        // Es una colisión (race condition).
+                        // El bucle continuará y volverá a intentarlo
+                        // con un nuevo número en la siguiente iteración.
+                        await Task.Delay(50); // Pequeña espera opcional
+                    }
+                    else
+                    {
+                        // Fue otro error de BD
+                        _dialogService.ShowMessage($"Error al guardar el presupuesto en la base de datos:\n{ex.Message}", "Error BD");
+                        break; // Salir del bucle, no reintentar
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Fue un error general
+                    _dialogService.ShowMessage($"Error inesperado al guardar:\n{ex.Message}", "Error General");
+                    break; // Salir del bucle
+                }
             }
-            catch (Exception ex)
+
+            // Si después de los reintentos no se pudo guardar, informamos y salimos.
+            if (!guardadoConExito)
             {
-                MessageBox.Show($"Error al guardar el presupuesto en la base de datos:\n{ex.Message}", "Error BD", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 

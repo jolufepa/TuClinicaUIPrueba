@@ -39,6 +39,19 @@ namespace TuClinica.DataAccess
         {
             _authService = authService; // Guardamos el servicio de autenticación
         }
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // --- AÑADIR ESTO ---
+            // Esto le dice a Entity Framework que la columna BudgetNumber
+            // en la tabla Budgets debe tener un índice único.
+            modelBuilder.Entity<Budget>()
+                .HasIndex(b => b.BudgetNumber)
+                .IsUnique();
+
+            // (Aquí puedes añadir más reglas en el futuro)
+        }
 
         // --- SOBRESCRIBIR SaveChangesAsync ---
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
