@@ -22,6 +22,9 @@ using TuClinica.DataAccess.Repositories; // Para Implementaciones de Repositorio
 using TuClinica.Services.Implementation; // Para Implementaciones de Servicio
 using TuClinica.UI.ViewModels; // Para ViewModels
 using TuClinica.UI.Views; // Para Vistas (Ventanas)
+using System.Windows.Input; // Para InputManager
+
+using System.Linq; // Para .OfType<MainWindow>()
 
 // 1. El namespace debe ser este
 namespace TuClinica.UI
@@ -237,6 +240,7 @@ namespace TuClinica.UI
                         sp.GetRequiredService<IPatientRepository>()
                     ));
                     services.AddScoped<IActivityLogService, ActivityLogService>();
+                    services.AddSingleton<IInactivityService, InactivityService>();
 
                     // ViewModels
                     services.AddTransient<PatientsViewModel>();
@@ -283,6 +287,26 @@ namespace TuClinica.UI
         {
             await AppHost!.StartAsync();
             base.OnStartup(e);
+            try
+            {
+                // 1. Obtenemos el servicio que acabamos de registrar
+                var inactivityService = AppHost.Services.GetRequiredService<IInactivityService>();
+
+                // 2. Nos suscribimos al evento. Esto define QUÉ PASA cuando se agota el tiempo.
+                inactivityService.OnInactivity += HandleInactivity;
+
+                // 3. Nos enganchamos al gestor de Input de WPF.
+                //    Esto detectará CUALQUIER input (ratón, teclado) en la app.
+                InputManager.Current.PostProcessInput += (sender, args) =>
+                {
+                    // Cada vez que el usuario haga algo, reseteamos el timer.
+                    inactivityService.Reset();
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al inicializar el servicio de inactividad: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
             try
             {
                 string dbPath = GetDatabasePath();
@@ -345,7 +369,49 @@ namespace TuClinica.UI
                 AppHost.Services.GetRequiredService<LicenseWindow>().ShowDialog();
             }
         }
+        private void HandleInactivity()
+        {
+            // Debemos asegurarnos de que esto se ejecuta en el hilo principal de la UI
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                PerformLogout();
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(PerformLogout);
+            }
+        }
 
+        // --- AÑADE ESTE NUEVO MÉTODO A LA CLASE App ---
+        /// <summary>
+        /// Realiza la lógica de cierre de sesión y reinicio.
+        /// </summary>
+        private void PerformLogout()
+        {
+            // Obtenemos los servicios que necesitamos del Host
+            var authService = AppHost!.Services.GetRequiredService<IAuthService>();
+
+            // 1. Deslogueamos al usuario
+            authService.Logout(); // Esto también detendrá el timer (ver Paso 5)
+
+            // 2. Buscamos la ventana principal (MainWindow) y la cerramos
+            // Usamos OfType por si hay otros diálogos abiertos.
+            var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+            if (mainWindow != null)
+            {
+                // Limpiamos el DataContext antes de cerrar para evitar fugas de memoria
+                mainWindow.DataContext = null;
+                mainWindow.Close();
+            }
+
+            // 3. Mostramos un aviso al usuario
+            MessageBox.Show("Se ha cerrado la sesión por inactividad.", "Sesión Finalizada", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+            // 4. Mostramos la ventana de Login de nuevo
+            // Usamos GetRequiredService para obtener una NUEVA instancia de LoginWindow
+            var loginWindow = AppHost!.Services.GetRequiredService<LoginWindow>();
+            loginWindow.Show();
+        }
         // --- Lógica de Cierre ---
         protected override async void OnExit(ExitEventArgs e)
         {

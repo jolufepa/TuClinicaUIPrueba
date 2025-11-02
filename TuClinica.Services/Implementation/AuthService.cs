@@ -1,23 +1,27 @@
 ﻿using BCrypt.Net; // ¡Importante para las contraseñas!
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces.Repositories; // Para IUserRepository
-using TuClinica.Core.Interfaces.Services;   // Para IAuthService
-using TuClinica.Core.Models;
-using Microsoft.Extensions.DependencyInjection; // <-- ¡AÑADE ESTE USING!
+using TuClinica.Core.Interfaces.Services;   
+using Microsoft.Extensions.DependencyInjection; 
 using System;// Para User
+using TuClinica.Core.Models;
 
 namespace TuClinica.Services.Implementation
 {
     public class AuthService : IAuthService
+
     {
+        private readonly IInactivityService _inactivityService;
+        
         //private readonly IUserRepository _userRepository;
         private readonly IServiceProvider _serviceProvider;
         // Guarda el usuario que ha iniciado sesión
         public User? CurrentUser { get; private set; }
 
-        public AuthService(IServiceProvider serviceProvider)
+        public AuthService(IServiceProvider serviceProvider, IInactivityService inactivityService)
         {
             _serviceProvider = serviceProvider;
+            _inactivityService = inactivityService; // <-- Esto da error si la línea de arriba no existe
         }
 
         public async Task<bool> LoginAsync(string username, string password)
@@ -45,6 +49,7 @@ namespace TuClinica.Services.Implementation
 
         public void Logout()
         {
+            _inactivityService.Stop();
             // Limpiamos el usuario actual
             CurrentUser = null;
         }

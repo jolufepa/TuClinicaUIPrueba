@@ -5,6 +5,7 @@ using System; // Agregado para IServiceProvider
 using System.Threading.Tasks;
 using System.Windows; // Para MessageBox y PasswordBox
 using TuClinica.Core.Interfaces.Services; // Para IAuthService
+using TuClinica.Services.Implementation;
 using TuClinica.UI.Views; // Para LoginWindow
 
 namespace TuClinica.UI.ViewModels
@@ -14,6 +15,7 @@ namespace TuClinica.UI.ViewModels
     {
         private readonly IAuthService _authService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IInactivityService _inactivityService;
 
         [ObservableProperty]
         private string _username = string.Empty;
@@ -29,10 +31,12 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _closeWindowFlag;
 
-        public LoginViewModel(IAuthService authService, IServiceProvider serviceProvider)
+        public LoginViewModel(IAuthService authService, IServiceProvider serviceProvider,
+                              IInactivityService inactivityService)
         {
             _authService = authService;
             _serviceProvider = serviceProvider;
+            _inactivityService = inactivityService;
 
             // *** INICIALIZACIÓN MANUAL DE COMANDOS EN EL CONSTRUCTOR ***
             LoginAsyncCommand = new AsyncRelayCommand<object?>(LoginAsync); // Asegúrate que el tipo coincida (object?)
@@ -52,6 +56,7 @@ namespace TuClinica.UI.ViewModels
 
             if (success)
             {
+                _inactivityService.Start();
                 var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
                 mainWindow.Show();
                 CloseWindowFlag = true; // Señal para cerrar esta ventana
