@@ -18,6 +18,7 @@ namespace TuClinica.UI.ViewModels
     public partial class UserEditViewModel : BaseViewModel
     {
         private readonly IUserRepository _userRepository;
+        private readonly IDialogService _dialogService;
         private User _userToEdit;
         private bool _isNewUser;
 
@@ -40,9 +41,10 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private string? _specialty;
 
-        public UserEditViewModel(IUserRepository userRepository)
+        public UserEditViewModel(IUserRepository userRepository, IDialogService dialogService)
         {
             _userRepository = userRepository;
+            _dialogService = dialogService;
             _userToEdit = new User();
             _isNewUser = true;
             LoadUserData();
@@ -121,7 +123,7 @@ namespace TuClinica.UI.ViewModels
                 }
                 catch (Exception hashEx)
                 {
-                    MessageBox.Show($"Error al procesar la contraseña:\n{hashEx.Message}", "Error Contraseña", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _dialogService.ShowMessage($"Error al procesar la contraseña:\n{hashEx.Message}", "Error Contraseña");
                     return;
                 }
             }
@@ -146,12 +148,12 @@ namespace TuClinica.UI.ViewModels
                 }
                 else if (_isNewUser && affectedRows == 0)
                 {
-                    MessageBox.Show("El usuario se procesó pero no se guardó (0 filas afectadas). Contacte soporte.", "Advertencia", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _dialogService.ShowMessage("El usuario se procesó pero no se guardó (0 filas afectadas). Contacte soporte.", "Advertencia");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al guardar el usuario:\n{ex.Message}", "Error de Base de Datos", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al guardar el usuario:\n{ex.Message}", "Error de Base de Datos");
             }
         }
 

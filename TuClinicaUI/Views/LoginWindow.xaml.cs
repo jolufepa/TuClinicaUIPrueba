@@ -25,8 +25,9 @@ namespace TuClinica.UI.Views
     {
         public LoginWindow()
         {
-            InitializeComponent();
             DataContext = App.AppHost!.Services.GetRequiredService<LoginViewModel>();
+            InitializeComponent();
+            
         }
     }
 }

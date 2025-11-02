@@ -27,6 +27,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IMedicationRepository _medicationRepository;
         private readonly IDosageRepository _dosageRepository;
         private readonly IRepository<Prescription> _prescriptionRepository;
+        private readonly IDialogService _dialogService;
 
         // --- Pestaña "Crear Receta" ---
         private Patient? _selectedPatient;
@@ -110,13 +111,15 @@ namespace TuClinica.UI.ViewModels
             IPdfService pdfService,
             IMedicationRepository medicationRepository,
             IDosageRepository dosageRepository,
-            IRepository<Prescription> prescriptionRepository)
+            IRepository<Prescription> prescriptionRepository,
+            IDialogService dialogService)
         {
             _serviceProvider = serviceProvider;
             _pdfService = pdfService;
             _medicationRepository = medicationRepository;
             _dosageRepository = dosageRepository;
             _prescriptionRepository = prescriptionRepository;
+            _dialogService = dialogService;
 
             // Inicialización de comandos (usando CommunityToolkit.Mvvm.Input.RelayCommand, pero instanciados manualmente)
             SelectPatientCommand = new RelayCommand(SelectPatient);
@@ -128,6 +131,7 @@ namespace TuClinica.UI.ViewModels
 
 
             _ = LoadInitialDataAsync();
+            _dialogService = dialogService;
         }
 
         private async Task LoadInitialDataAsync()
@@ -163,7 +167,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al abrir la selección de paciente:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al abrir la selección de paciente:\n{ex.Message}", "Error");
             }
         }
 
@@ -191,7 +195,7 @@ namespace TuClinica.UI.ViewModels
             // 1. Validar datos
             if (!CanGeneratePrescription())
             {
-                MessageBox.Show("Debe seleccionar un paciente e introducir un medicamento y una pauta.", "Datos incompletos", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage("Debe seleccionar un paciente e introducir un medicamento y una pauta.", "Datos incompletos");
                 return;
             }
 
@@ -236,7 +240,7 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex)
             {
                 string innerExMessage = ex.InnerException?.Message ?? ex.Message;
-                MessageBox.Show($"Error al guardar la receta en la BD: {innerExMessage}", "Error BD", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al guardar la receta en la BD: {innerExMessage}", "Error BD");
                 return;
             }
 
@@ -247,14 +251,14 @@ namespace TuClinica.UI.ViewModels
             {
                 pdfPath = await _pdfService.GeneratePrescriptionPdfAsync(prescription);
 
-                MessageBox.Show($"PDF de Receta generado para: {SelectedPatient.Name}\nGuardado en: {pdfPath}", "Receta Generada");
+                _dialogService.ShowMessage($"PDF de Receta generado para: {SelectedPatient.Name}\nGuardado en: {pdfPath}", "Receta Generada");
 
                 // Abrir el PDF
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
             catch (Exception pdfEx)
             {
-                MessageBox.Show($"Error al generar el PDF de la receta:\n{pdfEx.Message}", "Error PDF", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al generar el PDF de la receta:\n{pdfEx.Message}", "Error PDF");
             }
 
             // 7. Limpiar formulario

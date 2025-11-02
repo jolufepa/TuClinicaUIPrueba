@@ -13,7 +13,8 @@ namespace TuClinica.UI.ViewModels
     public partial class LicenseViewModel : BaseViewModel
     {
         private readonly ILicenseService _licenseService;
-        private readonly string _targetLicensePath; // Dónde debe estar license.dat
+        private readonly string _targetLicensePath;
+        private readonly IDialogService _dialogService;
 
         [ObservableProperty]
         private string _machineId = "Cargando...";
@@ -24,9 +25,10 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _closeWindowFlag = false;
 
-        public LicenseViewModel(ILicenseService licenseService)
+        public LicenseViewModel(ILicenseService licenseService, IDialogService dialogService)
         {
             _licenseService = licenseService;
+            _dialogService = dialogService; // <-- AÑADIR ESTA LÍNEA
             LoadMachineId();
             // Guardamos la ruta donde la app buscará la licencia
             _targetLicensePath = Path.Combine(AppContext.BaseDirectory, "license.dat");
@@ -43,7 +45,7 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 Clipboard.SetText(MachineId);
-                MessageBox.Show("Machine ID copiado al portapapeles.", "Copiado", MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogService.ShowMessage("Machine ID copiado al portapapeles.", "Copiado");
             }
             catch (Exception ex)
             {
@@ -78,8 +80,7 @@ namespace TuClinica.UI.ViewModels
                     // 4. Verificar si AHORA la licencia es válida
                     if (_licenseService.IsLicenseValid())
                     {
-                        MessageBox.Show("¡Licencia importada y activada correctamente!\n\nLa aplicación se reiniciará.", "Activación Exitosa", MessageBoxButton.OK, MessageBoxImage.Information);
-
+                        _dialogService.ShowMessage("¡Licencia importada y activada correctamente!\n\nLa aplicación se reiniciará.", "Activación Exitosa");
                         // --- Reiniciar la aplicación ---
                         // (La forma más simple de asegurar que todo se recargue con la licencia)
                         Process.Start(Application.ResourceAssembly.Location); // Inicia una nueva instancia

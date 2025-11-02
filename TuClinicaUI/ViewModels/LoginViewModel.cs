@@ -39,12 +39,12 @@ namespace TuClinica.UI.ViewModels
             _inactivityService = inactivityService;
 
             // *** INICIALIZACIÓN MANUAL DE COMANDOS EN EL CONSTRUCTOR ***
-            LoginAsyncCommand = new AsyncRelayCommand<object?>(LoginAsync); // Asegúrate que el tipo coincida (object?)
-            CloseWindowCommand = new RelayCommand<Window?>(CloseWindow); // Asegúrate que el tipo coincida (Window?)
+             LoginAsyncCommand = new AsyncRelayCommand<object?>(LoginAsync); // Asegúrate que el tipo coincida (object?)
+             CloseWindowCommand = new RelayCommand<Window?>(CloseWindow); // Asegúrate que el tipo coincida (Window?)
             // *** FIN INICIALIZACIÓN MANUAL ***
         }
 
-        // Método que ejecuta el comando LoginAsyncCommand
+        
         private async Task LoginAsync(object? parameter) // El parámetro debe ser nullable (object?)
         {
             ErrorMessage = null;
@@ -68,7 +68,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Método que ejecuta el comando CloseWindowCommand
+       
         private void CloseWindow(Window? window) // El parámetro debe ser nullable (Window?)
         {
             window?.Close();

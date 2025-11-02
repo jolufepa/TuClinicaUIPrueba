@@ -16,7 +16,7 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.Services;
 using TuClinica.UI.Views;
-
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 
 namespace TuClinica.UI.ViewModels
@@ -189,7 +189,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al abrir la selección de paciente:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al abrir la selección de paciente:\n{ex.Message}", "Error");
             }
         }// Fin del método SelectPatient
 
@@ -344,7 +344,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al generar el archivo PDF:\n{ex.Message}", "Error PDF", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al generar el archivo PDF:\n{ex.Message}", "Error PDF");
                 return;
             }
 
@@ -356,7 +356,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al actualizar la ruta del PDF en la base de datos:\n{ex.Message}", "Error BD", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al actualizar la ruta del PDF en la base de datos:\n{ex.Message}", "Error BD");
                 return;
             }
 
@@ -367,16 +367,16 @@ namespace TuClinica.UI.ViewModels
                 ProcessStartInfo psi = new ProcessStartInfo(pdfPath) { UseShellExecute = true };
                 Process.Start(psi);
 
-                var printResult = MessageBox.Show("Presupuesto generado y guardado.\n¿Desea imprimirlo ahora?",
-                                                  "Imprimir Presupuesto", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (printResult == MessageBoxResult.Yes)
+                var printResult = _dialogService.ShowConfirmation("Presupuesto generado y guardado.\n¿Desea imprimirlo ahora?",
+                                                  "Imprimir Presupuesto");
+                if (printResult == CoreDialogResult.Yes)
                 {
-                    MessageBox.Show("Por favor, use la opción de imprimir de su visor de PDF.", "Imprimir", MessageBoxButton.OK, MessageBoxImage.Information);
+                    _dialogService.ShowMessage("Por favor, use la opción de imprimir de su visor de PDF.", "Imprimir");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error Abrir PDF", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error Abrir PDF");
             }
 
             // --- 6. Limpiar formulario ---
@@ -411,7 +411,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar el historial de presupuestos:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al cargar el historial de presupuestos:\n{ex.Message}", "Error");
             }
         }
 
@@ -424,7 +424,7 @@ namespace TuClinica.UI.ViewModels
 
             if (string.IsNullOrEmpty(budget.PdfFilePath) || !File.Exists(budget.PdfFilePath))
             {
-                MessageBox.Show($"No se encontró el archivo PDF para este presupuesto.\n{budget.PdfFilePath}", "Archivo no encontrado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage($"No se encontró el archivo PDF para este presupuesto.\n{budget.PdfFilePath}", "Archivo no encontrado");
                 return;
             }
 
@@ -435,7 +435,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error");
             }
         }
 
@@ -479,15 +479,15 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedBudgetFromHistory == null)
             {
-                MessageBox.Show("Por favor, selecciona un presupuesto del historial.", "Selección requerida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage("Por favor, selecciona un presupuesto del historial.", "Selección requerida");
                 return;
             }
 
             // Opcional: Confirmación
-            var result = MessageBox.Show($"¿Estás seguro de que quieres marcar este presupuesto como '{newStatus}'?",
-                                         "Confirmar cambio de estado", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var result = _dialogService.ShowConfirmation($"¿Estás seguro de que quieres marcar este presupuesto como '{newStatus}'?",
+                                             "Confirmar cambio de estado");
 
-            if (result == MessageBoxResult.No) return;
+            if (result == CoreDialogResult.No) return;
 
             var budgetToUpdate = SelectedBudgetFromHistory;
 
@@ -502,7 +502,7 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al actualizar el estado del presupuesto:\n{ex.Message}", "Error de base de datos", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error al actualizar el estado del presupuesto:\n{ex.Message}", "Error de base de datos");
             }
         }
         // *** FIN NUEVO ***

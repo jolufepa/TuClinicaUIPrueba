@@ -6,7 +6,9 @@ using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Models;
 using System.Windows;
 using System.ComponentModel;
-using System.Windows.Input; // Para ICommand
+using System.Windows.Input;
+using TuClinica.Core.Interfaces.Services; 
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 // REMOVE 'partial'
 namespace TuClinica.UI.ViewModels
@@ -14,6 +16,7 @@ namespace TuClinica.UI.ViewModels
     public class TreatmentsViewModel : BaseViewModel
     {
         private readonly ITreatmentRepository _treatmentRepository;
+        private readonly IDialogService _dialogService;
 
         // --- Propiedades Manuales ---
         private ObservableCollection<Treatment> _treatments = new ObservableCollection<Treatment>();
@@ -61,9 +64,10 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand DeleteTreatmentCommand { get; }
 
 
-        public TreatmentsViewModel(ITreatmentRepository treatmentRepository)
+        public TreatmentsViewModel(ITreatmentRepository treatmentRepository, IDialogService dialogService)
         {
             _treatmentRepository = treatmentRepository;
+            _dialogService = dialogService;
 
             // Inicialización de comandos
             LoadTreatmentsCommand = new AsyncRelayCommand(LoadTreatmentsAsync);
@@ -115,12 +119,12 @@ namespace TuClinica.UI.ViewModels
         {
             if (string.IsNullOrWhiteSpace(TreatmentFormModel.Name))
             {
-                MessageBox.Show("El nombre del tratamiento no puede estar vacío.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage("El nombre del tratamiento no puede estar vacío.", "Error");
                 return;
             }
             if (TreatmentFormModel.DefaultPrice < 0)
             {
-                MessageBox.Show("El precio no puede ser negativo.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage("El precio no puede ser negativo.", "Error");
                 return;
             }
 
@@ -152,17 +156,17 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedTreatment == null) return;
 
-            var result = MessageBox.Show($"¿Eliminar PERMANENTEMENTE el tratamiento '{SelectedTreatment.Name}'? Esta acción no se puede deshacer.",
-                                         "Confirmar Eliminación Permanente", MessageBoxButton.YesNo, MessageBoxImage.Stop);
+            var result = _dialogService.ShowConfirmation($"¿Eliminar PERMANENTEMENTE el tratamiento '{SelectedTreatment.Name}'? Esta acción no se puede deshacer.",
+                                             "Confirmar Eliminación Permanente");
 
-            if (result == MessageBoxResult.No) return;
+            if (result == CoreDialogResult.No) return;
 
             var treatmentToDelete = await _treatmentRepository.GetByIdAsync(SelectedTreatment.Id);
             if (treatmentToDelete != null)
             {
                 _treatmentRepository.Remove(treatmentToDelete);
                 await _treatmentRepository.SaveChangesAsync();
-                MessageBox.Show("Tratamiento eliminado.", "Eliminado", MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogService.ShowMessage("Tratamiento eliminado.", "Eliminado");
             }
 
             await LoadTreatmentsAsync();
