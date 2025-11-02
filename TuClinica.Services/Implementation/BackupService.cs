@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic; // For List
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography; // For AES, Rfc2898DeriveBytes, RandomNumberGenerator
+using System.Security.Cryptography; // Para CryptographicException
 using System.Text; // For Encoding
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For ReferenceHandler
@@ -23,6 +23,7 @@ namespace TuClinica.Services.Implementation
         private readonly IBudgetRepository _budgetRepository;
         private readonly IUserRepository _userRepository;
         private readonly AppDbContext _context; // Needed for transaction
+        private readonly ICryptoService _cryptoService; // Dependencia del servicio de cripto
 
         // Simple structure to hold all backup data
         private class BackupData
@@ -38,13 +39,15 @@ namespace TuClinica.Services.Implementation
             ITreatmentRepository treatmentRepository,
             IBudgetRepository budgetRepository,
             IUserRepository userRepository,
-            AppDbContext context)
+            AppDbContext context,
+            ICryptoService cryptoService) // Inyección del servicio de cripto
         {
             _patientRepository = patientRepository;
             _treatmentRepository = treatmentRepository;
             _budgetRepository = budgetRepository;
             _userRepository = userRepository;
             _context = context;
+            _cryptoService = cryptoService; // Asignación
         }
 
         // --- EXPORT ---
@@ -68,16 +71,19 @@ namespace TuClinica.Services.Implementation
                 };
 
                 // 2. Serialize to JSON with cycle handling
+
+                // ¡¡AQUÍ ESTABA EL ERROR CS0841!! Esta es la línea que faltaba.
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true, // Optional: for readability
                     ReferenceHandler = ReferenceHandler.Preserve // Handle object cycles
                 };
+
                 string jsonData = JsonSerializer.Serialize(data, options);
                 byte[] jsonBytes = Encoding.UTF8.GetBytes(jsonData);
 
-                // 3. Encrypt JSON data
-                byte[] encryptedBytes = Encrypt(jsonBytes, password);
+                // 3. Encrypt JSON data (usando el servicio)
+                byte[] encryptedBytes = _cryptoService.Encrypt(jsonBytes, password);
 
                 // 4. Write encrypted data to file
                 await File.WriteAllBytesAsync(filePath, encryptedBytes);
@@ -105,15 +111,15 @@ namespace TuClinica.Services.Implementation
                 // 1. Read encrypted data
                 byte[] encryptedBytes = await File.ReadAllBytesAsync(filePath);
 
-                // 2. Decrypt data
-                byte[]? jsonBytes = Decrypt(encryptedBytes, password);
+                // 2. Decrypt data (usando el servicio)
+                byte[]? jsonBytes = _cryptoService.Decrypt(encryptedBytes, password);
                 if (jsonBytes == null) { await transaction.RollbackAsync(); return false; } // Decryption failed
 
                 // 3. Deserialize JSON with cycle handling
                 string jsonData = Encoding.UTF8.GetString(jsonBytes);
-                System.Diagnostics.Debug.WriteLine("--- DECRYPTED JSON DATA ---"); // Debug
-                System.Diagnostics.Debug.WriteLine(jsonData);                     // Debug
-                System.Diagnostics.Debug.WriteLine("--- END JSON DATA ---");     // Debug
+                System.Diagnostics.Debug.WriteLine("--- DECRYPTED JSON DATA ---");
+                System.Diagnostics.Debug.WriteLine(jsonData);
+                System.Diagnostics.Debug.WriteLine("--- END JSON DATA ---");
 
                 var options = new JsonSerializerOptions
                 {
@@ -136,13 +142,11 @@ namespace TuClinica.Services.Implementation
                 await _context.SaveChangesAsync();
 
                 // --- 5. Insert imported data ---
-                // *** ANTES de AddRange, resetear IDs para que EF Core/SQLite los genere ***
                 data.Users.ForEach(u => u.Id = 0);
                 data.Patients.ForEach(p => p.Id = 0);
                 data.Treatments.ForEach(t => t.Id = 0);
                 data.Budgets.ForEach(b => {
                     b.Id = 0;
-                    // También resetear IDs de los Items si existen y tienen ID propio
                     b.Items?.ToList().ForEach(i => i.Id = 0);
                 });
 
@@ -153,7 +157,7 @@ namespace TuClinica.Services.Implementation
                 await _context.SaveChangesAsync();
                 _context.Treatments.AddRange(data.Treatments);
                 await _context.SaveChangesAsync();
-                _context.Budgets.AddRange(data.Budgets); // EF debería manejar los Items relacionados
+                _context.Budgets.AddRange(data.Budgets);
                 await _context.SaveChangesAsync();
 
                 // 6. Commit transaction
@@ -178,67 +182,7 @@ namespace TuClinica.Services.Implementation
         }
 
 
-        // --- AES Encryption/Decryption Helpers ---
-
-        private byte[] Encrypt(byte[] dataToEncrypt, string password)
-        {
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            using var keyDerivation = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256);
-            byte[] key = keyDerivation.GetBytes(32); // AES-256
-            byte[] nonce = RandomNumberGenerator.GetBytes(12); // AES-GCM nonce
-            using var aesGcm = new AesGcm(key);
-            byte[] cipherText = new byte[dataToEncrypt.Length];
-            byte[] tag = new byte[16]; // GCM Auth Tag
-            aesGcm.Encrypt(nonce, dataToEncrypt, cipherText, tag);
-
-            // Combine: [salt][nonce][tag][ciphertext]
-            byte[] encryptedDataWithMeta = new byte[salt.Length + nonce.Length + tag.Length + cipherText.Length];
-            Buffer.BlockCopy(salt, 0, encryptedDataWithMeta, 0, salt.Length);
-            Buffer.BlockCopy(nonce, 0, encryptedDataWithMeta, salt.Length, nonce.Length);
-            Buffer.BlockCopy(tag, 0, encryptedDataWithMeta, salt.Length + nonce.Length, tag.Length);
-            Buffer.BlockCopy(cipherText, 0, encryptedDataWithMeta, salt.Length + nonce.Length + tag.Length, cipherText.Length);
-            return encryptedDataWithMeta;
-        }
-
-        private byte[]? Decrypt(byte[] encryptedDataWithMeta, string password)
-        {
-            const int saltSize = 16; const int nonceSize = 12; const int tagSize = 16;
-            int expectedMinLength = saltSize + nonceSize + tagSize;
-
-            if (encryptedDataWithMeta == null || encryptedDataWithMeta.Length < expectedMinLength)
-            {
-                return null;
-            }
-
-            try
-            {
-                // Extract metadata
-                byte[] salt = new byte[saltSize]; byte[] nonce = new byte[nonceSize]; byte[] tag = new byte[tagSize];
-                int cipherTextLength = encryptedDataWithMeta.Length - expectedMinLength;
-                byte[] cipherText = new byte[cipherTextLength];
-                Buffer.BlockCopy(encryptedDataWithMeta, 0, salt, 0, saltSize);
-                Buffer.BlockCopy(encryptedDataWithMeta, saltSize, nonce, 0, nonceSize);
-                Buffer.BlockCopy(encryptedDataWithMeta, saltSize + nonceSize, tag, 0, tagSize);
-                Buffer.BlockCopy(encryptedDataWithMeta, expectedMinLength, cipherText, 0, cipherTextLength);
-
-                // Derive key
-                using var keyDerivation = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256);
-                byte[] key = keyDerivation.GetBytes(32);
-
-                // Decrypt
-                using var aesGcm = new AesGcm(key);
-                byte[] decryptedData = new byte[cipherText.Length];
-                aesGcm.Decrypt(nonce, cipherText, tag, decryptedData);
-                return decryptedData;
-            }
-            catch (CryptographicException ex)
-            {
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return null; // Return null on unexpected errors too
-            }
-        }
+        // --- LOS MÉTODOS 'Encrypt' y 'Decrypt' PRIVADOS HAN SIDO ELIMINADOS ---
+        // (Ahora viven en CryptoService)
     }
 }

@@ -245,6 +245,7 @@ namespace TuClinica.UI
                     services.AddSingleton<IInactivityService, InactivityService>();
                     services.AddSingleton<IDialogService, DialogService>();
                     services.AddSingleton<IFileDialogService, FileDialogService>();
+                    services.AddSingleton<ICryptoService, CryptoService>();
 
 
                     // ViewModels
