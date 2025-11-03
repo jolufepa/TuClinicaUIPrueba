@@ -1,6 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
+using System; // Añadido para IServiceProvider
 using System.Linq.Expressions;
+using TuClinica.Core.Interfaces; // Para IRepository
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
@@ -15,9 +17,16 @@ namespace TuClinica.Services.Tests
         private Mock<IPatientRepository> _patientRepoMock;
         private Mock<IValidationService> _validationServiceMock;
         private Mock<IServiceProvider> _serviceProviderMock;
-        private PatientFileViewModel _patientFileVM_Instance; // Mockeamos la clase concreta
+        private PatientFileViewModel _patientFileVM_Instance; // Objeto real, pero con dependencias mockeadas
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
+
+        // --- MOCKS NUEVOS (para PatientFileViewModel) ---
+        private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
+        private Mock<IPaymentRepository> _paymentRepoMock;
+        private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
+        private Mock<IAuthService> _authServiceMock;
+        private Mock<ITreatmentRepository> _treatmentRepoMock;
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -29,16 +38,34 @@ namespace TuClinica.Services.Tests
             _patientRepoMock = new Mock<IPatientRepository>();
             _validationServiceMock = new Mock<IValidationService>();
             _serviceProviderMock = new Mock<IServiceProvider>();
-            _patientFileVM_Instance = new PatientFileViewModel(); // No necesita config
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
 
-            // 2. Creamos el ViewModel pasándole los Mocks
+            // --- MOCKS NUEVOS ---
+            _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
+            _paymentRepoMock = new Mock<IPaymentRepository>();
+            _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
+            _authServiceMock = new Mock<IAuthService>();
+            _treatmentRepoMock = new Mock<ITreatmentRepository>();
+            // --- FIN MOCKS NUEVOS ---
+
+            // 2. Creamos la instancia de PatientFileViewModel (AHORA CON DEPENDENCIAS)
+            _patientFileVM_Instance = new PatientFileViewModel(
+                _clinicalEntryRepoMock.Object,
+                _paymentRepoMock.Object,
+                _allocationRepoMock.Object,
+                _authServiceMock.Object,
+                _dialogServiceMock.Object,
+                _serviceProviderMock.Object,
+                _treatmentRepoMock.Object
+            );
+
+            // 3. Creamos el ViewModel pasándole los Mocks
             _viewModel = new PatientsViewModel(
                 _patientRepoMock.Object,
                 _validationServiceMock.Object,
                 _serviceProviderMock.Object,
-                _patientFileVM_Instance,
+                _patientFileVM_Instance, // Ahora esta instancia es válida
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
             );
@@ -103,7 +130,7 @@ namespace TuClinica.Services.Tests
                 "Se llamó a AddAsync con un DNI inválido.");
         }
 
-       
+
         [TestMethod]
         public async Task DeletePatientAsync_DebeHacerSoftDelete_SiTieneHistorial()
         {

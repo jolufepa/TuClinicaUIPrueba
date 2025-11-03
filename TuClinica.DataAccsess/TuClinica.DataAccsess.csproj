@@ -23,5 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
+  </ItemGroup>
 
 </Project>

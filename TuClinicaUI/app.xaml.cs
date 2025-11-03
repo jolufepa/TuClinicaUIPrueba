@@ -229,6 +229,9 @@ namespace TuClinica.UI
                     services.AddScoped<IBudgetRepository, BudgetRepository>();
                     services.AddScoped<IMedicationRepository, MedicationRepository>();
                     services.AddScoped<IDosageRepository, DosageRepository>();
+                    services.AddScoped<IClinicalEntryRepository, ClinicalEntryRepository>();
+                    services.AddScoped<IPaymentRepository, PaymentRepository>();
+                    services.AddScoped<IRepository<PaymentAllocation>, Repository<PaymentAllocation>>();
 
                     // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
@@ -247,6 +250,7 @@ namespace TuClinica.UI
                     services.AddSingleton<IFileDialogService, FileDialogService>();
                     services.AddSingleton<ICryptoService, CryptoService>();
                     services.AddSingleton<IFileSystemService, FileSystemService>();
+                   
 
 
                     // ViewModels
@@ -260,7 +264,9 @@ namespace TuClinica.UI
                     services.AddTransient<LicenseViewModel>();
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
-                   
+                    services.AddSingleton<PatientFileViewModel>();
+                    services.AddTransient<OdontogramViewModel>();
+
 
                     // *******************************************************************
                     // *** AQUÍ ESTÁN LOS CAMBIOS PARA LA NUEVA FICHA DE PACIENTE ***
@@ -280,6 +286,9 @@ namespace TuClinica.UI
                     services.AddTransient<LoginWindow>();
                     services.AddTransient<PatientSelectionDialog>();
                     services.AddTransient<UserEditDialog>();
+                    services.AddTransient<OdontogramWindow>();
+                    services.AddTransient<TreatmentPriceDialog>();
+                    services.AddTransient<NewPaymentDialog>();
 
                     // 3. Añadimos la nueva Vista (UserControl)
                     // (No necesitamos registrar PatientFileView.xaml porque es un UserControl

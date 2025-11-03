@@ -1,0 +1,72 @@
+﻿<UserControl x:Class="TuClinica.UI.Views.Controls.ToothControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:TuClinica.UI.Views.Controls"
+             xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core"
+             xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance Type=viewmodels:ToothViewModel}"
+             d:DesignHeight="70" d:DesignWidth="70"
+             Width="70" Height="70" Margin="2">
+
+    <UserControl.Resources>
+        <local:ToothStatusToBrushConverter x:Key="StatusToBrush" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Rectangle Grid.Row="0" Grid.Column="0" Grid.RowSpan="3" Grid.ColumnSpan="3"
+                   Fill="{Binding FullStatus, Converter={StaticResource StatusToBrush}}"/>
+
+        <Border Grid.Row="1" Grid.Column="1" Width="30" Height="30" CornerRadius="3"
+                Background="{Binding OclusalStatus, Converter={StaticResource StatusToBrush}}"
+                BorderBrush="Black" BorderThickness="1"
+                Cursor="Hand">
+            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Oclusal" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="0" Width="15" Height="30"
+                Background="{Binding MesialStatus, Converter={StaticResource StatusToBrush}}"
+                BorderBrush="Black" BorderThickness="1,1,0,1"
+                Cursor="Hand">
+            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Mesial" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="2" Width="15" Height="30"
+                Background="{Binding DistalStatus, Converter={StaticResource StatusToBrush}}"
+                BorderBrush="Black" BorderThickness="0,1,1,1"
+                Cursor="Hand">
+            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Distal" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        </Border>
+
+        <Border Grid.Row="0" Grid.Column="1" Width="30" Height="15"
+                Background="{Binding VestibularStatus, Converter={StaticResource StatusToBrush}}"
+                BorderBrush="Black" BorderThickness="1,1,1,0"
+                Cursor="Hand">
+            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Vestibular" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="1" Width="30" Height="15"
+                Background="{Binding LingualStatus, Converter={StaticResource StatusToBrush}}"
+                BorderBrush="Black" BorderThickness="1,0,1,1"
+                Cursor="Hand">
+            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Lingual" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        </Border>
+
+        <TextBlock Text="{Binding ToothNumber}" Grid.Row="0" Grid.Column="0"
+                   HorizontalAlignment="Left" VerticalAlignment="Top"
+                   Margin="2" FontWeight="Bold" IsHitTestVisible="False"/>
+    </Grid>
+</UserControl>

@@ -19,6 +19,7 @@
 
             <!-- Convertidor global para Visibilidad -->
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
 
             <!-- Efectos de Sombra Globales -->
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>

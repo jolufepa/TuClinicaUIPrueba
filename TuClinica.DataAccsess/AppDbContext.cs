@@ -29,6 +29,10 @@ namespace TuClinica.DataAccess
 
         // --- Tabla de Log ---
         public DbSet<ActivityLog> ActivityLogs { get; set; }
+        public DbSet<ClinicalEntry> ClinicalEntries { get; set; }
+        public DbSet<ToothTreatment> ToothTreatments { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<PaymentAllocation> PaymentAllocations { get; set; }
 
 
         // --- CONSTRUCTOR MODIFICADO ---

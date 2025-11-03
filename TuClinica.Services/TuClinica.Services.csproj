@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>TuClinica.Services</RootNamespace> </PropertyGroup>
@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
-    <ProjectReference Include="..\TuClinica.DataAccsess\TuClinica.DataAccess.csproj" />
+    <ProjectReference Include="..\TuClinica.DataAccsess\TuClinica.DataAccsess.csproj" />
   </ItemGroup>
 <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />

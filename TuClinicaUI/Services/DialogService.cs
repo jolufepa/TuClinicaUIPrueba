@@ -1,6 +1,7 @@
 ﻿using System.Windows; // Necesitamos este using para MessageBox
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.UI.Views;
+using TuClinica.Core.Enums;
 
 namespace TuClinica.UI.Services
 {
@@ -37,7 +38,39 @@ namespace TuClinica.UI.Services
                 return (false, string.Empty);
             }
         }
+        public (bool Ok, ToothStatus? Status, decimal Price) ShowTreatmentPriceDialog()
+        {
+            var dialog = new TreatmentPriceDialog();
+            if (Application.Current != null && Application.Current.MainWindow != null)
+            {
+                dialog.Owner = Application.Current.MainWindow;
+            }
 
+            var result = dialog.ShowDialog();
+
+            if (result == true)
+            {
+                return (true, dialog.SelectedStatus, dialog.Price);
+            }
+            return (false, null, 0);
+        }
+
+        public (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog()
+        {
+            var dialog = new NewPaymentDialog();
+            if (Application.Current != null && Application.Current.MainWindow != null)
+            {
+                dialog.Owner = Application.Current.MainWindow;
+            }
+
+            var result = dialog.ShowDialog();
+
+            if (result == true)
+            {
+                return (true, dialog.Amount, dialog.PaymentMethod);
+            }
+            return (false, 0, string.Empty);
+        }
         public void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK)
         {
             MessageBox.Show(message, title, ConvertButtonType(buttonType), MessageBoxImage.Information);

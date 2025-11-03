@@ -1,4 +1,8 @@
-﻿namespace TuClinica.Core.Interfaces.Services
+﻿using TuClinica.Core.Enums;
+using System;
+
+
+namespace TuClinica.Core.Interfaces.Services
 {
     // Usaremos un enum simple para no depender de WPF en nuestro Core
     public enum DialogResult
@@ -14,5 +18,7 @@
         void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK);
         DialogResult ShowConfirmation(string message, string title);
         (bool Ok, string Password) ShowPasswordPrompt();
+        (bool Ok, ToothStatus? Status, decimal Price) ShowTreatmentPriceDialog();
+        (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog();
     }
 }
