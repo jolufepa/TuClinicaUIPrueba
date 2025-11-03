@@ -1,10 +1,17 @@
-# 🦷 TuClínica P\&D - Sistema de Gestión Dental
+# 🦷 TuClínica.UI- Sistema de Gestión Dental
 
-**TuClínica P\&D** es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
+**TuClínica.UI** es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
 
 ## 🚀 Características Principales
 
-  * **Gestión de Pacientes (CRUD):** Fichas de pacientes detalladas, historial, y funcionalidad de archivo (soft-delete) para mantener la historia clínica.
+  * **Ficha de Paciente Unificada:** Módulo centralizado que combina datos personales, un odontograma interactivo (Notación FDI), y un sistema de contabilidad completo.
+  * **Odontograma Interactivo (FDI):** Odontograma gráfico en ventana modal que permite registrar tratamientos (cargos) directamente sobre el diente y sus superficies.
+  * **Sistema de Contabilidad (Cargos y Abonos):** Gestión financiera profesional que separa "Cargos" (tratamientos, consultas) de "Abonos" (pagos del paciente).
+      * **Registro de Cargos:** Creación automática de cargos desde el odontograma o manualmente (para limpiezas, consultas).
+      * **Registro de Pagos:** Panel para registrar abonos (efectivo, tarjeta) que quedan como "saldo a favor".
+      * **Asignación de Pagos:** Interfaz rápida para asignar pagos no asignados a cargos pendientes de pago.
+      * **Gestión de Saldos:** Cálculo de saldo total en tiempo real y seguimiento de cargos pendientes.
+      * **Anulación de Cargos:** Funcionalidad para eliminar cargos erróneos, que anula automáticamente las asignaciones y devuelve el saldo al paciente.
   * **Módulo de Presupuestos:** Creación de presupuestos con cálculos automáticos (IVA, descuentos) y exportación a PDF (usando **QuestPDF**).
   * **Módulo de Recetas:** Prescripción de medicamentos, gestión de pautas (dosages) y fármacos, y exportación a PDF (usando plantillas **iTextSharp**).
   * **Gestión de Tratamientos:** Catálogo de tratamientos con precios predeterminados.
@@ -76,9 +83,10 @@ Durante el desarrollo, se detectó una inconsistencia en la implementación de `
 
   * La mayoría de ViewModels (ej. `AdminViewModel`, `BudgetsViewModel`) usan los generadores de código modernos `[RelayCommand]` de CommunityToolkit.Mvvm.
   * El `LoginViewModel` utiliza una implementación manual (Propiedad `ICommand` + inicialización en el constructor).
+  * **Actualización:** El `PatientFileViewModel` (un Singleton) también requiere inicialización manual de comandos por la misma razón.
 
 **Esto no es un error, es una decisión de diseño deliberada.**
 
-El `LoginViewModel` se instancia **inmediatamente** al arrancar la aplicación, al mismo tiempo que el `DataContext` de `LoginWindow` se está enlazando (binding). Esto crea una *race condition* (carrera de condiciones) donde el binding del XAML (`Command="{Binding LoginAsyncCommand}"`) se ejecuta *antes* de que el generador `[RelayCommand]` haya tenido tiempo de crear e inicializar la propiedad del comando. El binding falla silenciosamente.
+Ciertos ViewModels (`LoginViewModel`, `PatientFileViewModel`) se instancian como Singletons **inmediatamente** al arrancar la aplicación, al mismo tiempo que el `DataContext` se está enlazando (binding). Esto crea una *race condition* (carrera de condiciones) donde el binding del XAML (`Command="{Binding MiComando}"`) se ejecuta *antes* de que el generador `[RelayCommand]` haya tenido tiempo de crear e inicializar la propiedad del comando. El binding falla silenciosamente (el botón "no hace nada").
 
-La **solución manual** (inicializar el comando *dentro* del constructor) garantiza que la propiedad `LoginAsyncCommand` existe y tiene un valor asignado *antes* de que el `DataContext` se enlace al XAML, asegurando un arranque robusto. Los otros ViewModels no sufren este problema porque se crean más tarde, bajo demanda del usuario.
+La **solución manual** (inicializar el comando *dentro* del constructor) garantiza que la propiedad del comando existe y tiene un valor asignado *antes* de que el `DataContext` se enlace al XAML, asegurando un arranque robusto. Los otros ViewModels no sufren este problema porque se crean más tarde (`Transient`) bajo demanda del usuario.
