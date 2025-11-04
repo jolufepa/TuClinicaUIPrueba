@@ -1,4 +1,5 @@
-﻿using System.Windows.Controls;
+﻿
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System;
@@ -15,8 +16,10 @@ namespace TuClinica.UI.Views.Controls
         }
     }
 
+    /*
     /// <summary>
-    /// Convierte un ToothStatus en un color para la UI.
+    /// LÍNEA CONFLICTIVA: Esta clase ya no se usa y tiene errores de tipado (CS0117).
+    /// Fue reemplazada por ConditionToColorConverter y RestorationToColorConverter.
     /// </summary>
     public class ToothStatusToBrushConverter : IValueConverter
     {
@@ -45,4 +48,5 @@ namespace TuClinica.UI.Views.Controls
             throw new NotImplementedException();
         }
     }
+    */
 }

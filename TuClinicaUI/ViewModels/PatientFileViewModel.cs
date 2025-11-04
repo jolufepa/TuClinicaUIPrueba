@@ -116,14 +116,19 @@ namespace TuClinica.UI.ViewModels
         private void InitializeOdontogram()
         {
             Odontogram.Clear();
-            // Cuadrante 1 (11-18)
+            // 1. Cuadrante 1: 18 a 11 (De izquierda a derecha en la pantalla)
             for (int i = 18; i >= 11; i--) Odontogram.Add(new ToothViewModel(i));
-            // Cuadrante 2 (21-28)
+
+            // 2. Cuadrante 2: 21 a 28 (De izquierda a derecha en la pantalla)
             for (int i = 21; i <= 28; i++) Odontogram.Add(new ToothViewModel(i));
-            // Cuadrante 4 (41-48)
-            for (int i = 48; i >= 41; i--) Odontogram.Add(new ToothViewModel(i));
-            // Cuadrante 3 (31-38)
-            for (int i = 31; i <= 38; i++) Odontogram.Add(new ToothViewModel(i));
+
+            // 3. Cuadrante 4: 48 a 41. DENTRO de la lista, debe estar en el orden inverso al C3 (31-38).
+            // CORRECCIÓN 1: Invertir el orden de C4 para que 41 esté en la derecha.
+            for (int i = 41; i <= 48; i++) Odontogram.Add(new ToothViewModel(i));
+
+            // 4. Cuadrante 3: 31 a 38. DENTRO de la lista, debe estar en el orden inverso al C4 (41-48).
+            // CORRECCIÓN 2: Invertir el orden de C3 para que 31 esté en la izquierda.
+            for (int i = 38; i >= 31; i--) Odontogram.Add(new ToothViewModel(i));
         }
 
         /// <summary>

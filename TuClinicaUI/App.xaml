@@ -7,29 +7,21 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Diccionarios de MahApps Metro -->
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- ============================================= -->
-            <!-- === RECURSOS GLOBALES DE LA APLICACIÓN === -->
-            <!-- ============================================= -->
-
-            <!-- Convertidor global para Visibilidad -->
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
 
-            <!-- Efectos de Sombra Globales -->
+            <converters:ConditionToColorConverter x:Key="CondToColor" />
+            <converters:RestorationToColorConverter x:Key="RestToColor" />
+            <converters:RestorationToVisibilityConverter x:Key="RestToVis" />
+
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>
             <DropShadowEffect x:Key="ShadowZ3" ShadowDepth="3" Direction="270" Color="#BBBBBB" Opacity="0.5" BlurRadius="5"/>
 
-            <!-- ============================================= -->
-            <!-- === ESTILOS PARA LA FICHA DEL PACIENTE === -->
-            <!-- ============================================= -->
-
-            <!-- Estilo para los Labels de la ficha (color oscuro, negrita) -->
             <Style x:Key="FichaLabelStyle" TargetType="Label">
                 <Setter Property="Foreground" Value="#FF5D4037" />
                 <Setter Property="FontWeight" Value="Bold" />
@@ -37,7 +29,6 @@
                 <Setter Property="FontSize" Value="13" />
             </Style>
 
-            <!-- Estilo para los TextBox de la ficha (fondo crema, línea inferior) -->
             <Style x:Key="FichaTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource MahApps.Styles.TextBox}">
                 <Setter Property="IsReadOnly" Value="True" />
                 <Setter Property="Background" Value="#FFFBF8ED" />
@@ -46,10 +37,7 @@
                 <Setter Property="Padding" Value="8,5,8,5" />
                 <Setter Property="Margin" Value="0,0,0,10" />
                 <Setter Property="FontSize" Value="14" />
-                <!-- **** ¡AQUÍ ESTABA EL ERROR! **** -->
-                <!-- Corregido de 'Controls:' a 'mah:' -->
                 <Setter Property="mah:TextBoxHelper.UseFloatingWatermark" Value="False" />
-                <!-- Plantilla personalizada para mostrar solo la línea inferior -->
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type TextBoxBase}">
@@ -62,7 +50,6 @@
                                         SnapsToDevicePixels="True">
                                     <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
                                 </Border>
-                                <!-- Esta es la línea de abajo que simula el papel reglado -->
                                 <Border Height="1" VerticalAlignment="Bottom" Background="#FFDEDAD0" Margin="0,0,0,0" />
                             </Grid>
                             <ControlTemplate.Triggers>
@@ -80,11 +67,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <!-- ============================================= -->
-            <!-- === FIN DE ESTILOS === -->
-            <!-- ============================================= -->
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>
-
