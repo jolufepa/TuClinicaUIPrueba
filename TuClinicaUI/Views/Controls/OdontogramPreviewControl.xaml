@@ -1,0 +1,121 @@
+﻿<UserControl x:Class="TuClinica.UI.Views.Controls.OdontogramPreviewControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             Height="280" MinHeight="200">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Título + botón -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Odontograma" 
+                       FontWeight="SemiBold" 
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0"/>
+            <Button Content="Abrir completo" 
+                    Command="{Binding OpenFullOdontogramCommand}"
+                    HorizontalAlignment="Right"
+                    Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                    Padding="10,5"/>
+        </DockPanel>
+
+        <!-- 4 Cuadrantes -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- C1: 18→11 -->
+            <ItemsControl Grid.Column="0" Grid.Row="0" ItemsSource="{Binding TeethQuadrant1}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{Binding Background}" 
+                                Width="26" Height="26" Margin="1" CornerRadius="3"
+                                ToolTip="{Binding Tooltip}">
+                            <TextBlock Text="{Binding ToothNumber}" 
+                                       Foreground="White" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="9"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- C2: 21→28 -->
+            <ItemsControl Grid.Column="1" Grid.Row="0" ItemsSource="{Binding TeethQuadrant2}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{Binding Background}" 
+                                Width="26" Height="26" Margin="1" CornerRadius="3"
+                                ToolTip="{Binding Tooltip}">
+                            <TextBlock Text="{Binding ToothNumber}" 
+                                       Foreground="White" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="9"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- C4: 41→48 -->
+            <ItemsControl Grid.Column="1" Grid.Row="1" ItemsSource="{Binding TeethQuadrant4}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{Binding Background}" 
+                                Width="26" Height="26" Margin="1" CornerRadius="3"
+                                ToolTip="{Binding Tooltip}">
+                            <TextBlock Text="{Binding ToothNumber}" 
+                                       Foreground="White" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="9"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- C3: 38→31 -->
+            <ItemsControl Grid.Column="0" Grid.Row="1" ItemsSource="{Binding TeethQuadrant3}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{Binding Background}" 
+                                Width="26" Height="26" Margin="1" CornerRadius="3"
+                                ToolTip="{Binding Tooltip}">
+                            <TextBlock Text="{Binding ToothNumber}" 
+                                       Foreground="White" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="9"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -19,6 +19,7 @@
             <converters:RestorationToColorConverter x:Key="RestToColor" />
             <converters:RestorationToVisibilityConverter x:Key="RestToVis" />
 
+            <!-- EL PROBLEMA ESTABA EN EL ESPACIO EN BLANCO Y LA FALTA DE CIERRE DEL RESOURCE DICTIONARY -->
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>
             <DropShadowEffect x:Key="ShadowZ3" ShadowDepth="3" Direction="270" Color="#BBBBBB" Opacity="0.5" BlurRadius="5"/>
 

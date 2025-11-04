@@ -15,7 +15,10 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishUrl>C:\Publish\</PublishUrl>
+    <InstallUrl>C:\Publish\</InstallUrl>
+    <UpdateUrl>C:\Publish\</UpdateUrl>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
 

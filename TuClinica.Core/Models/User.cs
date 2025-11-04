@@ -23,5 +23,8 @@ namespace TuClinica.Core.Models
 
         [MaxLength(100)] // Opcional: define un límite
         public string? Specialty { get; set; } // Ej: "Odontólogo"
+
+        [Required]
+        public string Name { get; set; } = string.Empty;
     }
 }

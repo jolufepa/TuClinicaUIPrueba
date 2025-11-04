@@ -23,6 +23,7 @@ namespace TuClinica.Core.Models
         public int DoctorId { get; set; }
         [ForeignKey("DoctorId")]
         public User? Doctor { get; set; }
+        public string DoctorName => Doctor?.Name ?? "Desconocido";
 
         public DateTime VisitDate { get; set; }
         public string? Diagnosis { get; set; }

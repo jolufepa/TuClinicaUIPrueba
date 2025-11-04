@@ -5,19 +5,44 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
+using TuClinica.Core.Models; // Necesario para Patient
 using TuClinica.UI.Messages;
+using TuClinica.UI.Views;
 
 namespace TuClinica.UI.ViewModels
 {
+    // --- CLASE AUXILIAR DE DISPLAY (Debe estar fuera de la principal) ---
+    public partial class PatientDisplayModel : ObservableObject
+    {
+        [ObservableProperty]
+        private string _fullName = "Cargando...";
+    }
+    // --------------------------------------------------------------------
+
     /// <summary>
     /// ViewModel para la VENTANA MODAL del odontograma interactivo.
     /// </summary>
     public partial class OdontogramViewModel : BaseViewModel, IRecipient<SurfaceClickedMessage>
     {
+
+
+        [ObservableProperty]
+        private ObservableCollection<Treatment> _availableTreatments = new();
         private readonly IDialogService _dialogService;
         // private readonly IPdfService _pdfService; // Descomentar si implementas impresión
 
+        [ObservableProperty]
+        private PatientDisplayModel _patient = new(); // Se enlaza con el título de la ventana
+
+        // Colección maestra (usada internamente)
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
+
+        // Colecciones para el Data Binding en el XAML (los 4 cuadrantes)
+        public ObservableCollection<ToothViewModel> TeethQuadrant1 { get; } = new();
+        public ObservableCollection<ToothViewModel> TeethQuadrant2 { get; } = new();
+        public ObservableCollection<ToothViewModel> TeethQuadrant3 { get; } = new();
+        public ObservableCollection<ToothViewModel> TeethQuadrant4 { get; } = new();
+
 
         public OdontogramViewModel(IDialogService dialogService/*, IPdfService pdfService*/)
         {
@@ -27,16 +52,33 @@ namespace TuClinica.UI.ViewModels
             // Escuchar clics desde los ToothViewModels
             WeakReferenceMessenger.Default.Register<SurfaceClickedMessage>(this);
         }
-
+       
         /// <summary>
-        /// Carga el estado actual del odontograma maestro (desde PatientFileViewModel).
+        /// Carga el estado actual del odontograma maestro (desde PatientFileViewModel)
+        /// y la información del paciente para el título, y distribuye los dientes en 4 cuadrantes.
         /// </summary>
-        public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram)
+        public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram, Patient? currentPatient)
         {
+            // 1. Cargar el nombre del paciente para el título
+            if (currentPatient != null)
+            {
+                // Usamos la propiedad PatientDisplayInfo de Core.Models.Patient
+                Patient.FullName = currentPatient.PatientDisplayInfo;
+            }
+            else
+            {
+                Patient.FullName = "Paciente Desconocido";
+            }
+
+            // 2. Cargar el estado de los dientes y distribuirlos
             Odontogram.Clear();
+            TeethQuadrant1.Clear();
+            TeethQuadrant2.Clear();
+            TeethQuadrant3.Clear();
+            TeethQuadrant4.Clear();
+
             foreach (var tooth in masterOdontogram)
             {
-                // Copiamos el estado para no modificar el maestro directamente
                 var copy = new ToothViewModel(tooth.ToothNumber)
                 {
                     // Propiedades de Condición
@@ -55,7 +97,29 @@ namespace TuClinica.UI.ViewModels
                     VestibularRestoration = tooth.VestibularRestoration,
                     LingualRestoration = tooth.LingualRestoration
                 };
+
                 Odontogram.Add(copy);
+
+                // Distribución por cuadrante (Notación FDI: primer dígito es el cuadrante)
+                if (copy.ToothNumber >= 11 && copy.ToothNumber <= 18)
+                {
+                    TeethQuadrant1.Add(copy);
+                }
+                else if (copy.ToothNumber >= 21 && copy.ToothNumber <= 28)
+                {
+                    TeethQuadrant2.Add(copy);
+                }
+                else if (copy.ToothNumber >= 31 && copy.ToothNumber <= 38)
+                {
+                    TeethQuadrant3.Add(copy);
+                }
+                else if (copy.ToothNumber >= 41 && copy.ToothNumber <= 48)
+                {
+                    TeethQuadrant4.Add(copy);
+                }
+
+                // NOTA: El orden dentro de cada cuadrante está definido por la inicialización en PatientFileViewModel.cs
+                // (e.g., C1: 18->11, C2: 21->28, C4: 41->48, C3: 38->31)
             }
         }
 
@@ -64,29 +128,33 @@ namespace TuClinica.UI.ViewModels
         /// </summary>
         public void Receive(SurfaceClickedMessage message)
         {
-            // RESOLUCIÓN CS0029 (Línea 69): Ahora el método tiene 4 elementos.
-            // Usamos 'price' como nullable (decimal?) y 'restoration' como RestorationResult.
-            var (ok, treatmentId, restoration, price) = _dialogService.ShowTreatmentPriceDialog();
+            var tooth = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
+            if (tooth == null) return;
 
-            // Chequeamos todos los tipos nullable.
-            if (ok && treatmentId.HasValue && restoration.HasValue && price.HasValue)
+            // ABRIR EL DIÁLOGO CON TRATAMIENTOS
+            OpenTreatmentDialog(tooth, message.Value);
+        }
+
+        private void OpenTreatmentDialog(ToothViewModel tooth, ToothSurface surface)
+        {
+            var dialog = new TreatmentPriceDialog();
+
+            // CLAVE: PASAR LOS TRATAMIENTOS
+            dialog.AvailableTreatments = AvailableTreatments;
+
+            if (dialog.ShowDialog() == true)
             {
-                // 2. Enviar mensaje al PatientFileViewModel
                 WeakReferenceMessenger.Default.Send(new RegisterTreatmentMessage(
-                    message.ToothNumber,
-                    message.Value, // La superficie (ToothSurface)
-                    treatmentId.Value, // int? -> int
-                    restoration.Value, // ToothRestoration? -> ToothRestoration
-                    price.Value // decimal? -> decimal
+                    tooth.ToothNumber,
+                    surface,
+                    dialog.SelectedTreatmentId ?? 0,
+                    dialog.SelectedRestoration ?? ToothRestoration.Ninguna,
+                    dialog.Price
                 ));
 
-                // 3. Actualizar nuestra UI local para feedback instantáneo
-                var toothToUpdate = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
-                if (toothToUpdate != null)
-                {
-                    UpdateToothSurfaceRestoration(toothToUpdate, message.Value, restoration.Value);
-                    UpdateToothSurfaceCondition(toothToUpdate, message.Value, ToothCondition.Sano);
-                }
+                // ACTUALIZAR UI LOCAL
+                UpdateToothSurfaceRestoration(tooth, surface, dialog.SelectedRestoration ?? ToothRestoration.Ninguna);
+                UpdateToothSurfaceCondition(tooth, surface, ToothCondition.Sano);
             }
         }
 
@@ -123,10 +191,24 @@ namespace TuClinica.UI.ViewModels
                 case ToothSurface.Completo: tooth.FullCondition = condition; break;
             }
         }
-        // [RelayCommand]
-        // private void PrintOdontogram()
-        // {
-        //    // _pdfService.PrintOdontogram(Odontogram);
-        // }
+
+        [RelayCommand]
+        private void Save()
+        {
+            // Lógica de guardado (implementación pendiente en su proyecto)
+            // Esto debería enviar el odontograma maestro de vuelta a PatientFileViewModel para persistencia.
+        }
+
+        [RelayCommand]
+        private void ApplyTreatment()
+        {
+            // Lógica para aplicar un tratamiento general o abrir una ventana de selección (implementación pendiente)
+        }
+
+        [RelayCommand]
+        private void Close()
+        {
+            // Lógica para cerrar la ventana (se maneja en el código detrás o con un mensaje)
+        }
     }
 }

@@ -218,8 +218,9 @@ namespace TuClinica.UI
                     // Base de Datos
                     services.AddDbContext<AppDbContext>(options => {
                         string dbPassword = GetOrCreateDatabasePassword();
-                        options.UseSqlite($"Data Source={GetDatabasePath()};Password={dbPassword}");
-                    });
+                    options.UseSqlite($"Data Source={GetDatabasePath()};Password={dbPassword}");
+                       
+                });
 
                     // Repositorios
                     services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -264,7 +265,7 @@ namespace TuClinica.UI
                     services.AddTransient<LicenseViewModel>();
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
-                    services.AddSingleton<PatientFileViewModel>();
+                    services.AddTransient<PatientFileViewModel>();
                     services.AddTransient<OdontogramViewModel>();
 
 
@@ -273,7 +274,7 @@ namespace TuClinica.UI
                     // *******************************************************************
 
                     // 1. Añadimos el nuevo ViewModel de la ficha como Singleton
-                    services.AddSingleton<PatientFileViewModel>();
+                    services.AddTransient<PatientFileViewModel>();
 
                     // 2. Quitamos los ViewModels/Vistas de la antigua ventana modal
                     // services.AddTransient<PatientDetailsViewModel>(); // <-- ELIMINADO

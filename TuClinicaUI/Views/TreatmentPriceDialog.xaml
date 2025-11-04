@@ -6,31 +6,44 @@
                  xmlns:local="clr-namespace:TuClinica.UI.Views"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  mc:Ignorable="d"
-                 Title="Registrar Tratamiento" Height="250" Width="400"
+                 Title="Registrar Tratamiento" Height="280" Width="400"
                  WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
                  WindowStyle="ToolWindow" ShowInTaskbar="False">
     <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <!-- Restauración -->
             <RowDefinition Height="Auto"/>
+            <!-- Tratamiento -->
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <!-- Precio -->
             <RowDefinition Height="Auto"/>
+            <!-- Botones -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Label Grid.Row="0" Grid.Column="0" Content="Tratamiento:" VerticalAlignment="Center"/>
-        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="TreatmentComboBox" Margin="5"/>
+        <!-- 1. Restauración/Estado -->
+        <Label Grid.Row="0" Grid.Column="0" Content="Restauración/Estado:" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="RestorationComboBox" Margin="5"/>
 
-        <Label Grid.Row="1" Grid.Column="0" Content="Precio (€):" VerticalAlignment="Center"/>
-        <mah:NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="PriceNumericUpDown" Margin="5"
+        <!-- 2. Tratamiento (NUEVO) -->
+        <Label Grid.Row="1" Grid.Column="0" Content="Tratamiento:" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="TreatmentComboBox" Margin="5"
+                  DisplayMemberPath="Name" 
+                  SelectedValuePath="Id"/>
+
+        <!-- 3. Precio -->
+        <Label Grid.Row="2" Grid.Column="0" Content="Precio (€):" VerticalAlignment="Center"/>
+        <mah:NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="PriceNumericUpDown" Margin="5"
                            Minimum="0" StringFormat="C" Culture="es-ES"/>
 
-        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+        <!-- 4. Botones -->
+        <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" 
+                    Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
             <Button Content="Cancelar" IsCancel="True" MinWidth="75"/>
         </StackPanel>
     </Grid>
