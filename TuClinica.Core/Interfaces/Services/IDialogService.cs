@@ -18,7 +18,10 @@ namespace TuClinica.Core.Interfaces.Services
         void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK);
         DialogResult ShowConfirmation(string message, string title);
         (bool Ok, string Password) ShowPasswordPrompt();
-        (bool Ok, ToothStatus? Status, decimal Price) ShowTreatmentPriceDialog();
+
+        // CORRECCIÓN CS0029: Añadimos int? treatmentId y Price a decimal?
+        (bool Ok, int? TreatmentId, ToothRestoration? Restoration, decimal? Price) ShowTreatmentPriceDialog();
+
         (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog();
     }
 }

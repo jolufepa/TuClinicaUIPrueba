@@ -3,70 +3,100 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:TuClinica.UI.Views.Controls"
-             xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
-             mc:Ignorable="d" 
+             xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core" 
+             xmlns:converters="clr-namespace:TuClinica.UI.Converters;assembly=TuClinica.UI"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              d:DataContext="{d:DesignInstance Type=viewmodels:ToothViewModel}"
-             d:DesignHeight="70" d:DesignWidth="70"
-             Width="70" Height="70" Margin="2">
+             mc:Ignorable="d" 
+             d:DesignHeight="50" d:DesignWidth="50">
 
     <UserControl.Resources>
-        <local:ToothStatusToBrushConverter x:Key="StatusToBrush" />
+        <converters:ConditionToColorConverter x:Key="CondToColor" />
+        <converters:RestorationToColorConverter x:Key="RestToColor" />
+        <converters:RestorationToVisibilityConverter x:Key="RestToVis" />
+
+        <Style TargetType="Border" x:Key="SurfaceBorderStyle">
+            <Setter Property="BorderBrush" Value="DarkGray"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid ToolTip="{Binding ToothNumber}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Rectangle Grid.Row="0" Grid.Column="0" Grid.RowSpan="3" Grid.ColumnSpan="3"
-                   Fill="{Binding FullStatus, Converter={StaticResource StatusToBrush}}"/>
+        <!-- Número del diente (fondo) -->
+        <TextBlock Text="{Binding ToothNumber}" 
+                   Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Grid.RowSpan="3" 
+                   HorizontalAlignment="Center" VerticalAlignment="Center" 
+                   FontSize="8" FontWeight="Bold" Foreground="Gray"/>
 
-        <Border Grid.Row="1" Grid.Column="1" Width="30" Height="30" CornerRadius="3"
-                Background="{Binding OclusalStatus, Converter={StaticResource StatusToBrush}}"
-                BorderBrush="Black" BorderThickness="1"
-                Cursor="Hand">
-            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Oclusal" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        <!-- Superficies (encima del texto) -->
+        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SurfaceBorderStyle}"
+                Background="{Binding OclusalCondition, Converter={StaticResource CondToColor}}">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseLeftButtonDown">
+                    <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Oclusal"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Rectangle Fill="{Binding OclusalRestoration, Converter={StaticResource RestToColor}}"
+                       Visibility="{Binding OclusalRestoration, Converter={StaticResource RestToVis}}"/>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="0" Width="15" Height="30"
-                Background="{Binding MesialStatus, Converter={StaticResource StatusToBrush}}"
-                BorderBrush="Black" BorderThickness="1,1,0,1"
-                Cursor="Hand">
-            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Mesial" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource SurfaceBorderStyle}"
+                Background="{Binding MesialCondition, Converter={StaticResource CondToColor}}">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseLeftButtonDown">
+                    <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Mesial"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Rectangle Fill="{Binding MesialRestoration, Converter={StaticResource RestToColor}}"
+                       Visibility="{Binding MesialRestoration, Converter={StaticResource RestToVis}}"/>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="2" Width="15" Height="30"
-                Background="{Binding DistalStatus, Converter={StaticResource StatusToBrush}}"
-                BorderBrush="Black" BorderThickness="0,1,1,1"
-                Cursor="Hand">
-            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Distal" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SurfaceBorderStyle}"
+                Background="{Binding DistalCondition, Converter={StaticResource CondToColor}}">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseLeftButtonDown">
+                    <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Distal"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Rectangle Fill="{Binding DistalRestoration, Converter={StaticResource RestToColor}}"
+                       Visibility="{Binding DistalRestoration, Converter={StaticResource RestToVis}}"/>
         </Border>
 
-        <Border Grid.Row="0" Grid.Column="1" Width="30" Height="15"
-                Background="{Binding VestibularStatus, Converter={StaticResource StatusToBrush}}"
-                BorderBrush="Black" BorderThickness="1,1,1,0"
-                Cursor="Hand">
-            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Vestibular" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource SurfaceBorderStyle}"
+                Background="{Binding VestibularCondition, Converter={StaticResource CondToColor}}">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseLeftButtonDown">
+                    <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Vestibular"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Rectangle Fill="{Binding VestibularRestoration, Converter={StaticResource RestToColor}}"
+                       Visibility="{Binding VestibularRestoration, Converter={StaticResource RestToVis}}"/>
         </Border>
 
-        <Border Grid.Row="2" Grid.Column="1" Width="30" Height="15"
-                Background="{Binding LingualStatus, Converter={StaticResource StatusToBrush}}"
-                BorderBrush="Black" BorderThickness="1,0,1,1"
-                Cursor="Hand">
-            <Button Command="{Binding SurfaceClickCommand}" CommandParameter="Lingual" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"/>
+        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource SurfaceBorderStyle}"
+                Background="{Binding LingualCondition, Converter={StaticResource CondToColor}}">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseLeftButtonDown">
+                    <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Lingual"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Rectangle Fill="{Binding LingualRestoration, Converter={StaticResource RestToColor}}"
+                       Visibility="{Binding LingualRestoration, Converter={StaticResource RestToVis}}"/>
         </Border>
 
-        <TextBlock Text="{Binding ToothNumber}" Grid.Row="0" Grid.Column="0"
-                   HorizontalAlignment="Left" VerticalAlignment="Top"
-                   Margin="2" FontWeight="Bold" IsHitTestVisible="False"/>
     </Grid>
 </UserControl>

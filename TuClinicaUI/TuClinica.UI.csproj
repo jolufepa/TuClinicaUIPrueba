@@ -42,7 +42,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
-    <ProjectReference Include="..\TuClinica.DataAccsess\TuClinica.DataAccsess.csproj" />
+    <ProjectReference Include="..\TuClinica.DataAccess\TuClinica.DataAccess.csproj" />
     <ProjectReference Include="..\TuClinica.Services\TuClinica.Services.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -22,18 +22,18 @@ namespace TuClinica.UI.Views.Controls
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ToothStatus status)
+            if (value is ToothRestoration status)
             {
                 return status switch
                 {
-                    ToothStatus.Sano => Brushes.White,
-                    ToothStatus.Caries => Brushes.Red,
-                    ToothStatus.Obturacion => Brushes.Blue,
-                    ToothStatus.ExtraccionIndicada => Brushes.Black,
-                    ToothStatus.Ausente => Brushes.LightGray,
-                    ToothStatus.Corona => Brushes.Gold,
-                    ToothStatus.Implante => Brushes.Purple,
-                    ToothStatus.Endodoncia => Brushes.Orange,
+                    ToothRestoration.Sano => Brushes.White,
+                    ToothRestoration.Caries => Brushes.Red,
+                    ToothRestoration.Obturacion => Brushes.Blue,
+                    ToothRestoration.ExtraccionIndicada => Brushes.Black,
+                    ToothRestoration.Ausente => Brushes.LightGray,
+                    ToothRestoration.Corona => Brushes.Gold,
+                    ToothRestoration.Implante => Brushes.Purple,
+                    ToothRestoration.Endodoncia => Brushes.Orange,
                     _ => Brushes.Transparent
                 };
             }

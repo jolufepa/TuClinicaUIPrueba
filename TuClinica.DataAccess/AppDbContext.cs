@@ -1,4 +1,4 @@
-﻿// En: TuClinica.DataAccsess/AppDbContext.cs
+﻿// En: TuClinica.DataAccess/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking; // Para ChangeTracker
 using System;                                     // Para IServiceProvider

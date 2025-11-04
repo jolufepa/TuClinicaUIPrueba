@@ -8,16 +8,17 @@ namespace TuClinica.UI.Views
 {
     public partial class TreatmentPriceDialog : MetroWindow
     {
-        public ToothStatus? SelectedStatus { get; private set; }
+        public ToothRestoration? SelectedStatus { get; private set; }
+        public ToothRestoration? SelectedRestoration { get; set; }
         public decimal Price { get; private set; }
-
+        public int SelectedTreatmentId { get; set; }
         public TreatmentPriceDialog()
         {
             InitializeComponent();
 
             // Cargar el ComboBox con los valores del enum ToothStatus
-            TreatmentComboBox.ItemsSource = Enum.GetValues(typeof(ToothStatus))
-                                                .Cast<ToothStatus>()
+            TreatmentComboBox.ItemsSource = Enum.GetValues(typeof(ToothRestoration))
+                                                .Cast<ToothRestoration>()
                                                 .ToList();
             TreatmentComboBox.SelectedIndex = 0;
         }
@@ -30,7 +31,7 @@ namespace TuClinica.UI.Views
                 return;
             }
 
-            SelectedStatus = (ToothStatus)TreatmentComboBox.SelectedItem;
+            SelectedStatus = (ToothRestoration)TreatmentComboBox.SelectedItem;
             Price = (decimal)PriceNumericUpDown.Value;
 
             this.DialogResult = true;

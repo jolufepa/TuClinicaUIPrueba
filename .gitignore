@@ -361,3 +361,13 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Ignora la clave privada de generación de licencias (¡CRÍTICO!)
+PrivateKey.xml
+*.pfx
+
+# Ignora los archivos de base de datos local y su clave
+*.db
+*.key
+
+# Ignora las salidas del ofuscador
+Confused/

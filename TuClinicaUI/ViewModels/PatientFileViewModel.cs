@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +12,6 @@ using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
-using TuClinica.DataAccess.Repositories;
 using TuClinica.UI.Messages;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
@@ -63,9 +63,11 @@ namespace TuClinica.UI.ViewModels
         private Payment? _selectedPayment; // Pago no asignado seleccionado
         [ObservableProperty]
         private decimal _amountToAllocate; // Monto a asignar
+
+        // REINCORPORACIÓN MANUAL DE PROPIEDAD Y SU CAMBIO DE ESTADO
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(DeleteClinicalEntryCommand))] // Notifica al nuevo comando
         private ClinicalEntry? _selectedHistoryEntry;
+
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
         [ObservableProperty]
         private Treatment? _selectedManualTreatment; // El tratamiento de la lista
@@ -74,8 +76,13 @@ namespace TuClinica.UI.ViewModels
 
         [ObservableProperty]
         private decimal _manualChargePrice; // El precio
+
+        // DECLARACIÓN MANUAL DE COMANDOS
         public IAsyncRelayCommand DeleteClinicalEntryCommand { get; }
         public IAsyncRelayCommand RegisterManualChargeAsyncCommand { get; }
+
+        [ObservableProperty]
+        private bool _isPatientDataReadOnly = true;
 
 
         public PatientFileViewModel(
@@ -100,11 +107,11 @@ namespace TuClinica.UI.ViewModels
 
             // Escuchar mensajes del OdontogramViewModel
             WeakReferenceMessenger.Default.Register<RegisterTreatmentMessage>(this);
-            DeleteClinicalEntryCommand = new AsyncRelayCommand(DeleteClinicalEntryAsync, () => SelectedHistoryEntry != null);
-            RegisterManualChargeAsyncCommand = new AsyncRelayCommand(RegisterManualChargeAsync);
-        }        
-        
 
+            // INICIALIZACIÓN MANUAL DE COMANDOS (para mantener la estructura manual)
+            DeleteClinicalEntryCommand = new AsyncRelayCommand(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
+            RegisterManualChargeAsyncCommand = new AsyncRelayCommand(RegisterManualChargeAsync);
+        }
 
         private void InitializeOdontogram()
         {
@@ -122,8 +129,6 @@ namespace TuClinica.UI.ViewModels
         /// <summary>
         /// Método principal para cargar o refrescar TODOS los datos de la ficha.
         /// </summary>
-        // EN: TuClinicaUI/ViewModels/PatientFileViewModel.cs
-
         public async Task LoadPatient(Patient patient)
         {
             try
@@ -185,72 +190,141 @@ namespace TuClinica.UI.ViewModels
 
         /// <summary>
         /// "Reproduce" todo el historial clínico para colorear el odontograma maestro.
+        /// (Lógica corregida para usar Condition y Restoration y evitar CS1061)
         /// </summary>
         private void CalculateFinalOdontogramState()
         {
-            // 1. Resetear odontograma a "Sano"
+            // 1. Resetear odontograma a "Sano" (Condición) y "Ninguna" (Restauración)
             foreach (var tooth in Odontogram)
             {
-                tooth.FullStatus = ToothStatus.Sano;
-                tooth.OclusalStatus = ToothStatus.Sano;
-                // ... resetear todas las superficies
+                // Resetear Condición
+                tooth.FullCondition = ToothCondition.Sano;
+                tooth.OclusalCondition = ToothCondition.Sano;
+                tooth.MesialCondition = ToothCondition.Sano;
+                tooth.DistalCondition = ToothCondition.Sano;
+                tooth.VestibularCondition = ToothCondition.Sano;
+                tooth.LingualCondition = ToothCondition.Sano;
+
+                // Resetear Restauración
+                tooth.FullRestoration = ToothRestoration.Ninguna;
+                tooth.OclusalRestoration = ToothRestoration.Ninguna;
+                tooth.MesialRestoration = ToothRestoration.Ninguna;
+                tooth.DistalRestoration = ToothRestoration.Ninguna;
+                tooth.VestibularRestoration = ToothRestoration.Ninguna;
+                tooth.LingualRestoration = ToothRestoration.Ninguna;
             }
 
             // 2. "Reproducir" historial
             var allTreatments = VisitHistory
                 .SelectMany(v => v.TreatmentsPerformed)
-                .OrderBy(t => t.ClinicalEntry.VisitDate); // Ordenar por fecha
+                .OrderBy(t => t.ClinicalEntry!.VisitDate); // Usar ClinicalEntry! si es seguro que no es null
 
             foreach (var treatment in allTreatments)
             {
                 var toothVM = Odontogram.FirstOrDefault(t => t.ToothNumber == treatment.ToothNumber);
-                if (toothVM != null)
+                if (toothVM == null) continue;
+
+                // **Lógica de mapeo TEMPORAL para COMPILACIÓN y estructura inicial**
+                // Asume que si hay un TreatmentId, el resultado es una Obturación.
+                ToothRestoration restoredState = MapTreatmentToRestoration(treatment.TreatmentId);
+
+                // Aplicar la restauración (Obturación, Corona, etc.)
+                ApplyRestorationToToothVM(toothVM, treatment.Surfaces, restoredState);
+
+                // Si el tratamiento es una restauración, asumimos que elimina la patología.
+                if (restoredState != ToothRestoration.Ninguna)
                 {
-                    // Lógica simple: el último tratamiento gana
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Completo))
-                        toothVM.FullStatus = treatment.TreatmentPerformed;
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Oclusal))
-                        toothVM.OclusalStatus = treatment.TreatmentPerformed;
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Mesial))
-                        toothVM.MesialStatus = treatment.TreatmentPerformed;
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Distal))
-                        toothVM.DistalStatus = treatment.TreatmentPerformed;
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Vestibular))
-                        toothVM.VestibularStatus = treatment.TreatmentPerformed;
-                    if (treatment.Surfaces.HasFlag(ToothSurface.Lingual))
-                        toothVM.LingualStatus = treatment.TreatmentPerformed;
+                    ApplyConditionToToothVM(toothVM, treatment.Surfaces, ToothCondition.Sano);
                 }
             }
         }
 
+        // --- FUNCIONES AUXILIARES DE MAPEO Y APLICACIÓN ---
+
+        /// <summary>
+        /// Función temporal para mapear TreatmentId a ToothRestoration.
+        /// </summary>
+        private ToothRestoration MapTreatmentToRestoration(int treatmentId)
+        {
+            // Lógica simple: Si existe ID, es una Obturación para fines de compilación.
+            if (treatmentId > 0) return ToothRestoration.Obturacion;
+            return ToothRestoration.Ninguna;
+        }
+
+        private void ApplyRestorationToToothVM(ToothViewModel toothVM, ToothSurface surfaces, ToothRestoration restoredState)
+        {
+            if (surfaces.HasFlag(ToothSurface.Completo)) toothVM.FullRestoration = restoredState;
+            if (surfaces.HasFlag(ToothSurface.Oclusal)) toothVM.OclusalRestoration = restoredState;
+            if (surfaces.HasFlag(ToothSurface.Mesial)) toothVM.MesialRestoration = restoredState;
+            if (surfaces.HasFlag(ToothSurface.Distal)) toothVM.DistalRestoration = restoredState;
+            if (surfaces.HasFlag(ToothSurface.Vestibular)) toothVM.VestibularRestoration = restoredState;
+            if (surfaces.HasFlag(ToothSurface.Lingual)) toothVM.LingualRestoration = restoredState;
+        }
+
+        private void ApplyConditionToToothVM(ToothViewModel toothVM, ToothSurface surfaces, ToothCondition condition)
+        {
+            if (surfaces.HasFlag(ToothSurface.Completo)) toothVM.FullCondition = condition;
+            if (surfaces.HasFlag(ToothSurface.Oclusal)) toothVM.OclusalCondition = condition;
+            if (surfaces.HasFlag(ToothSurface.Mesial)) toothVM.MesialCondition = condition;
+            if (surfaces.HasFlag(ToothSurface.Distal)) toothVM.DistalCondition = condition;
+            if (surfaces.HasFlag(ToothSurface.Vestibular)) toothVM.VestibularCondition = condition;
+            if (surfaces.HasFlag(ToothSurface.Lingual)) toothVM.LingualCondition = condition;
+        }
+        // -----------------------------------------------------------------------------------
+
+        partial void OnSelectedHistoryEntryChanged(ClinicalEntry? value)
+        {
+            // Notificar que la habilidad para ejecutar el comando ha cambiado
+            DeleteClinicalEntryCommand.NotifyCanExecuteChanged();
+        }
+
         /// <summary>
         /// Recibe el mensaje del OdontogramViewModel para crear un nuevo cargo.
+        /// (MODIFICADO para recibir TreatmentId y RestorationResult)
         /// </summary>
         public async void Receive(RegisterTreatmentMessage message)
         {
-            await RegisterTreatmentAsync(message.ToothNumber, message.Surface, message.Status, message.Price);
+            // Llama a la lógica de guardado con los nuevos campos
+            await RegisterTreatmentAsync(
+                message.ToothNumber,
+                message.Surface,
+                message.TreatmentId,
+                message.RestorationResult,
+                message.Price);
         }
 
         /// <summary>
         /// Lógica de negocio para guardar un nuevo tratamiento en la BD.
+        /// (MODIFICADO para usar TreatmentId del catálogo)
         /// </summary>
-        private async Task RegisterTreatmentAsync(int toothNum, ToothSurface surface, ToothStatus status, decimal price)
+        private async Task RegisterTreatmentAsync(
+            int toothNum,
+            ToothSurface surface,
+            int treatmentId, // <--- ID del catálogo de Treatment
+            ToothRestoration restorationResult, // <--- Resultado visual
+            decimal price)
         {
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
-            // ENVOLVEMOS TODA LA LÓGICA DE GUARDADO DENTRO DEL SCOPE
+            var selectedTreatment = AvailableTreatments.FirstOrDefault(t => t.Id == treatmentId);
+            if (selectedTreatment == null)
+            {
+                _dialogService.ShowMessage($"No se encontró el tratamiento con ID {treatmentId}.", "Error de Catálogo");
+                return;
+            }
+
             using (var scope = _serviceProvider.CreateScope())
             {
                 try
                 {
-                    // Obtenemos un repositorio "fresco"
+                    // Obtener un repositorio "fresco"
                     var clinicalRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
 
                     var toothTreatment = new ToothTreatment
                     {
                         ToothNumber = toothNum,
                         Surfaces = surface,
-                        TreatmentPerformed = status,
+                        TreatmentId = selectedTreatment.Id, // <--- USA EL ID DEL CATÁLOGO
                         Price = price
                     };
 
@@ -259,7 +333,8 @@ namespace TuClinica.UI.ViewModels
                         PatientId = CurrentPatient.Id,
                         DoctorId = _authService.CurrentUser.Id,
                         VisitDate = DateTime.Now,
-                        Diagnosis = $"Tratamiento: {status} en diente {toothNum}",
+                        // Usa el nombre del Treatment para el Diagnosis (Resuelve CS1061)
+                        Diagnosis = $"Tratamiento: {selectedTreatment.Name} en diente {toothNum} ({surface})",
                         TotalCost = price,
                         TreatmentsPerformed = new List<ToothTreatment> { toothTreatment }
                     };
@@ -275,7 +350,7 @@ namespace TuClinica.UI.ViewModels
                 {
                     _dialogService.ShowMessage($"Error al registrar el tratamiento: {ex.Message}", "Error BD");
                 }
-            } // <-- El scope se cierra aquí, DESPUÉS de guardar.
+            }
         }
 
         /// <summary>
@@ -400,6 +475,7 @@ namespace TuClinica.UI.ViewModels
         {
             AutoFillAmountToAllocate();
             AllocatePaymentCommand.NotifyCanExecuteChanged();
+            DeleteClinicalEntryCommand.NotifyCanExecuteChanged();
         }
 
         partial void OnSelectedPaymentChanged(Payment? value)
@@ -424,16 +500,13 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        [ObservableProperty]
-        private bool _isPatientDataReadOnly = true;
-
         [RelayCommand]
         private void ToggleEditPatientData()
         {
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
         }
 
-        // ¡¡QUITA el atributo [RelayCommand] de esta línea!!
+        [RelayCommand]
         private async Task RegisterManualChargeAsync()
         {
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
@@ -475,6 +548,7 @@ namespace TuClinica.UI.ViewModels
                 }
             }
         }
+
         private async Task LoadAvailableTreatments()
         {
             AvailableTreatments.Clear();
@@ -484,6 +558,7 @@ namespace TuClinica.UI.ViewModels
                 AvailableTreatments.Add(treatment);
             }
         }
+
         [RelayCommand]
         private async Task SavePatientDataAsync()
         {
@@ -492,7 +567,6 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 // Creamos un "scope" temporal para obtener servicios Scoped (como el repositorio)
-                // desde nuestro servicio Singleton (este ViewModel).
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
@@ -532,7 +606,8 @@ namespace TuClinica.UI.ViewModels
                 ManualChargePrice = value.DefaultPrice;
             }
         }
-        // --- AÑADE ESTE MÉTODO NUEVO ---
+
+        // LÓGICA MANUAL DE COMANDO (PARA EVITAR PROBLEMAS CON RELAYCOMMAND)
         private async Task DeleteClinicalEntryAsync()
         {
             if (SelectedHistoryEntry == null) return;
@@ -551,6 +626,7 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 // 2. Llamar al repositorio para hacer el borrado transaccional
+                // Se asume que IClinicalEntryRepository tiene este método
                 bool success = await _clinicalEntryRepo.DeleteEntryAndAllocationsAsync(SelectedHistoryEntry.Id);
 
                 if (success)
@@ -569,6 +645,12 @@ namespace TuClinica.UI.ViewModels
             {
                 _dialogService.ShowMessage($"Error al eliminar el cargo: {ex.Message}", "Error de Base de Datos");
             }
+        }
+
+        // FUNCIÓN CanExecute REQUERIDA POR EL COMANDO MANUAL
+        private bool CanDeleteClinicalEntry()
+        {
+            return SelectedHistoryEntry != null;
         }
     }
 }

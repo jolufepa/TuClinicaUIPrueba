@@ -39,62 +39,94 @@ namespace TuClinica.UI.ViewModels
                 // Copiamos el estado para no modificar el maestro directamente
                 var copy = new ToothViewModel(tooth.ToothNumber)
                 {
-                    FullStatus = tooth.FullStatus,
-                    OclusalStatus = tooth.OclusalStatus,
-                    MesialStatus = tooth.MesialStatus,
-                    DistalStatus = tooth.DistalStatus,
-                    VestibularStatus = tooth.VestibularStatus,
-                    LingualStatus = tooth.LingualStatus
+                    // Propiedades de Condición
+                    FullCondition = tooth.FullCondition,
+                    OclusalCondition = tooth.OclusalCondition,
+                    MesialCondition = tooth.MesialCondition,
+                    DistalCondition = tooth.DistalCondition,
+                    VestibularCondition = tooth.VestibularCondition,
+                    LingualCondition = tooth.LingualCondition,
+
+                    // Propiedades de Restauración
+                    FullRestoration = tooth.FullRestoration,
+                    OclusalRestoration = tooth.OclusalRestoration,
+                    MesialRestoration = tooth.MesialRestoration,
+                    DistalRestoration = tooth.DistalRestoration,
+                    VestibularRestoration = tooth.VestibularRestoration,
+                    LingualRestoration = tooth.LingualRestoration
                 };
                 Odontogram.Add(copy);
             }
         }
 
         /// <summary>
-        /// Recibe el clic de un ToothViewModel.
+        /// Recibe el clic de un ToothViewModel y gestiona la apertura del diálogo y la actualización de la UI.
         /// </summary>
         public void Receive(SurfaceClickedMessage message)
         {
-            // 1. Abrir diálogo para preguntar qué tratamiento y precio
-            var (ok, status, price) = _dialogService.ShowTreatmentPriceDialog();
+            // RESOLUCIÓN CS0029 (Línea 69): Ahora el método tiene 4 elementos.
+            // Usamos 'price' como nullable (decimal?) y 'restoration' como RestorationResult.
+            var (ok, treatmentId, restoration, price) = _dialogService.ShowTreatmentPriceDialog();
 
-            if (ok && status.HasValue)
+            // Chequeamos todos los tipos nullable.
+            if (ok && treatmentId.HasValue && restoration.HasValue && price.HasValue)
             {
-                // 2. Enviar mensaje al PatientFileViewModel para que registre el cargo en la BD
+                // 2. Enviar mensaje al PatientFileViewModel
                 WeakReferenceMessenger.Default.Send(new RegisterTreatmentMessage(
                     message.ToothNumber,
-                    message.Value, // La superficie
-                    status.Value,  // El tratamiento
-                    price
+                    message.Value, // La superficie (ToothSurface)
+                    treatmentId.Value, // int? -> int
+                    restoration.Value, // ToothRestoration? -> ToothRestoration
+                    price.Value // decimal? -> decimal
                 ));
 
                 // 3. Actualizar nuestra UI local para feedback instantáneo
                 var toothToUpdate = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
                 if (toothToUpdate != null)
                 {
-                    UpdateToothSurface(toothToUpdate, message.Value, status.Value);
+                    UpdateToothSurfaceRestoration(toothToUpdate, message.Value, restoration.Value);
+                    UpdateToothSurfaceCondition(toothToUpdate, message.Value, ToothCondition.Sano);
                 }
             }
         }
 
-        private void UpdateToothSurface(ToothViewModel tooth, ToothSurface surface, ToothStatus status)
+        // --- FUNCIONES DE ACTUALIZACIÓN DE ESTADO ---
+
+        /// <summary>
+        /// Actualiza la propiedad de RESTAURACIÓN de la superficie (capa superior visual).
+        /// </summary>
+        private void UpdateToothSurfaceRestoration(ToothViewModel tooth, ToothSurface surface, ToothRestoration restoration)
         {
-            // Lógica para actualizar la superficie correcta en la UI
             switch (surface)
             {
-                case ToothSurface.Oclusal: tooth.OclusalStatus = status; break;
-                case ToothSurface.Mesial: tooth.MesialStatus = status; break;
-                case ToothSurface.Distal: tooth.DistalStatus = status; break;
-                case ToothSurface.Vestibular: tooth.VestibularStatus = status; break;
-                case ToothSurface.Lingual: tooth.LingualStatus = status; break;
-                case ToothSurface.Completo: tooth.FullStatus = status; break;
+                case ToothSurface.Oclusal: tooth.OclusalRestoration = restoration; break;
+                case ToothSurface.Mesial: tooth.MesialRestoration = restoration; break;
+                case ToothSurface.Distal: tooth.DistalRestoration = restoration; break;
+                case ToothSurface.Vestibular: tooth.VestibularRestoration = restoration; break;
+                case ToothSurface.Lingual: tooth.LingualRestoration = restoration; break;
+                case ToothSurface.Completo: tooth.FullRestoration = restoration; break;
             }
         }
 
+        /// <summary>
+        /// Actualiza la propiedad de CONDICIÓN de la superficie (capa de fondo visual).
+        /// </summary>
+        private void UpdateToothSurfaceCondition(ToothViewModel tooth, ToothSurface surface, ToothCondition condition)
+        {
+            switch (surface)
+            {
+                case ToothSurface.Oclusal: tooth.OclusalCondition = condition; break;
+                case ToothSurface.Mesial: tooth.MesialCondition = condition; break;
+                case ToothSurface.Distal: tooth.DistalCondition = condition; break;
+                case ToothSurface.Vestibular: tooth.VestibularCondition = condition; break;
+                case ToothSurface.Lingual: tooth.LingualCondition = condition; break;
+                case ToothSurface.Completo: tooth.FullCondition = condition; break;
+            }
+        }
         // [RelayCommand]
         // private void PrintOdontogram()
         // {
-        //     // _pdfService.PrintOdontogram(Odontogram);
+        //    // _pdfService.PrintOdontogram(Odontogram);
         // }
     }
 }

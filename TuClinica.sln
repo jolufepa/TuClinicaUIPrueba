@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36616.10
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.Core", "TuClinica.Core\TuClinica.Core.csproj", "{8B20C57C-4C11-4CA4-A0C7-344171B0A6F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.DataAccsess", "TuClinica.DataAccsess\TuClinica.DataAccsess.csproj", "{631E0431-AC83-41A9-A04F-4721F73B5D47}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.DataAccess", "TuClinica.DataAccess\TuClinica.DataAccess.csproj", "{631E0431-AC83-41A9-A04F-4721F73B5D47}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuClinica.Services", "TuClinica.Services\TuClinica.Services.csproj", "{DBAE2A35-9E4D-4A42-A473-EC25871FC876}"
 EndProject

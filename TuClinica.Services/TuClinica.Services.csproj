@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
-    <ProjectReference Include="..\TuClinica.DataAccsess\TuClinica.DataAccsess.csproj" />
+    <ProjectReference Include="..\TuClinica.DataAccess\TuClinica.DataAccess.csproj" />
   </ItemGroup>
 <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />

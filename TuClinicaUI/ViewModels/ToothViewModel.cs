@@ -10,18 +10,33 @@ namespace TuClinica.UI.ViewModels
     {
         public int ToothNumber { get; }
 
+        // --- 1. Propiedades para la CONDICIÓN (El color de fondo o patología) ---
         [ObservableProperty]
-        private ToothStatus _fullStatus = ToothStatus.Sano;
+        private ToothCondition _fullCondition = ToothCondition.Sano; // Para estados globales
         [ObservableProperty]
-        private ToothStatus _oclusalStatus = ToothStatus.Sano;
+        private ToothCondition _oclusalCondition = ToothCondition.Sano;
         [ObservableProperty]
-        private ToothStatus _mesialStatus = ToothStatus.Sano;
+        private ToothCondition _mesialCondition = ToothCondition.Sano;
         [ObservableProperty]
-        private ToothStatus _distalStatus = ToothStatus.Sano;
+        private ToothCondition _distalCondition = ToothCondition.Sano;
         [ObservableProperty]
-        private ToothStatus _vestibularStatus = ToothStatus.Sano;
+        private ToothCondition _vestibularCondition = ToothCondition.Sano;
         [ObservableProperty]
-        private ToothStatus _lingualStatus = ToothStatus.Sano;
+        private ToothCondition _lingualCondition = ToothCondition.Sano;
+
+        // --- 2. Propiedades para la RESTAURACIÓN (El color del tratamiento realizado) ---
+        [ObservableProperty]
+        private ToothRestoration _fullRestoration = ToothRestoration.Ninguna;
+        [ObservableProperty]
+        private ToothRestoration _oclusalRestoration = ToothRestoration.Ninguna;
+        [ObservableProperty]
+        private ToothRestoration _mesialRestoration = ToothRestoration.Ninguna;
+        [ObservableProperty]
+        private ToothRestoration _distalRestoration = ToothRestoration.Ninguna;
+        [ObservableProperty]
+        private ToothRestoration _vestibularRestoration = ToothRestoration.Ninguna;
+        [ObservableProperty]
+        private ToothRestoration _lingualRestoration = ToothRestoration.Ninguna;
 
         public ToothViewModel(int toothNumber)
         {

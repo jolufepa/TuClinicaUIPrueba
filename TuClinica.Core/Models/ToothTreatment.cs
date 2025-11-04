@@ -18,10 +18,17 @@ namespace TuClinica.Core.Models
         public ClinicalEntry? ClinicalEntry { get; set; }
 
         public int ToothNumber { get; set; } // Ej: 11, 12, ... 48
-        public ToothSurface Surfaces { get; set; }
-        public ToothStatus TreatmentPerformed { get; set; }
+        
+        public ToothRestoration TreatmentPerformed { get; set; }
 
         [Column(TypeName = "decimal(18, 2)")]
         public decimal Price { get; set; }
+
+        public int TreatmentId { get; set; }
+        [ForeignKey("TreatmentId")]
+        public Treatment? Treatment { get; set; } // Referencia al catálogo de tratamientos
+
+        // ToothSurface se mantiene como Flags.
+        public ToothSurface Surfaces { get; set; }
     }
 }
