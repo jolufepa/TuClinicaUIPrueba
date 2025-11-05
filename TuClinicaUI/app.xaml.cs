@@ -268,9 +268,9 @@ namespace TuClinica.UI
                     
                     services.AddSingleton<PatientFileViewModel>();
                     services.AddTransient<OdontogramViewModel>();
+                    services.AddSingleton<HomeViewModel>();
 
 
-                  
                     // *******************************************************************
 
                     // Vistas

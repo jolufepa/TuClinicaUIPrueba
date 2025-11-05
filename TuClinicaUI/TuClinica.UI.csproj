@@ -48,6 +48,8 @@
     <ProjectReference Include="..\TuClinica.DataAccess\TuClinica.DataAccess.csproj" />
     <ProjectReference Include="..\TuClinica.Services\TuClinica.Services.csproj" />
   </ItemGroup>
+  
+  <!-- ESTE BLOQUE AHORA SOLO CONTIENE PDFS QUE DEBEN SER COPIADOS, NO IMÁGENES -->
   <ItemGroup>
     <None Update="Assets\PlantillaReceta.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -55,6 +57,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Mover ClinicPresentation.png y Logo.png aquí -->
+    <Resource Include="Assets\ClinicPresentation.png" /> 
+    <Resource Include="Assets\Logo.png" />
     <Resource Include="Assets\Logo2.png" />
     <Resource Include="Assets\Logo_login.png" />
   </ItemGroup>
@@ -63,9 +68,9 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Assets\Logo.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    
+    <!-- ELIMINADO: Assets\Logo.png (Movido a Resource) -->
+    
     <None Update="Assets\PlantillaReceta.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

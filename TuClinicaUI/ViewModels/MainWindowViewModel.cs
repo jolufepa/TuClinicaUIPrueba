@@ -19,6 +19,7 @@ namespace TuClinica.UI.ViewModels
 
         // 1. Guardamos una referencia al VM singleton
         private readonly PatientFileViewModel _patientFileViewModel;
+        private readonly HomeViewModel _homeViewModel;
 
         [ObservableProperty]
         private bool _isAdminMenuVisible;
@@ -37,11 +38,14 @@ namespace TuClinica.UI.ViewModels
         // 2. Modifica el constructor
         public MainWindowViewModel(IAuthService authService,
                                    IServiceProvider serviceProvider,
-                                   PatientFileViewModel patientFileViewModel) // <-- AÑADE ESTA INYECCIÓN
+                                   PatientFileViewModel patientFileViewModel,
+                                   HomeViewModel homeViewModel) 
         {
             _authService = authService;
             _serviceProvider = serviceProvider;
-            _patientFileViewModel = patientFileViewModel; // <-- AÑADE ESTA ASIGNACIÓN
+            _patientFileViewModel = patientFileViewModel; 
+            
+            _homeViewModel = homeViewModel;
             LoadCurrentUserAndSetVisibility();
 
             try
@@ -52,12 +56,14 @@ namespace TuClinica.UI.ViewModels
                 // 4. Le pasamos el comando de navegación al PatientsViewModel
                 patientsVM.SetNavigationCommand(NavigateToPatientFileCommand);
 
-                SelectedViewModel = patientsVM;
+                SelectedViewModel = _homeViewModel;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error crítico al cargar la vista inicial:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+
+            _homeViewModel = homeViewModel;
         }
 
         private void LoadCurrentUserAndSetVisibility()

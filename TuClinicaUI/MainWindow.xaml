@@ -27,7 +27,9 @@
             <DataTemplate DataType="{x:Type viewmodels:PatientsViewModel}">
                 <views:PatientsView/>
             </DataTemplate>
-
+            <DataTemplate DataType="{x:Type viewmodels:HomeViewModel}">
+                <views:HomeView/>
+            </DataTemplate>
             <!-- Vista de Presupuestos -->
             <DataTemplate DataType="{x:Type viewmodels:BudgetsViewModel}">
                 <views:BudgetsView/>
