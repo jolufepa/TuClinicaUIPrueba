@@ -168,34 +168,33 @@ namespace TuClinica.UI.ViewModels
         /// </summary>
         public async Task LoadPatient(Patient patient)
         {
-            MessageBox.Show($"DEBUG: Entré en LoadPatient. ¿Patient es nulo? {patient == null}. ID: {patient?.Id}");
+            
 
             if (_isLoading)
             {
-                MessageBox.Show("DEBUG: Saliendo de LoadPatient porque ya se está cargando.");
+               
                 return;
             }
 
             try
             {
                 _isLoading = true;
-                MessageBox.Show("DEBUG: IsLoading puesto a true.");
+                
 
                 CurrentPatient = patient;
-                MessageBox.Show($"DEBUG: CurrentPatient asignado. ID: {CurrentPatient?.Id}");
+               
 
-                MessageBox.Show("DEBUG: Voy a iniciar las tareas de base de datos.");
                 var clinicalHistoryTask = _clinicalEntryRepo.GetHistoryForPatientAsync(patient.Id);
                 var paymentHistoryTask = _paymentRepo.GetPaymentsForPatientAsync(patient.Id);
                 var treatmentsTask = LoadAvailableTreatments();
 
-                MessageBox.Show("DEBUG: Tareas creadas. Voy a esperar a que terminen (Task.WhenAll).");
+                
                 await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask);
-                MessageBox.Show("DEBUG: Task.WhenAll completado.");
+                
 
                 var clinicalHistory = (await clinicalHistoryTask).ToList();
                 var paymentHistory = (await paymentHistoryTask).ToList();
-                MessageBox.Show($"DEBUG: Historiales convertidos a lista. Clínico: {clinicalHistory.Count}, Pagos: {paymentHistory.Count}");
+                
 
                 // ... El resto del código lo dejamos igual por ahora ...
                 // Si el error aparece después de este punto, me lo dices.
@@ -203,13 +202,13 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"¡ERROR! Excepción en LoadPatient: {ex.Message}\n\nStackTrace:\n{ex.StackTrace}", "Error de Depuración");
+                
                 _dialogService.ShowMessage($"Error al cargar ficha: {ex.Message}", "Error");
             }
             finally
             {
                 _isLoading = false;
-                MessageBox.Show("DEBUG: IsLoading puesto a false en el bloque finally.");
+                
             }
         }
 

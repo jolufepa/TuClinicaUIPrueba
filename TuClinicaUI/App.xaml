@@ -10,14 +10,17 @@
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
+                
             </ResourceDictionary.MergedDictionaries>
 
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <converters:DecimalToColorConverter x:Key="SaldoColorConverter" />
 
             <converters:ConditionToColorConverter x:Key="CondToColor" />
             <converters:RestorationToColorConverter x:Key="RestToColor" />
             <converters:RestorationToVisibilityConverter x:Key="RestToVis" />
+            <converters:IsGreaterThanZeroConverter x:Key="IsGreaterThanZeroConverter"/>
 
             <!-- EL PROBLEMA ESTABA EN EL ESPACIO EN BLANCO Y LA FALTA DE CIERRE DEL RESOURCE DICTIONARY -->
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>

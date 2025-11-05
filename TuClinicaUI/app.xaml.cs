@@ -265,21 +265,12 @@ namespace TuClinica.UI
                     services.AddTransient<LicenseViewModel>();
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
-                    services.AddTransient<PatientFileViewModel>();
+                    
+                    services.AddSingleton<PatientFileViewModel>();
                     services.AddTransient<OdontogramViewModel>();
 
 
-                    // *******************************************************************
-                    // *** AQUÍ ESTÁN LOS CAMBIOS PARA LA NUEVA FICHA DE PACIENTE ***
-                    // *******************************************************************
-
-                    // 1. Añadimos el nuevo ViewModel de la ficha como Singleton
-                    services.AddTransient<PatientFileViewModel>();
-
-                    // 2. Quitamos los ViewModels/Vistas de la antigua ventana modal
-                    // services.AddTransient<PatientDetailsViewModel>(); // <-- ELIMINADO
-                    // services.AddTransient<PatientDetailsDialog>();    // <-- ELIMINADO
-
+                  
                     // *******************************************************************
 
                     // Vistas

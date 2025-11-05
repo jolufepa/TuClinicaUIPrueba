@@ -103,17 +103,14 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // --- Log de Acceso (Lectura) ---
                 _activityLogService.LogAccessAsync(
                     entityType: "Patient",
                     entityId: SelectedPatient.Id,
                     details: $"Vio la ficha de: {SelectedPatient.PatientDisplayInfo}");
-                // --- Fin Log ---
 
-                // CAMBIO CLAVE: Esperamos a que LoadPatient termine COMPLETAMENTE
                 await _patientFileViewModel.LoadPatient(SelectedPatient);
 
-                // SOLO AHORA, cuando los datos ya están cargados, navegamos
+                
                 _navigateToPatientFileCommand.Execute(null);
             }
             catch (Exception ex)
