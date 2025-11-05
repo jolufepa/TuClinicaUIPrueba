@@ -2,225 +2,235 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
-             xmlns:local="clr-namespace:TuClinica.UI">
+             xmlns:converters="clr-namespace:TuClinica.UI.Converters" 
+             xmlns:controls="clr-namespace:TuClinica.UI.Views.Controls">
 
-    <!-- RECURSOS -->
+    <!-- RECURSOS CORREGIDOS -->
     <UserControl.Resources>
-        <local:DecimalToColorConverter x:Key="SaldoColorConverter"/>
-        <local:IsGreaterThanZeroConverter x:Key="IsGreaterThanZeroConverter"/>
+        <!-- Convertidores que ya tenías -->
+        <converters:DecimalToColorConverter x:Key="SaldoColorConverter"/>
+        <converters:IsGreaterThanZeroConverter x:Key="IsGreaterThanZeroConverter"/>
+
+        <!-- CAMBIO 1: Añadimos el convertidor que faltaba -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
 
-    <!-- LAYOUT PRINCIPAL -->
+    <!-- CAMBIO 2: Estructura del Grid principal corregida -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <!-- Header -->
-            <RowDefinition Height="*"/>
-            <!-- Contenido -->
-            <RowDefinition Height="Auto"/>
-            <!-- Footer -->
-        </Grid.RowDefinitions>
-
-        <!-- ==================== HEADER ==================== -->
-        <Grid Grid.Row="0" Background="#007ACC" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Column="0"
-                       Text="{Binding CurrentPatient.PatientDisplayInfo}"
-                       Foreground="White"
-                       FontSize="18"
-                       FontWeight="Bold"
-                       VerticalAlignment="Center"
-                       Margin="15,10"/>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
-                <TextBlock Text="SALDO TOTAL:" Foreground="White" FontWeight="SemiBold" Margin="0,0,5,0"/>
-                <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}'}"
-                           Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
-                           FontSize="18" FontWeight="Bold"/>
+        <!-- Grid del indicador de carga. Ahora es un hermano del contenido principal y ocupa todo el espacio. -->
+        <Grid Background="#80000000" 
+              Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="99">
+            <!-- ZIndex para que esté por encima -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" 
+                             Style="{StaticResource MahApps.Styles.ProgressBar.Circle}" 
+                             Width="50" Height="50" 
+                             Foreground="White"/>
+                <TextBlock Text="Cargando ficha del paciente..." 
+                           Foreground="White" 
+                           Margin="0,10,0,0" 
+                           HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
-        <!-- ==================== CONTENIDO: 3 COLUMNAS ==================== -->
-        <Grid Grid.Row="1" Margin="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.3*"/>
-                <!-- Acciones -->
-                <ColumnDefinition Width="2*"/>
-                <!-- Tabs -->
-                <ColumnDefinition Width="1*"/>
-                <!-- Registro rápido -->
-            </Grid.ColumnDefinitions>
+        <!-- Grid que contiene todo el contenido de la ficha. -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-            <!-- === COLUMNA 1: ACCIONES RÁPIDAS === -->
-            <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                <Button Content="Abrir Odontograma Interactivo"
-                        Command="{Binding OpenOdontogramWindowCommand}"
-                        Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                        Margin="0,0,0,8"/>
-                <Border Height="1" Background="#DDDDDD" Margin="0,5"/>
-                <Button Content="Nuevo Presupuesto" Margin="0,5,0,8"/>
-                <Button Content="Imprimir Historial" Margin="0,0,0,8"/>
-            </StackPanel>
+            <!-- Cabecera -->
+            <Grid Grid.Row="0" Background="#007ACC" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- === COLUMNA 2: TABS PRINCIPALES === -->
-            <mah:MetroTabControl Grid.Column="1" Margin="5,0">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding CurrentPatient.PatientDisplayInfo}"
+                           Foreground="White"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="15,10"/>
 
-                <!-- TAB CLÍNICO -->
-                <mah:MetroTabItem Header="Clínico">
-                    <local:OdontogramPreviewControl 
-                        DataContext="{Binding OdontogramPreviewVM}"
-                        Margin="5"/>
-                </mah:MetroTabItem>
-
-                <!-- TAB FINANCIERO -->
-                <mah:MetroTabItem Header="Financiero">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <!-- Búsqueda -->
-                            <RowDefinition Height="*"/>
-                            <!-- Tablas -->
-                            <RowDefinition Height="Auto"/>
-                            <!-- Paginación -->
-                        </Grid.RowDefinitions>
-
-                        <!-- BÚSQUEDA -->
-                        <TextBox Grid.Row="0"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 mah:TextBoxHelper.Watermark="Buscar por concepto, doctor, fecha..."
-                                 mah:TextBoxHelper.ClearTextButton="True"
-                                 Margin="10" FontSize="14"/>
-
-                        <!-- TABLAS -->
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Historial Clínico -->
-                            <GroupBox Grid.Column="0" Header="Historial Clínico" Margin="5">
-                                <DataGrid ItemsSource="{Binding FilteredVisitHistory}"
-                                          AutoGenerateColumns="False"
-                                          CanUserAddRows="False">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Fecha" 
-                                                            Binding="{Binding VisitDate, StringFormat='dd/MM/yy'}"
-                                                            Width="70"/>
-                                        <DataGridTextColumn Header="Doctor" 
-                                                            Binding="{Binding DoctorName}"
-                                                            Width="100"/>
-                                        <DataGridTextColumn Header="Diagnóstico" 
-                                                            Binding="{Binding Diagnosis}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="Costo" 
-                                                            Binding="{Binding TotalCost, StringFormat='{}{0:C}'}"
-                                                            Width="80"/>
-                                        <DataGridTextColumn Header="Saldo" 
-                                                            Binding="{Binding Balance, StringFormat='{}{0:C}'}"
-                                                            Width="80"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </GroupBox>
-
-                            <!-- Historial de Pagos -->
-                            <GroupBox Grid.Column="1" Header="Historial de Pagos" Margin="5">
-                                <DataGrid ItemsSource="{Binding FilteredPaymentHistory}"
-                                          AutoGenerateColumns="False"
-                                          CanUserAddRows="False">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Fecha" 
-                                                            Binding="{Binding PaymentDate, StringFormat='dd/MM/yy'}"
-                                                            Width="70"/>
-                                        <DataGridTextColumn Header="Método" 
-                                                            Binding="{Binding Method}"
-                                                            Width="90"/>
-                                        <DataGridTextColumn Header="Monto" 
-                                                            Binding="{Binding Amount, StringFormat='{}{0:C}'}"
-                                                            Width="90"/>
-                                        <DataGridTextColumn Header="No Asignado" 
-                                                            Binding="{Binding UnallocatedAmount, StringFormat='{}{0:C}'}"
-                                                            Width="100"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </GroupBox>
-                        </Grid>
-
-                        <!-- PAGINACIÓN -->
-                        <StackPanel Grid.Row="2" 
-                                    Orientation="Horizontal" 
-                                    HorizontalAlignment="Center"
-                                    Margin="10">
-                            <Button Content="Anterior"
-                                    Command="{Binding PreviousPageCommand}"
-                                    IsEnabled="{Binding CurrentPage, Converter={StaticResource IsGreaterThanZeroConverter}}"
-                                    Style="{StaticResource MahApps.Styles.Button.Square}"
-                                    Margin="0,0,10,0"/>
-
-                            <TextBlock Text="{Binding CurrentPage}" 
-                                       FontWeight="Bold" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,5,0"/>
-                            <TextBlock Text="de" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,5,0"/>
-                            <TextBlock Text="{Binding TotalPages}" 
-                                       FontWeight="Bold" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,10,0"/>
-
-                            <Button Content="Siguiente"
-                                    Command="{Binding NextPageCommand}"
-                                    IsEnabled="{Binding HasNextPage}"
-                                    Style="{StaticResource MahApps.Styles.Button.Square}"/>
-                        </StackPanel>
-                    </Grid>
-                </mah:MetroTabItem>
-            </mah:MetroTabControl>
-
-            <!-- === COLUMNA 3: REGISTRO RÁPIDO === -->
-            <GroupBox Grid.Column="2" Header="Registrar Cargo Rápido" Margin="10,0" Padding="10">
-                <StackPanel Margin="0,5,0,0">
-                    <ComboBox ItemsSource="{Binding AvailableTreatments}"
-                              DisplayMemberPath="Name"
-                              SelectedItem="{Binding SelectedManualTreatment}"
-                              mah:TextBoxHelper.Watermark="Selecciona tratamiento..."
-                              Margin="0,0,0,8"/>
-
-                    <TextBox Text="{Binding ManualChargeConcept}"
-                             mah:TextBoxHelper.Watermark="Concepto (opcional)"
-                             Margin="0,0,0,8"/>
-
-                    <mah:NumericUpDown Value="{Binding ManualChargePrice}"
-                                       Minimum="0"
-                                       Interval="0.01"
-                                       StringFormat="C"
-                                       Culture="es-ES"
-                                       Margin="0,0,0,12"/>
-
-                    <Button Content="Registrar Cargo"
-                            Command="{Binding RegisterManualChargeAsyncCommand}"
-                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                            IsEnabled="{Binding ManualChargePrice, Converter={StaticResource IsGreaterThanZeroConverter}}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
+                    <TextBlock Text="SALDO TOTAL:" Foreground="White" FontWeight="SemiBold" Margin="0,0,5,0"/>
+                    <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}'}"
+                               Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
+                               FontSize="18" FontWeight="Bold"/>
                 </StackPanel>
-            </GroupBox>
-        </Grid>
+            </Grid>
 
-        <!-- ==================== FOOTER ==================== -->
-        <StatusBar Grid.Row="2" Background="#F8F9FA" Padding="10,5">
-            <StatusBarItem>
-                <TextBlock Text="Listo" FontWeight="SemiBold"/>
-            </StatusBarItem>
-            <StatusBarItem HorizontalAlignment="Right">
-                <Button Content="Eliminar Cargo Seleccionado"
-                        Command="{Binding DeleteClinicalEntryAsyncCommand}"
-                        Background="#E74C3C"
-                        Foreground="White"/>
-            </StatusBarItem>
-        </StatusBar>
+            <!-- Contenido Principal -->
+            <Grid Grid.Row="1" Margin="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.3*"/>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Panel Izquierdo -->
+                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <Button Content="Abrir Odontograma Interactivo"
+                            Command="{Binding OpenOdontogramWindowCommand}"
+                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                            Margin="0,0,0,8"/>
+                    <Border Height="1" Background="#DDDDDD" Margin="0,5"/>
+                    <Button Content="Nuevo Presupuesto" Margin="0,5,0,8"/>
+                    <Button Content="Imprimir Historial" Margin="0,0,0,8"/>
+                </StackPanel>
+
+                <!-- Pestañas -->
+                <mah:MetroTabControl Grid.Column="1" Margin="5,0">
+                    <mah:MetroTabItem Header="Clínico">
+                        <controls:OdontogramPreviewControl 
+                            DataContext="{Binding OdontogramPreviewVM}"
+                            Margin="5"/>
+                    </mah:MetroTabItem>
+
+                    <mah:MetroTabItem Header="Financiero">
+                        <!-- (El contenido de la pestaña financiera se mantiene igual) -->
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBox Grid.Row="0"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     mah:TextBoxHelper.Watermark="Buscar por concepto, doctor, fecha..."
+                                     mah:TextBoxHelper.ClearTextButton="True"
+                                     Margin="10" FontSize="14"/>
+
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <GroupBox Grid.Column="0" Header="Historial Clínico" Margin="5">
+                                    <DataGrid ItemsSource="{Binding FilteredVisitHistory}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Fecha" 
+                                                               Binding="{Binding VisitDate, StringFormat='dd/MM/yy'}"
+                                                               Width="70"/>
+                                            <DataGridTextColumn Header="Doctor" 
+                                                                Binding="{Binding DoctorName}"
+                                                                Width="100"/>
+                                            <DataGridTextColumn Header="Diagnóstico" 
+                                                               Binding="{Binding Diagnosis}"
+                                                               Width="*"/>
+                                            <DataGridTextColumn Header="Costo" 
+                                                               Binding="{Binding TotalCost, StringFormat='{}{0:C}'}"
+                                                                Width="80"/>
+                                            <DataGridTextColumn Header="Saldo" 
+                                                                Binding="{Binding Balance, StringFormat='{}{0:C}'}"
+                                                                Width="80"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </GroupBox>
+
+                                <GroupBox Grid.Column="1" Header="Historial de Pagos" Margin="5">
+                                    <DataGrid ItemsSource="{Binding FilteredPaymentHistory}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Fecha" 
+                                                                Binding="{Binding PaymentDate, StringFormat='dd/MM/yy'}"
+                                                                Width="70"/>
+                                            <DataGridTextColumn Header="Método" 
+                                                                Binding="{Binding Method}"
+                                                                Width="90"/>
+                                            <DataGridTextColumn Header="Monto" 
+                                                                Binding="{Binding Amount, StringFormat='{}{0:C}'}"
+                                                                Width="90"/>
+                                            <DataGridTextColumn Header="No Asignado" 
+                                                                Binding="{Binding UnallocatedAmount, StringFormat='{}{0:C}'}"
+                                                                Width="100"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </GroupBox>
+                            </Grid>
+
+                            <StackPanel Grid.Row="2" 
+                                       Orientation="Horizontal" 
+                                       HorizontalAlignment="Center"
+                                       Margin="10">
+                                <Button Content="Anterior"
+                                        Command="{Binding PreviousPageCommand}"
+                                        IsEnabled="{Binding CurrentPage, Converter={StaticResource IsGreaterThanZeroConverter}}"
+                                        Style="{StaticResource MahApps.Styles.Button.Square}"
+                                        Margin="0,0,10,0"/>
+
+                                <TextBlock Text="{Binding CurrentPage}" 
+                                           FontWeight="Bold" 
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,5,0"/>
+                                <TextBlock Text="de" 
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding TotalPages}" 
+                                           FontWeight="Bold" 
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"/>
+
+                                <Button Content="Siguiente"
+                                        Command="{Binding NextPageCommand}"
+                                        IsEnabled="{Binding HasNextPage}"
+                                        Style="{StaticResource MahApps.Styles.Button.Square}"/>
+                            </StackPanel>
+                        </Grid>
+                    </mah:MetroTabItem>
+                </mah:MetroTabControl>
+
+                <!-- Panel Derecho -->
+                <GroupBox Grid.Column="2" Header="Registrar Cargo Rápido" Margin="10,0" Padding="10">
+                    <StackPanel Margin="0,5,0,0">
+                        <ComboBox ItemsSource="{Binding AvailableTreatments}"
+                                  DisplayMemberPath="Name"
+                                  SelectedItem="{Binding SelectedManualTreatment}"
+                                  mah:TextBoxHelper.Watermark="Selecciona tratamiento..."
+                                  Margin="0,0,0,8"/>
+
+                        <TextBox Text="{Binding ManualChargeConcept}"
+                                 mah:TextBoxHelper.Watermark="Concepto (opcional)"
+                                 Margin="0,0,0,8"/>
+
+                        <mah:NumericUpDown Value="{Binding ManualChargePrice}"
+                                           Minimum="0"
+                                           Interval="0.01"
+                                           StringFormat="C"
+                                           Culture="es-ES"
+                                           Margin="0,0,0,12"/>
+
+                        <Button Content="Registrar Cargo"
+                                Command="{Binding RegisterManualChargeAsyncCommand}"
+                                Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                                IsEnabled="{Binding ManualChargePrice, Converter={StaticResource IsGreaterThanZeroConverter}}"/>
+                    </StackPanel>
+                </GroupBox>
+            </Grid>
+
+            <!-- Barra de Estado -->
+            <StatusBar Grid.Row="2" Background="#F8F9FA" Padding="10,5">
+                <StatusBarItem>
+                    <TextBlock Text="Listo" FontWeight="SemiBold"/>
+                </StatusBarItem>
+
+                <StatusBarItem HorizontalAlignment="Right">
+                    <Button Content="Eliminar Cargo Seleccionado"
+                            Command="{Binding DeleteClinicalEntryAsyncCommand}"
+                            Background="#E74C3C"
+                            Foreground="White"/>
+                </StatusBarItem>
+            </StatusBar>
+        </Grid>
     </Grid>
 </UserControl>

@@ -1,20 +1,21 @@
 ﻿// En: TuClinicaUI/ViewModels/PatientsViewModel.cs
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
+using System.Windows;
+//using System.Windows; // Ya no necesitamos 'System.Windows' para MessageBox
+using System.Windows.Input;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
-//using System.Windows; // Ya no necesitamos 'System.Windows' para MessageBox
-using System.Windows.Input;
-using System.ComponentModel;
-using System.Collections.Generic;
-using System.Linq;
-using System;
-using Microsoft.Extensions.DependencyInjection;
 using TuClinica.UI.Views;
-using System.Linq.Expressions;
 // Usamos un alias para evitar conflictos entre nuestro enum y el de WPF
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
@@ -56,7 +57,7 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand SavePatientCommand { get; }
         public IAsyncRelayCommand DeletePatientAsyncCommand { get; }
         public IRelayCommand CreatePrescriptionCommand { get; }
-        public IRelayCommand ViewPatientDetailsCommand { get; }
+        public IAsyncRelayCommand ViewPatientDetailsCommand { get; }
 
 
         // *** CONSTRUCTOR MODIFICADO ***
@@ -81,7 +82,7 @@ namespace TuClinica.UI.ViewModels
             SavePatientCommand = new AsyncRelayCommand(SavePatientAsync);
             DeletePatientAsyncCommand = new AsyncRelayCommand(DeletePatientAsync, () => IsPatientSelected);
             CreatePrescriptionCommand = new RelayCommand(CreatePrescription, () => IsPatientSelected);
-            ViewPatientDetailsCommand = new RelayCommand(ViewPatientDetails, () => IsPatientSelected);
+            ViewPatientDetailsCommand = new AsyncRelayCommand(ViewPatientDetailsAsync, () => IsPatientSelected);
 
             _ = SearchPatientsAsync();
         }
@@ -91,12 +92,11 @@ namespace TuClinica.UI.ViewModels
             _navigateToPatientFileCommand = navigationCommand;
         }
 
-        private void ViewPatientDetails()
+        private async Task ViewPatientDetailsAsync()
         {
             if (SelectedPatient == null) return;
             if (_navigateToPatientFileCommand == null)
             {
-                // --- CAMBIO ---
                 _dialogService.ShowMessage("Error de navegación. El comando no está configurado.", "Error");
                 return;
             }
@@ -110,17 +110,17 @@ namespace TuClinica.UI.ViewModels
                     details: $"Vio la ficha de: {SelectedPatient.PatientDisplayInfo}");
                 // --- Fin Log ---
 
-                _patientFileViewModel.LoadPatient(SelectedPatient);
+                // CAMBIO CLAVE: Esperamos a que LoadPatient termine COMPLETAMENTE
+                await _patientFileViewModel.LoadPatient(SelectedPatient);
+
+                // SOLO AHORA, cuando los datos ya están cargados, navegamos
                 _navigateToPatientFileCommand.Execute(null);
             }
             catch (Exception ex)
             {
-                // --- CAMBIO ---
                 _dialogService.ShowMessage($"Error al navegar a la ficha del paciente:\n{ex.Message}", "Error");
             }
         }
-
-
         // --- MÉTODOS DE COMANDOS ---
 
         private async Task LoggedSearchAsync()

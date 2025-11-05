@@ -1,4 +1,5 @@
 ﻿using System.Windows.Controls;
+using TuClinica.UI.ViewModels;
 
 // 1. El namespace debe ser "TuClinica.UI.Views"
 namespace TuClinica.UI.Views
@@ -14,6 +15,7 @@ namespace TuClinica.UI.Views
         public PatientFileView()
         {
             InitializeComponent();
+            
         }
     }
 }

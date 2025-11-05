@@ -18,6 +18,7 @@
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
     <ProjectReference Include="..\TuClinica.Services\TuClinica.Services.csproj" />
     <ProjectReference Include="..\TuClinicaUI\TuClinica.UI.csproj" />
+    
   </ItemGroup>
 
   <ItemGroup>
