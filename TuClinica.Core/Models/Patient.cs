@@ -35,5 +35,12 @@ namespace TuClinica.Core.Models
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         // <--- ¡CAMBIO CLAVE! ELIMINAMOS EL NOMBRE CONFLICTIVO
         public string PatientDisplayInfo => $"{Name} {Surname} ({DniNie})";
+
+        // *** NUEVA PROPIEDAD AÑADIDA ***
+        /// <summary>
+        /// Almacena el estado visual del odontograma (Condición/Restauración)
+        /// como un string JSON serializado.
+        /// </summary>
+        public string? OdontogramStateJson { get; set; }
     }
 }

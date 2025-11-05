@@ -37,5 +37,9 @@ namespace TuClinica.Core.Models
 
         [NotMapped]
         public decimal Balance => TotalCost - (Allocations?.Sum(a => a.AmountAllocated) ?? 0);
+
+        // *** CAMBIO: Nueva propiedad de Display ***
+        [NotMapped]
+        public string ChargeDisplayInfo => $"{VisitDate:dd/MM/yy} - {Diagnosis} (Pendiente: {Balance:C})";
     }
 }

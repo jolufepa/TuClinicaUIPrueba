@@ -3,11 +3,12 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json; // *** AÑADIDO PARA JSON ***
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models; // Necesario para Patient
 using TuClinica.UI.Messages;
-using TuClinica.UI.Views;
+using TuClinica.UI.Views; // *** AÑADIDO PARA EL NUEVO DIÁLOGO ***
 
 namespace TuClinica.UI.ViewModels
 {
@@ -24,12 +25,7 @@ namespace TuClinica.UI.ViewModels
     /// </summary>
     public partial class OdontogramViewModel : BaseViewModel, IRecipient<SurfaceClickedMessage>
     {
-
-
-        [ObservableProperty]
-        private ObservableCollection<Treatment> _availableTreatments = new();
         private readonly IDialogService _dialogService;
-        // private readonly IPdfService _pdfService; // Descomentar si implementas impresión
 
         [ObservableProperty]
         private PatientDisplayModel _patient = new(); // Se enlaza con el título de la ventana
@@ -43,26 +39,22 @@ namespace TuClinica.UI.ViewModels
         public ObservableCollection<ToothViewModel> TeethQuadrant3 { get; } = new();
         public ObservableCollection<ToothViewModel> TeethQuadrant4 { get; } = new();
 
+        [ObservableProperty]
+        private bool? _dialogResult;
 
-        public OdontogramViewModel(IDialogService dialogService/*, IPdfService pdfService*/)
+        public OdontogramViewModel(IDialogService dialogService)
         {
             _dialogService = dialogService;
-            // _pdfService = pdfService;
 
             // Escuchar clics desde los ToothViewModels
             WeakReferenceMessenger.Default.Register<SurfaceClickedMessage>(this);
         }
-       
-        /// <summary>
-        /// Carga el estado actual del odontograma maestro (desde PatientFileViewModel)
-        /// y la información del paciente para el título, y distribuye los dientes en 4 cuadrantes.
-        /// </summary>
+
         public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram, Patient? currentPatient)
         {
             // 1. Cargar el nombre del paciente para el título
             if (currentPatient != null)
             {
-                // Usamos la propiedad PatientDisplayInfo de Core.Models.Patient
                 Patient.FullName = currentPatient.PatientDisplayInfo;
             }
             else
@@ -100,7 +92,7 @@ namespace TuClinica.UI.ViewModels
 
                 Odontogram.Add(copy);
 
-                // Distribución por cuadrante (Notación FDI: primer dígito es el cuadrante)
+                // Distribución por cuadrante
                 if (copy.ToothNumber >= 11 && copy.ToothNumber <= 18)
                 {
                     TeethQuadrant1.Add(copy);
@@ -117,48 +109,58 @@ namespace TuClinica.UI.ViewModels
                 {
                     TeethQuadrant4.Add(copy);
                 }
-
-                // NOTA: El orden dentro de cada cuadrante está definido por la inicialización en PatientFileViewModel.cs
-                // (e.g., C1: 18->11, C2: 21->28, C4: 41->48, C3: 38->31)
             }
         }
 
-        /// <summary>
-        /// Recibe el clic de un ToothViewModel y gestiona la apertura del diálogo y la actualización de la UI.
-        /// </summary>
         public void Receive(SurfaceClickedMessage message)
         {
             var tooth = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
             if (tooth == null) return;
 
-            // ABRIR EL DIÁLOGO CON TRATAMIENTOS
-            OpenTreatmentDialog(tooth, message.Value);
+            // *** CAMBIO: Llamada al nuevo diálogo ***
+            OpenStateDialog(tooth, message.Value);
         }
 
-        private void OpenTreatmentDialog(ToothViewModel tooth, ToothSurface surface)
+        // *** CAMBIO: Lógica de diálogo modificada ***
+        private void OpenStateDialog(ToothViewModel tooth, ToothSurface surface)
         {
-            var dialog = new TreatmentPriceDialog();
+            // 1. Crear el nuevo diálogo visual
+            var dialog = new OdontogramStateDialog();
 
-            // CLAVE: PASAR LOS TRATAMIENTOS
-            dialog.AvailableTreatments = AvailableTreatments;
+            // 2. Obtener el estado actual de la superficie clicada
+            (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
 
+            // 3. Cargar el diálogo con ese estado
+            dialog.LoadState(tooth.ToothNumber, surface, currentCond, currentRest);
+
+            // 4. Mostrar el diálogo
             if (dialog.ShowDialog() == true)
             {
-                WeakReferenceMessenger.Default.Send(new RegisterTreatmentMessage(
-                    tooth.ToothNumber,
-                    surface,
-                    dialog.SelectedTreatmentId ?? 0,
-                    dialog.SelectedRestoration ?? ToothRestoration.Ninguna,
-                    dialog.Price
-                ));
-
-                // ACTUALIZAR UI LOCAL
-                UpdateToothSurfaceRestoration(tooth, surface, dialog.SelectedRestoration ?? ToothRestoration.Ninguna);
-                UpdateToothSurfaceCondition(tooth, surface, ToothCondition.Sano);
+                // 5. Si el usuario aceptó, aplicar los nuevos estados
+                UpdateToothSurfaceCondition(tooth, surface, dialog.NewCondition);
+                UpdateToothSurfaceRestoration(tooth, surface, dialog.NewRestoration);
             }
         }
 
         // --- FUNCIONES DE ACTUALIZACIÓN DE ESTADO ---
+
+        // *** CAMBIO: Nuevo método auxiliar ***
+        /// <summary>
+        /// Obtiene la Condición y Restauración actual de una superficie específica.
+        /// </summary>
+        private (ToothCondition, ToothRestoration) GetSurfaceState(ToothViewModel tooth, ToothSurface surface)
+        {
+            return surface switch
+            {
+                ToothSurface.Oclusal => (tooth.OclusalCondition, tooth.OclusalRestoration),
+                ToothSurface.Mesial => (tooth.MesialCondition, tooth.MesialRestoration),
+                ToothSurface.Distal => (tooth.DistalCondition, tooth.DistalRestoration),
+                ToothSurface.Vestibular => (tooth.VestibularCondition, tooth.VestibularRestoration),
+                ToothSurface.Lingual => (tooth.LingualCondition, tooth.LingualRestoration),
+                ToothSurface.Completo => (tooth.FullCondition, tooth.FullRestoration),
+                _ => (ToothCondition.Sano, ToothRestoration.Ninguna)
+            };
+        }
 
         /// <summary>
         /// Actualiza la propiedad de RESTAURACIÓN de la superficie (capa superior visual).
@@ -195,20 +197,29 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand]
         private void Save()
         {
-            // Lógica de guardado (implementación pendiente en su proyecto)
-            // Esto debería enviar el odontograma maestro de vuelta a PatientFileViewModel para persistencia.
-        }
-
-        [RelayCommand]
-        private void ApplyTreatment()
-        {
-            // Lógica para aplicar un tratamiento general o abrir una ventana de selección (implementación pendiente)
+            DialogResult = true;
         }
 
         [RelayCommand]
         private void Close()
         {
-            // Lógica para cerrar la ventana (se maneja en el código detrás o con un mensaje)
+            DialogResult = false;
+        }
+
+        /// <summary>
+        /// Serializa la colección Odontogram (solo los 32 ToothViewModels) a JSON.
+        /// </summary>
+        public string GetSerializedState()
+        {
+            try
+            {
+                return JsonSerializer.Serialize(Odontogram);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al serializar el estado del odontograma: {ex.Message}", "Error JSON");
+                return string.Empty;
+            }
         }
     }
 }

@@ -218,9 +218,9 @@ namespace TuClinica.UI
                     // Base de Datos
                     services.AddDbContext<AppDbContext>(options => {
                         string dbPassword = GetOrCreateDatabasePassword();
-                    options.UseSqlite($"Data Source={GetDatabasePath()};Password={dbPassword}");
-                       
-                });
+                        options.UseSqlite($"Data Source={GetDatabasePath()};Password={dbPassword}");
+
+                    });
 
                     // Repositorios
                     services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -251,7 +251,7 @@ namespace TuClinica.UI
                     services.AddSingleton<IFileDialogService, FileDialogService>();
                     services.AddSingleton<ICryptoService, CryptoService>();
                     services.AddSingleton<IFileSystemService, FileSystemService>();
-                   
+
 
 
                     // ViewModels
@@ -265,7 +265,7 @@ namespace TuClinica.UI
                     services.AddTransient<LicenseViewModel>();
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
-                    
+
                     services.AddSingleton<PatientFileViewModel>();
                     services.AddTransient<OdontogramViewModel>();
                     services.AddSingleton<HomeViewModel>();
@@ -279,8 +279,15 @@ namespace TuClinica.UI
                     services.AddTransient<PatientSelectionDialog>();
                     services.AddTransient<UserEditDialog>();
                     services.AddTransient<OdontogramWindow>();
-                    services.AddTransient<TreatmentPriceDialog>();
+
+                    // *** CAMBIO: Eliminada la vista obsoleta ***
+                    // services.AddTransient<TreatmentPriceDialog>();
+
                     services.AddTransient<NewPaymentDialog>();
+
+                    // *** CAMBIO: Añadida la nueva vista ***
+                    services.AddTransient<ManualChargeDialog>();
+                    services.AddTransient<OdontogramStateDialog>(); // <-- REGISTRO FASE 2
 
                     // 3. Añadimos la nueva Vista (UserControl)
                     // (No necesitamos registrar PatientFileView.xaml porque es un UserControl
@@ -354,7 +361,7 @@ namespace TuClinica.UI
 
                     if (!await db.Users.AnyAsync())
                     {
-                        db.Users.Add(new User { Username = "admin", HashedPassword = BCrypt.Net.BCrypt.HashPassword("admin123"), Role = UserRole.Administrador, IsActive = true });
+                        db.Users.Add(new User { Username = "admin", HashedPassword = BCrypt.Net.BCrypt.HashPassword("admin123"), Role = UserRole.Administrador, IsActive = true, Name = "Admin" });
                         await db.SaveChangesAsync();
                     }
                 }
@@ -432,4 +439,3 @@ namespace TuClinica.UI
         }
     }
 }
-

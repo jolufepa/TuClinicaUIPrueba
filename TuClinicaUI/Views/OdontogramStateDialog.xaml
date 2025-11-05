@@ -1,0 +1,44 @@
+﻿<mah:MetroWindow x:Class="TuClinica.UI.Views.OdontogramStateDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:local="clr-namespace:TuClinica.UI.Views"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 mc:Ignorable="d"
+                 Title="Actualizar Estado de Superficie"
+                 Height="250" Width="400"
+                 WindowStartupLocation="CenterOwner"
+                 ResizeMode="NoResize"
+                 GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
+                 WindowStyle="ToolWindow" ShowInTaskbar="False">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                   x:Name="TitleTextBlock"
+                   Text="Editando: Diente 11 (Oclusal)"
+                   FontSize="16" FontWeight="Bold" Margin="0,0,0,15"/>
+
+        <Label Grid.Row="1" Grid.Column="0" Content="Condición (Fondo):" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="ConditionComboBox" Margin="5"/>
+
+        <Label Grid.Row="2" Grid.Column="0" Content="Restauración (Superficie):" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="RestorationComboBox" Margin="5"/>
+
+        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+            <Button Content="Cancelar" IsCancel="True" MinWidth="75"/>
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

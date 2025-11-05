@@ -1,34 +1,56 @@
-﻿# 🦷 TuClínica.UI - Sistema de Gestión Dental
+﻿🦷 TuClínica.UI - Sistema de Gestión Dental
 
-**TuClínica.UI** es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
+TuClínica.UI es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales. Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
 
-## 🚀 Características Principales
+=========================
+🚀 CARACTERÍSTICAS PRINCIPALES
+=========================
 
-  * **Ficha de Paciente Unificada:** Módulo centralizado que combina datos personales, un odontograma interactivo (Notación FDI), y un sistema de contabilidad completo.
-  * **Odontograma Interactivo (FDI):** Odontograma gráfico en ventana modal que permite registrar tratamientos (cargos) directamente sobre el diente y sus superficies.
-  * **Sistema de Contabilidad (Cargos y Abonos):** Gestión financiera profesional que separa "Cargos" (tratamientos, consultas) de "Abonos" (pagos del paciente).
-      * **Registro de Cargos:** Creación automática de cargos desde el odontograma o manualmente (para limpiezas, consultas).
-      * **Registro de Pagos:** Panel para registrar abonos (efectivo, tarjeta) que quedan como "saldo a favor".
-      * **Asignación de Pagos:** Interfaz rápida para asignar pagos no asignados a cargos pendientes de pago.
-      * **Gestión de Saldos:** Cálculo de saldo total en tiempo real y seguimiento de cargos pendientes.
-      * **Anulación de Cargos:** Funcionalidad para eliminar cargos erróneos, que anula automáticamente las asignaciones y devuelve el saldo al paciente.
-  * **Módulo de Presupuestos:** Creación de presupuestos con cálculos automáticos (IVA, descuentos) y exportación a PDF (usando **QuestPDF**).
-  * **Módulo de Recetas:** Prescripción de medicamentos, gestión de pautas (dosages) y fármacos, y exportación a PDF (usando plantillas **iTextSharp**).
-  * **Gestión de Tratamientos:** Catálogo de tratamientos con precios predeterminados.
-  * **Gestión de Usuarios:** Control de acceso basado in roles (Administrador, Doctor, Recepcionista).
-  * **Seguridad y Auditoría (Nivel Profesional):**
-      * **Base de Datos Cifrada:** Almacenamiento local seguro usando **SQLite (SQLCipher)**. La clave se protege con Windows DPAPI.
-      * **Hashing de Contraseñas:** Autenticación robusta con **BCrypt**.
-      * **Backups Cifrados:** Importación/Exportación de copias de seguridad cifradas con **AES-GCM**.
-      * **Sistema de Licencias:** Activación por hardware (Machine ID) con firmas **RSA**.
-      * **Registro de Actividad (Logs):** Auditoría automática de creación, modificación y borrado de datos sensibles (pacientes) interceptando `DbContext.SaveChangesAsync`.
-      * **Visor de Auditoría:** Panel de administrador para la revisión y exportación de todos los logs de actividad.
+* **Ficha de Paciente Unificada:** Módulo centralizado que combina datos personales, un odontograma visual y un sistema de contabilidad completo con pestañas dedicadas para "Historial Clínico" y "Facturación".
 
-## ⚙️ Arquitectura y Tecnologías
+* **Odontograma Interactivo (FDI) - ¡Refactorizado!:**
+    * El odontograma ahora funciona como un **mapa visual puro** del estado dental del paciente (Condiciones y Restauraciones).
+    * El estado visual se guarda de forma independiente en la ficha del paciente (como JSON), desacoplando la vista de la facturación.
+    * Permite marcar el estado por superficie (Caries, Sano, Fractura, Obturación, Corona, etc.) a través de un diálogo emergente.
+
+* **Sistema de Contabilidad (Cargos y Abonos):** Gestión financiera profesional que separa "Cargos" (tratamientos, consultas) de "Abonos" (pagos del paciente).
+
+* **Registro de Cargos Centralizado - ¡Refactorizado!:**
+    * Se ha **eliminado** el registro de cargos desde el odontograma.
+    * Todo el registro de cargos se centraliza en un único diálogo emergente ("Registrar Cargo/Visita").
+    * Este diálogo permite registrar un cargo usando un tratamiento predefinido del catálogo (con autocompletado de precio) o introduciendo un concepto, cantidad y precio unitario manualmente.
+
+* **Registro de Pagos:** Flujo de trabajo limpio para registrar abonos (efectivo, tarjeta) que quedan como "saldo a favor", ahora centralizado en el panel de "Acciones" de la ficha del paciente.
+
+* **Asignación de Pagos:** Interfaz dedicada en la pestaña "Facturación" para asignar pagos no asignados a cargos pendientes de pago.
+
+* **Gestión de Saldos:** Cálculo de saldo total en tiempo real y seguimiento de cargos pendientes.
+
+* **Anulación de Cargos:** Funcionalidad para eliminar cargos erróneos, que anula automáticamente las asignaciones y devuelve el saldo al paciente.
+
+* **Módulo de Presupuestos:** Creación de presupuestos con cálculos automáticos (IVA, descuentos) y exportación a PDF (usando **QuestPDF**).
+
+* **Módulo de Recetas:** Prescripción de medicamentos, gestión de pautas (dosages) y fármacos, y exportación a PDF (usando plantillas **iTextSharp**).
+
+* **Gestión de Tratamientos:** Catálogo de tratamientos con precios predeterminados.
+
+* **Gestión de Usuarios:** Control de acceso basado en roles (Administrador, Doctor, Recepcionista).
+
+* **Seguridad y Auditoría (Nivel Profesional):**
+    * **Base de Datos Cifrada:** Almacenamiento local seguro usando **SQLite (SQLCipher)**. La clave se protege con Windows DPAPI.
+    * **Hashing de Contraseñas:** Autenticación robusta con **BCrypt**.
+    * **Backups Cifrados:** Importación/Exportación de copias de seguridad cifradas con **AES-GCM**.
+    * **Sistema de Licencias:** Activación por hardware (Machine ID) con firmas **RSA**.
+    * **Registro de Actividad (Logs):** Auditoría automática de creación, modificación y borrado de datos sensibles (pacientes) interceptando `DbContext.SaveChangesAsync`.
+    * **Visor de Auditoría:** Panel de administrador para la revisión y exportación de todos los logs de actividad.
+
+=========================
+⚙️ ARQUITECTURA Y TECNOLOGÍAS
+=========================
 
 El proyecto sigue una arquitectura limpia de N-Capas y el patrón **MVVM (Model-View-ViewModel)** para garantizar la separación de responsabilidades y la alta testabilidad.
 
-### Arquitectura de Capas
+--- Arquitectura de Capas ---
 
 | Proyecto | Responsabilidad |
 | :--- | :--- |
@@ -38,7 +60,7 @@ El proyecto sigue una arquitectura limpia de N-Capas y el patrón **MVVM (Model-
 | **TuClinica.Core** | Contratos de Negocio (Modelos, Interfaces, Enums). |
 | **TuClinica.Services.Tests**| Pruebas Unitarias (MSTest & Moq) para la lógica de negocio. |
 
-### Stack Tecnológico
+--- Stack Tecnológico ---
 
 | Componente | Tecnología/Librería | Propósito |
 | :--- | :--- | :--- |
@@ -53,14 +75,16 @@ El proyecto sigue una arquitectura limpia de N-Capas y el patrón **MVVM (Model-
 | **Cifrado** | BCrypt, AES-GCM, RSA | Seguridad de contraseñas, backups y licencias. |
 | **Testing** | MSTest & Moq | Pruebas unitarias y Mocks. |
 
-## 🛠️ Ejecución
+=========================
+🛠️ EJECUCIÓN
+=========================
 
-### Requisitos Previos
+--- Requisitos Previos ---
 
   * .NET 8 SDK
   * Visual Studio 2022
 
-### Primer Arranque
+--- Primer Arranque ---
 
 1.  Al ejecutar la aplicación por primera vez, se crearán los archivos de base de datos cifrados (`DentalClinic.db` y `db.key`) en la carpeta local de datos (`%LOCALAPPDATA%/TuClinicaPD/Data`).
 2.  Se creará un usuario administrador por defecto:
@@ -68,16 +92,20 @@ El proyecto sigue una arquitectura limpia de N-Capas y el patrón **MVVM (Model-
       * **Contraseña:** `admin123`
 3.  La aplicación solicitará la activación. Importa el archivo `license.dat` proporcionado por el administrador.
 
-## ⚠️ Nota Importante de Seguridad para GitHub
+=========================
+⚠️ NOTA IMPORTANTE DE SEGURIDAD PARA GITHUB
+=========================
 
 Este repositorio utiliza un sistema de licencias basado en un par de claves Criptográficas RSA (Pública/Privada) para generar activaciones.
 
   * La **Clave Pública** (`PublicKey`) está incrustada de forma segura dentro de `TuClinica.Services/Implementation/LicenseService.cs`. Es pública y no representa un riesgo.
   * La **Clave Privada** (`PrivateKey.xml`) se utiliza en el proyecto del **Generador de Licencias** (que debe mantenerse separado de este repositorio) para *firmar* y crear los archivos `.dat` de licencia.
 
-## 💡 Notas del Desarrollador
+=========================
+💡 NOTAS DEL DESARROLLADOR
+=========================
 
-### [RelayCommand] vs. Implementación Manual de ICommand
+--- [RelayCommand] vs. Implementación Manual de ICommand ---
 
 Durante el desarrollo, se detectó una inconsistencia en la implementación de `ICommand` en los ViewModels:
 

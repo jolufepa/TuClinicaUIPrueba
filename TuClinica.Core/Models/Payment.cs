@@ -29,5 +29,9 @@ namespace TuClinica.Core.Models
 
         [NotMapped]
         public decimal UnallocatedAmount => Amount - (Allocations?.Sum(a => a.AmountAllocated) ?? 0);
+
+        // *** CAMBIO: Nueva propiedad de Display ***
+        [NotMapped]
+        public string PaymentDisplayInfo => $"{PaymentDate:dd/MM/yy} - {Method} ({UnallocatedAmount:C} restantes)";
     }
 }

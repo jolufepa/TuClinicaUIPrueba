@@ -27,7 +27,7 @@ namespace TuClinica.Services.Tests
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
         private Mock<IAuthService> _authServiceMock;
         private Mock<ITreatmentRepository> _treatmentRepoMock;
-        private Mock<IFileDialogService> _fileDialogServiceMock; 
+        private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
 
         // --- Objeto a Probar ---
@@ -49,22 +49,19 @@ namespace TuClinica.Services.Tests
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
             _authServiceMock = new Mock<IAuthService>();
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
-            _fileDialogServiceMock = new Mock<IFileDialogService>(); // <-- AÑADIR ESTA LÍNEA
+            _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
             // --- FIN MOCKS NUEVOS ---
 
-            // 2. Creamos la instancia de PatientFileViewModel (AHORA CON DEPENDENCIAS)
+            // *** INICIO DE LA CORRECCIÓN ***
+            // 2. Creamos la instancia de PatientFileViewModel (VERSIÓN CORREGIDA DE 4 ARGUMENTOS)
             _patientFileVM_Instance = new PatientFileViewModel(
-                _clinicalEntryRepoMock.Object,
-                _paymentRepoMock.Object,
-                _allocationRepoMock.Object,
                 _authServiceMock.Object,
                 _dialogServiceMock.Object,
                 _serviceProviderMock.Object,
-                _treatmentRepoMock.Object,
-                _fileDialogServiceMock.Object,  
-                _pdfServiceMock.Object
+                _fileDialogServiceMock.Object
             );
+            // *** FIN DE LA CORRECCIÓN ***
 
             // 3. Creamos el ViewModel pasándole los Mocks
             _viewModel = new PatientsViewModel(
