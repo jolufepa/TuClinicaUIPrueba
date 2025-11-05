@@ -376,7 +376,7 @@ namespace TuClinica.UI.ViewModels
                 tooth.MesialRestoration = ToothRestoration.Ninguna;
                 tooth.DistalRestoration = ToothRestoration.Ninguna;
                 tooth.VestibularRestoration = ToothRestoration.Ninguna;
-                tooth.LingualRestoration = ToothRestoration.Ningna;
+                tooth.LingualRestoration = ToothRestoration.Ninguna;
             }
 
             var allTreatments = VisitHistory

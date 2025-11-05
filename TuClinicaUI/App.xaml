@@ -26,7 +26,7 @@
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>
             <DropShadowEffect x:Key="ShadowZ3" ShadowDepth="3" Direction="270" Color="#BBBBBB" Opacity="0.5" BlurRadius="5"/>
 
-            <Style x:Key="FichaLabelStyle" TargetType="Label">
+            <Style x:Key="FichaLabelStyle" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="#FF5D4037" />
                 <Setter Property="FontWeight" Value="Bold" />
                 <Setter Property="Margin" Value="0,10,0,2" />

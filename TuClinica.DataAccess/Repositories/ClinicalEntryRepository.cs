@@ -20,8 +20,9 @@ namespace TuClinica.DataAccess.Repositories
                 .Where(c => c.PatientId == patientId)
                 .Include(c => c.TreatmentsPerformed)
                 .Include(c => c.Allocations)
-                .Include(c => c.Doctor) // Para saber qué doctor lo hizo
+                .Include(c => c.Doctor)
                 .OrderByDescending(c => c.VisitDate)
+                .AsSplitQuery() 
                 .AsNoTracking()
                 .ToListAsync();
         }
