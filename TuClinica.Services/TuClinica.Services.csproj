@@ -1,10 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>TuClinica.Services</RootNamespace> </PropertyGroup>
+    <RootNamespace>TuClinica.Services</RootNamespace> 
+  </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="Assets\**" />
@@ -15,16 +16,16 @@
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="iTextSharp.LGPLv2.Core" Version="3.7.7" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.9" />
-    <PackageReference Include="QuestPDF" Version="2025.7.4" />
-    <PackageReference Include="System.Management" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    
+    <PackageReference Include="QuestPDF" Version="2024.3.6" />
+    
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TuClinica.Core\TuClinica.Core.csproj" />
     <ProjectReference Include="..\TuClinica.DataAccess\TuClinica.DataAccess.csproj" />
   </ItemGroup>
-<ItemGroup>
-    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
-  </ItemGroup>
+
 </Project>

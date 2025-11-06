@@ -28,7 +28,7 @@ namespace TuClinica.Services.Tests
         private Mock<IAuthService> _authServiceMock;
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
-        private Mock<IPdfService> _pdfServiceMock;
+        private Mock<IPdfService> _pdfServiceMock; // <-- Este Mock ya estaba creado
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -50,16 +50,19 @@ namespace TuClinica.Services.Tests
             _authServiceMock = new Mock<IAuthService>();
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
-            _pdfServiceMock = new Mock<IPdfService>();
-            // --- FIN MOCKS NUEVOS ---
+            _pdfServiceMock = new Mock<IPdfService>(); // <-- Mock creado
+                                                       // --- FIN MOCKS NUEVOS ---
 
-            // *** INICIO DE LA CORRECCIÓN ***
-            // 2. Creamos la instancia de PatientFileViewModel (VERSIÓN CORREGIDA DE 4 ARGUMENTOS)
+
+            // 2. Creamos la instancia de PatientFileViewModel
+            // *** CORRECCIÓN CLAVE AQUÍ (Línea 58) ***
+            // Añadimos el quinto argumento que faltaba
             _patientFileVM_Instance = new PatientFileViewModel(
                 _authServiceMock.Object,
                 _dialogServiceMock.Object,
                 _serviceProviderMock.Object,
-                _fileDialogServiceMock.Object
+                _fileDialogServiceMock.Object,
+                _pdfServiceMock.Object // <-- ¡¡ESTE FALTABA!!
             );
             // *** FIN DE LA CORRECCIÓN ***
 
@@ -68,7 +71,7 @@ namespace TuClinica.Services.Tests
                 _patientRepoMock.Object,
                 _validationServiceMock.Object,
                 _serviceProviderMock.Object,
-                _patientFileVM_Instance, // Ahora esta instancia es válida
+                _patientFileVM_Instance,
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
             );

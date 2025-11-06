@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    
     <PackageReference Include="MahApps.Metro" Version="2.4.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.6">
       <PrivateAssets>all</PrivateAssets>
@@ -37,8 +38,6 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.6" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.79" />
-    
-    <!-- **CAMBIO: Removido Obfuscar, agregado Confuser.MSBuild** -->
     
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
@@ -49,15 +48,14 @@
     <ProjectReference Include="..\TuClinica.Services\TuClinica.Services.csproj" />
   </ItemGroup>
   
-  <!-- ESTE BLOQUE AHORA SOLO CONTIENE PDFS QUE DEBEN SER COPIADOS, NO IMÁGENES -->
   <ItemGroup>
-    <None Update="Assets\PlantillaReceta.pdf">
+   
+   <None Update="Assets\PlantillaReceta.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Mover ClinicPresentation.png y Logo.png aquí -->
     <Resource Include="Assets\ClinicPresentation.png" /> 
     <Resource Include="Assets\Logo.png" />
     <Resource Include="Assets\Logo2.png" />
@@ -69,16 +67,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     
-    <!-- ELIMINADO: Assets\Logo.png (Movido a Resource) -->
-    
     <None Update="Assets\PlantillaReceta.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+ 
     </None>
-    <!-- **NUEVO: Incluye el archivo de config de Confuser** -->
-    <None Update="confuserr.crproj">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+    
+    </ItemGroup>
 
 
 </Project>

@@ -23,7 +23,7 @@ using TuClinica.Services.Implementation; // Para Implementaciones de Servicio
 using TuClinica.UI.ViewModels; // Para ViewModels
 using TuClinica.UI.Views; // Para Vistas (Ventanas)
 using System.Windows.Input; // Para InputManager
-using TuClinica.UI.Services;
+using TuClinica.UI.Services; // *** CORRECCIÓN: Asegurarse de que este using existe ***
 
 
 using System.Linq; // Para .OfType<MainWindow>()
@@ -246,7 +246,10 @@ namespace TuClinica.UI
                         sp.GetRequiredService<IPatientRepository>()
                     ));
                     services.AddScoped<IActivityLogService, ActivityLogService>();
-                    services.AddSingleton<IInactivityService, InactivityService>();
+
+                    // *** CORRECCIÓN: Especificar el namespace completo de la UI para InactivityService ***
+                    services.AddSingleton<IInactivityService, TuClinica.UI.Services.InactivityService>();
+
                     services.AddSingleton<IDialogService, DialogService>();
                     services.AddSingleton<IFileDialogService, FileDialogService>();
                     services.AddSingleton<ICryptoService, CryptoService>();

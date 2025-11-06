@@ -32,7 +32,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IDialogService _dialogService;
         // --- SERVICIOS AÑADIDOS ---
         private readonly IPdfService _pdfService;
-        private readonly IFileDialogService _fileDialogService;
+        private readonly IFileDialogService _fileDialogService; // Sigue siendo necesario para otros diálogos
 
         // --- CAMPO AÑADIDO PARA GUARDAR EL PACIENTE ---
         private Patient? _currentPatient;
@@ -49,26 +49,22 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool? _dialogResult;
 
-        // *** CONSTRUCTOR MODIFICADO (AHORA PROFESIONAL) ***
         public OdontogramViewModel(
             IDialogService dialogService,
             IPdfService pdfService,
             IFileDialogService fileDialogService)
         {
             _dialogService = dialogService;
-            // --- ASIGNACIÓN DE SERVICIOS ---
             _pdfService = pdfService;
-            _fileDialogService = fileDialogService;
+            _fileDialogService = fileDialogService; // Lo mantenemos por si se usa en otro lado
 
             WeakReferenceMessenger.Default.Register<SurfaceClickedMessage>(this);
         }
 
         public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram, Patient? currentPatient)
         {
-            // --- GUARDAMOS EL PACIENTE COMPLETO ---
             _currentPatient = currentPatient;
 
-            // 1. Cargar el nombre del paciente para el título
             if (currentPatient != null)
             {
                 Patient.FullName = currentPatient.PatientDisplayInfo;
@@ -78,7 +74,6 @@ namespace TuClinica.UI.ViewModels
                 Patient.FullName = "Paciente Desconocido";
             }
 
-            // 2. Cargar el estado de los dientes (sin cambios)
             Odontogram.Clear();
             TeethQuadrant1.Clear();
             TeethQuadrant2.Clear();
@@ -112,7 +107,6 @@ namespace TuClinica.UI.ViewModels
 
         public void Receive(SurfaceClickedMessage message)
         {
-            // (Sin cambios)
             var tooth = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
             if (tooth == null) return;
             OpenStateDialog(tooth, message.Value);
@@ -120,7 +114,6 @@ namespace TuClinica.UI.ViewModels
 
         private void OpenStateDialog(ToothViewModel tooth, ToothSurface surface)
         {
-            // (Sin cambios)
             var dialog = new OdontogramStateDialog();
             (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
             dialog.LoadState(tooth.ToothNumber, surface, currentCond, currentRest);
@@ -133,7 +126,6 @@ namespace TuClinica.UI.ViewModels
 
         private (ToothCondition, ToothRestoration) GetSurfaceState(ToothViewModel tooth, ToothSurface surface)
         {
-            // (Sin cambios)
             return surface switch
             {
                 ToothSurface.Oclusal => (tooth.OclusalCondition, tooth.OclusalRestoration),
@@ -148,7 +140,6 @@ namespace TuClinica.UI.ViewModels
 
         private void UpdateToothSurfaceRestoration(ToothViewModel tooth, ToothSurface surface, ToothRestoration restoration)
         {
-            // (Sin cambios)
             switch (surface)
             {
                 case ToothSurface.Oclusal: tooth.OclusalRestoration = restoration; break;
@@ -162,7 +153,6 @@ namespace TuClinica.UI.ViewModels
 
         private void UpdateToothSurfaceCondition(ToothViewModel tooth, ToothSurface surface, ToothCondition condition)
         {
-            // (Sin cambios)
             switch (surface)
             {
                 case ToothSurface.Oclusal: tooth.OclusalCondition = condition; break;
@@ -186,7 +176,7 @@ namespace TuClinica.UI.ViewModels
             DialogResult = false;
         }
 
-        // *** COMANDO DE IMPRESIÓN REESCRITO PROFESIONALMENTE ***
+        // *** COMANDO DE IMPRESIÓN CORREGIDO ***
         [RelayCommand]
         private async Task Print()
         {
@@ -196,33 +186,25 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // 1. Pedir al usuario dónde guardar el archivo
-            // (Corrigiendo el error CS0029 que tuvimos antes)
-            string suggestedName = $"Odontograma_{_currentPatient.Surname}_{_currentPatient.Name}.pdf";
-            var (ok, filePath) = _fileDialogService.ShowSaveDialog("Guardar PDF de Odontograma", suggestedName, "Archivos PDF (*.pdf)|*.pdf");
-
-            if (!ok)
-            {
-                return; // El usuario canceló
-            }
+            // *** CORRECCIÓN: Eliminada la llamada a _fileDialogService.ShowSaveDialog ***
+            // Ya no preguntamos al usuario dónde guardar.
 
             try
             {
                 // 2. Obtener el estado JSON actual
                 string jsonState = GetSerializedState();
 
-                // 3. Llamar al servicio de PDF que acabamos de implementar
+                // 3. Llamar al servicio de PDF.
+                // Este método ahora crea el nombre de archivo único automáticamente.
                 string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(_currentPatient, jsonState);
 
                 // 4. Confirmar y abrir
-                // (Corrigiendo el error CS1061: usamos ShowConfirmation, no ShowConfirmationAsync)
                 var result = _dialogService.ShowConfirmation(
                     $"PDF del odontograma generado con éxito en:\n{generatedFilePath}\n\n¿Desea abrir el archivo ahora?",
                     "Éxito");
 
                 if (result == CoreDialogResult.Yes)
                 {
-                    // Abrir el PDF con el visor predeterminado
                     Process.Start(new ProcessStartInfo(generatedFilePath) { UseShellExecute = true });
                 }
             }
