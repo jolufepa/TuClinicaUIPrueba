@@ -8,8 +8,9 @@
                  xmlns:views="clr-namespace:TuClinica.UI.Views"           
                  xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
                  mc:Ignorable="d"
-                 Title="Gestión de Clínica Dental" Height="650" Width="1280"
-                 d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}">
+                 Title="Gestión Clínica Dental PD" 
+                 WindowState="Maximized"
+                 d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}" d:DesignHeight="309.96" d:DesignWidth="241">
 
     <!-- Los recursos (como el BooleanToVisibilityConverter)
          se han movido a App.xaml para que sean globales. -->
@@ -67,34 +68,42 @@
         </Grid.ColumnDefinitions>
 
         <!-- Columna 0: Menú Lateral -->
-        <Border Grid.Column="0" Background="{DynamicResource MahApps.Brushes.Gray9}" Width="200">
+        <Border Grid.Column="0" Background="{DynamicResource MahApps.Brushes.Gray9}" Width="200" RenderTransformOrigin="0.5,0.5" Height="292" VerticalAlignment="Top">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform AngleX="0.153"/>
+                    <RotateTransform/>
+                    <TranslateTransform X="0.331"/>
+                </TransformGroup>
+            </Border.RenderTransform>
             <StackPanel Margin="10">
                 <TextBlock Text="MENÚ PRINCIPAL" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
 
                 <!-- Botón Pacientes -->
                 <Button Content="Pacientes" Margin="0,5"
                         Command="{Binding NavigateToPatientsCommand}"
-                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="36"/>
 
                 <!-- Botón Presupuestos -->
                 <Button Content="Presupuestos" Margin="0,5"
                         Command="{Binding NavigateToBudgetsCommand}"
-                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="37"/>
 
                 <!-- Botón Tratamientos -->
                 <Button Content="Tratamientos" Margin="0,5"
                         Command="{Binding NavigateToTreatmentsCommand}"
-                        Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="35"/>
 
                 <!-- Botón Recetas -->
                 <Button Content="Recetas" Margin="0,5"
                         Command="{Binding NavigateToPrescriptionsCommand}"
-                        Visibility="{Binding IsPrescriptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        Visibility="{Binding IsPrescriptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="36"/>
+                <Button Content="Administración"
+                        Command="{Binding NavigateToAdminCommand}"
+                        Visibility="{Binding IsAdminMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="39"/>
 
                 <!-- Botón Administración -->
-                <Button Content="Administración" Margin="0,5"
-                        Command="{Binding NavigateToAdminCommand}"
-                        Visibility="{Binding IsAdminMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             </StackPanel>
         </Border>
 

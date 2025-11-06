@@ -8,16 +8,16 @@
     <Grid>
         <Grid Background="#80000000" 
               Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
-              Panel.ZIndex="99">
+             Panel.ZIndex="99">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <mah:ProgressRing IsActive="True"
                                   Width="50" Height="50"
-                                  Foreground="White"/>
+             Foreground="White"/>
                 <TextBlock 
                     Text="Cargando ficha del paciente..." 
                     Foreground="White" 
                     Margin="0,10,0,0" 
-                    HorizontalAlignment="Center"/>
+                   HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
@@ -37,7 +37,7 @@
                 <TextBlock Grid.Column="0"
                            Text="{Binding CurrentPatient.PatientDisplayInfo}"
                            Foreground="White"
-                           FontSize="18"
+              FontSize="18"
                            FontWeight="Bold"
                            VerticalAlignment="Center"
                            Margin="15,10"/>
@@ -45,15 +45,18 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
                     <TextBlock Text="SALDO TOTAL:" Foreground="White" FontWeight="SemiBold" Margin="0,0,5,0"/>
-                    <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}'}"
+
+                    <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}', ConverterCulture='es-ES'}"
                                Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
-                               FontSize="18" FontWeight="Bold"/>
+                               FontSize="20" 
+                               FontWeight="Bold"/>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Row="1" Margin="10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition 
+ Width="220"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
@@ -64,7 +67,7 @@
                         <Button Content="Abrir Odontograma (Registro)"
                                 Command="{Binding OpenOdontogramWindowCommand}"
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                                Margin="0,8,0,8"/>
+                  Margin="0,8,0,8"/>
 
                         <Button Content="Registrar Cargo/Visita" 
                                 Command="{Binding OpenRegisterChargeDialogCommand}"
@@ -74,7 +77,7 @@
                         <Button Content="Registrar Nuevo Pago (Abono)"
                                 Command="{Binding RegisterNewPaymentCommand}"
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                                Background="MediumSeaGreen"
+                         Background="MediumSeaGreen"
                                 Margin="0,0,0,8"/>
 
                         <Border Height="1" Background="#DDDDDD" Margin="0,5"/>
@@ -84,74 +87,91 @@
                                 Command="{Binding NewBudgetCommand}"
                                 Margin="0,8,0,8"/>
                         <Button Content="Imprimir Historial (PDF)"
-                                 Command="{Binding PrintHistoryCommand}" 
+                                  Command="{Binding PrintHistoryCommand}" 
                                 Margin="0,0,0,8"/>
 
                     </StackPanel>
                 </GroupBox>
                 <mah:MetroTabControl Grid.Column="1" Margin="5,0">
 
-                    <mah:MetroTabItem Header="Datos Personales">
+                    <mah:MetroTabItem Header="Datos Personales" Padding="20">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding CurrentPatient.Name}" Style="{StaticResource FichaTextBoxStyle}" 
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Apellidos:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding CurrentPatient.Surname}" Style="{StaticResource FichaTextBoxStyle}" 
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="DNI/NIE:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,10,20,10"/>
-                                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding CurrentPatient.DniNie}" Style="{StaticResource FichaTextBoxStyle}" 
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}" Margin="0,10,0,10"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Teléfono:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding CurrentPatient.Phone, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Email:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding CurrentPatient.Email, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Dirección:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding CurrentPatient.Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Notas Clínicas:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Top" Margin="0,10,20,0"/>
-                                    <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding CurrentPatient.Notes, UpdateSourceTrigger=PropertyChanged}" 
-                                               Style="{StaticResource FichaTextBoxStyle}"
-                                               TextWrapping="Wrap" MinHeight="100" AcceptsReturn="True"
-                                               VerticalScrollBarVisibility="Auto"
-                                               IsReadOnly="{Binding IsPatientDataReadOnly}"/>
-                                </Grid>
-                            </ScrollViewer>
-                            <Border Grid.Row="1" Background="{DynamicResource MahApps.Brushes.Gray9}" Padding="10">
+
+                            <Border Grid.Row="0"
+                                    Background="White"
+                                    CornerRadius="3"
+                                    BorderBrush="#DDDDDD"
+                                    BorderThickness="1"
+                                    VerticalAlignment="Top"
+                                    HorizontalAlignment="Left" MaxWidth="800"
+                                    Effect="{StaticResource ShadowZ2}">
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
+                                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding CurrentPatient.Name}" Style="{StaticResource FichaTextBoxStyle}" 
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Apellidos:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
+                                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding CurrentPatient.Surname}" Style="{StaticResource FichaTextBoxStyle}" 
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="DNI/NIE:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,10,20,10"/>
+                                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding CurrentPatient.DniNie}" Style="{StaticResource FichaTextBoxStyle}" 
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}" Margin="0,10,0,10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Teléfono:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
+                                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding CurrentPatient.Phone, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Email:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
+                                        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding CurrentPatient.Email, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Dirección:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
+                                        <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding CurrentPatient.Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Notas Clínicas:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Top" Margin="0,10,20,0"/>
+                                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding CurrentPatient.Notes, UpdateSourceTrigger=PropertyChanged}" 
+                                                   Style="{StaticResource FichaTextBoxStyle}"
+                                                   TextWrapping="Wrap" MinHeight="100" AcceptsReturn="True"
+                                                   VerticalScrollBarVisibility="Auto"
+                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                    </Grid>
+                                </ScrollViewer>
+                            </Border>
+
+                            <Border Grid.Row="2" Background="{DynamicResource MahApps.Brushes.Gray9}" Padding="10">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
                                     <Button Content="Editar Datos" 
                                             Command="{Binding ToggleEditPatientDataCommand}"
-                                            Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                   Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
                                             Margin="0,0,10,0"/>
-                                    <Button Content="Guardar Cambios" 
+                                    <Button Content="Guardar 
+ Cambios" 
                                             Command="{Binding SavePatientDataAsyncCommand}"
                                             IsDefault="True"
-                                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                                             Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
                                             Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
+
                                     <Button Content="Cancelar Edición"
                                             Command="{Binding ToggleEditPatientDataCommand}"
-                                            Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
+                                   Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
                                             Margin="10,0,0,0"/>
                                 </StackPanel>
                             </Border>
@@ -162,70 +182,94 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
+
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBox Grid.Row="0"
-                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+         
+                                       Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                      mah:TextBoxHelper.Watermark="Buscar en historial o pagos..."
-                                     mah:TextBoxHelper.ClearTextButton="True"
+                             
+                   mah:TextBoxHelper.ClearTextButton="True"
                                      Margin="0,0,0,10" FontSize="14"/>
 
                             <Grid Grid.Row="1">
+
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="*"/>
+
                                 </Grid.RowDefinitions>
 
                                 <GroupBox Grid.Row="0" Header="Historial Clínico (Cargos - Pendientes/Saldados)" Margin="0,0,5,5">
                                     <DataGrid ItemsSource="{Binding FilteredVisitHistory}"
-                                              SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}"
+          
+                                                SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}"
                                               AutoGenerateColumns="False"
-                                              IsReadOnly="True"
+                
+                                             IsReadOnly="True"
                                               CanUserAddRows="False"
-                                              SelectionMode="Single">
+                        
+                                     SelectionMode="Single">
                                         <DataGrid.Columns>
+
                                             <DataGridTextColumn Header="Fecha" Binding="{Binding VisitDate, StringFormat='dd/MM/yy'}" Width="70"/>
                                             <DataGridTextColumn Header="Doctor" Binding="{Binding DoctorName}" Width="80"/>
+
                                             <DataGridTextColumn Header="Diagnóstico/Concepto" Binding="{Binding Diagnosis}" Width="*"/>
                                             <DataGridTextColumn Header="Costo" Binding="{Binding TotalCost, StringFormat='{}{0:C}'}" Width="80"/>
+
                                             <DataGridTextColumn Header="Saldo Pendiente" Binding="{Binding Balance, StringFormat='{}{0:C}'}" Width="100"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
+
                                 </GroupBox>
 
                                 <GroupBox Grid.Row="1" Header="Historial de Pagos (Abonos)" Margin="0,5,5,0">
                                     <DataGrid ItemsSource="{Binding FilteredPaymentHistory}"
-                                              SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
+          
+                                                SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
                                               AutoGenerateColumns="False"
-                                              IsReadOnly="True"
+                
+                                             IsReadOnly="True"
                                               CanUserAddRows="False"
-                                              SelectionMode="Single">
+                        
+                                     SelectionMode="Single">
                                         <DataGrid.Columns>
+
                                             <DataGridTextColumn Header="Fecha" Binding="{Binding PaymentDate, StringFormat='dd/MM/yy'}" Width="70"/>
                                             <DataGridTextColumn Header="Método" Binding="{Binding Method}" Width="90"/>
+
                                             <DataGridTextColumn Header="Monto" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="90"/>
                                             <DataGridTextColumn Header="No Asignado" Binding="{Binding UnallocatedAmount, StringFormat='{}{0:C}'}" Width="*"/>
                                         </DataGrid.Columns>
+
                                     </DataGrid>
                                 </GroupBox>
                             </Grid>
+
                             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
                                 <Button Content="Anterior"
-                                        Command="{Binding PreviousPageCommand}"
+                                        Command="{Binding 
+ PreviousPageCommand}"
                                         IsEnabled="{Binding CurrentPage, Converter={StaticResource IsGreaterThanZeroConverter}}"
                                         Style="{StaticResource MahApps.Styles.Button.Square}"
-                                        Margin="0,0,10,0"/>
+                
+                                   Margin="0,0,10,0"/>
 
                                 <TextBlock Text="{Binding CurrentPage}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                 <TextBlock Text="de" VerticalAlignment="Center" Margin="0,0,5,0"/>
+
                                 <TextBlock Text="{Binding TotalPages}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
 
                                 <Button Content="Siguiente"
-                                        Command="{Binding NextPageCommand}"
+                                  
+             Command="{Binding NextPageCommand}"
                                         IsEnabled="{Binding HasNextPage}"
                                         Style="{StaticResource MahApps.Styles.Button.Square}"/>
+
                             </StackPanel>
                         </Grid>
                     </mah:MetroTabItem>
@@ -234,33 +278,44 @@
                         <Grid>
                             <GroupBox Header="Asignación de Pagos" Margin="10,0,0,0" Padding="10" VerticalAlignment="Top">
                                 <StackPanel>
+
                                     <TextBlock Text="Cargos Pendientes:" FontWeight="SemiBold" Margin="0,0,0,5"/>
                                     <ComboBox ItemsSource="{Binding PendingCharges}"
                                               DisplayMemberPath="ChargeDisplayInfo"
-                                              SelectedItem="{Binding SelectedCharge, Mode=TwoWay}"
+   
+                                                          SelectedItem="{Binding SelectedCharge, Mode=TwoWay}"
                                               mah:TextBoxHelper.Watermark="Seleccionar cargo a pagar..."
-                                              Margin="0,0,0,10"/>
+      
+                                                   Margin="0,0,0,10"/>
 
                                     <TextBlock Text="Pagos No Asignados:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+
                                     <ComboBox ItemsSource="{Binding UnallocatedPayments}"
                                               DisplayMemberPath="PaymentDisplayInfo"
-                                              mah:TextBoxHelper.Watermark="Seleccionar pago para usar..."
+                                   
+                          mah:TextBoxHelper.Watermark="Seleccionar pago para usar..."
                                               SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
-                                              Margin="0,0,0,10"/>
+                                      
+                       Margin="0,0,0,10"/>
 
                                     <Label Content="Monto a Asignar (€):"/>
                                     <mah:NumericUpDown Value="{Binding AmountToAllocate, Mode=TwoWay}"
-                                                       Minimum="0" Interval="0.01"
+             
+                                                         Minimum="0" Interval="0.01"
                                                        StringFormat="C" Culture="es-ES"
-                                                       Margin="0,0,0,20"/>
+ 
+                                                                 Margin="0,0,0,20"/>
 
                                     <Button Content="Asignar Pago al Cargo"
-                                            Command="{Binding AllocatePaymentCommand}"
+      
+                                                Command="{Binding AllocatePaymentCommand}"
                                             Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+
                                 </StackPanel>
                             </GroupBox>
                         </Grid>
                     </mah:MetroTabItem>
+
 
                 </mah:MetroTabControl>
             </Grid>
@@ -271,11 +326,13 @@
                 </StatusBarItem>
 
 
+
                 <StatusBarItem HorizontalAlignment="Right">
                     <Button Content="Eliminar Cargo Seleccionado"
                             Command="{Binding DeleteClinicalEntryAsyncCommand}"
                             Background="#E74C3C"
-                            Foreground="White"
+                  
+                         Foreground="White"
                             ToolTip="Elimina el cargo seleccionado del Historial Clínico (Pestaña 3)."/>
                 </StatusBarItem>
             </StatusBar>

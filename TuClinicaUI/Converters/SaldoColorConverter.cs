@@ -11,11 +11,17 @@ namespace TuClinica.UI.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is not decimal saldo) return Brushes.Black;
+            if (value is not decimal saldo) return Brushes.White; // Blanco por defecto
 
-            return saldo > 0 ? Brushes.Red :
-                   saldo < 0 ? Brushes.Blue :
-                   Brushes.Green;
+            // --- LÓGICA DE COLOR CORREGIDA Y LEGIBLE ---
+
+            // saldo > 0: El paciente DEBE dinero (Deuda).
+            // Usamos Amarillo brillante, que contrasta perfectamente con el azul.
+            if (saldo > 0) return Brushes.Yellow;
+
+            // saldo <= 0: Saldado (0) o A Favor (negativo).
+            // Usamos Blanco puro, el más legible.
+            return Brushes.White;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

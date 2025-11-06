@@ -15,7 +15,7 @@
 
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-            <converters:DecimalToColorConverter x:Key="SaldoColorConverter" />
+            <converters:SaldoColorConverter x:Key="SaldoColorConverter" />
 
             <converters:ConditionToColorConverter x:Key="CondToColor" />
             <converters:RestorationToColorConverter x:Key="RestToColor" />

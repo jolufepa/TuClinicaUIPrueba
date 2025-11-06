@@ -9,7 +9,7 @@
                  xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
                  xmlns:converters="clr-namespace:TuClinica.UI.Converters" mc:Ignorable="d"
 
-                 Title="INICIAR SESIÓN - CLÍNICA PD" Height="450" Width="400" 
+                 Title="INICIAR SESIÓN - CLÍNICA PD" Height="550" Width="497" 
 
                  WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
                  GlowBrush="{DynamicResource MahApps.Brushes.Accent}">
@@ -30,7 +30,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Bienvenido" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+        <TextBlock Grid.Row="0" Text="Bienvenido" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10" Width="149"/>
 
         <TextBox Grid.Row="1"
                  mah:TextBoxHelper.Watermark="Nombre de Usuario"
@@ -49,18 +49,16 @@
                    Margin="0,0,0,10"/>
 
         <Image Grid.Row="4"
-               Source="/Assets/Logo_login.png" 
-               Stretch="Uniform" MaxHeight="150"
-               HorizontalAlignment="Center" VerticalAlignment="Center"   Margin="0,10,0,10"
-               Grid.RowSpan="1"/>
+               Source="/Assets/Logo_login.png" MaxHeight="150"
+               HorizontalAlignment="Left" VerticalAlignment="Top"
+               Grid.RowSpan="2" Height="213" Width="150" Margin="46,10,0,0" Stretch="UniformToFill"/>
         <Button Grid.Row="6"
                 Content="Entrar"
                 IsDefault="True"
                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                HorizontalAlignment="Stretch"
                 FontSize="16"
                 Command="{Binding LoginAsyncCommand}"
-                CommandParameter="{Binding ElementName=PasswordBoxLogin}"/>
+                CommandParameter="{Binding ElementName=PasswordBoxLogin}" Height="62"/>
     </Grid>
 
     <i:Interaction.Triggers>
