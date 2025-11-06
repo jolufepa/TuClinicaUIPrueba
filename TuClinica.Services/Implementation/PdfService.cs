@@ -1,7 +1,7 @@
 ﻿using iTextSharp.text.pdf;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
-using QuestPDF.Infrastructure; // <-- LA LÍNEA QUE FALTABA Y CAUSABA LOS ERRORES DE 'ICanvas' Y 'Expand'
+using QuestPDF.Infrastructure; // <-- Esta línea ya la tenías, y es correcta.
 using System;
 using System.IO;
 using System.Linq;
@@ -368,27 +368,32 @@ namespace TuClinica.Services.Implementation
                     g.Columns(3);
                     // Fila 1 (Vestibular)
                     // --- CORRECCIÓN: Usar 'tooth.VestibularRestoration' ---
+                    // *** MODIFICACIÓN LÍNEA 372 ***
                     g.Item(1).Background(GetConditionColor(tooth.VestibularCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
-                        .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.VestibularRestoration));
+                        .Canvas((ICanvas canvas, Size size) => DrawRestoration(canvas, size, tooth.VestibularRestoration));
 
                     // Fila 2 (Mesial, Oclusal, Distal)
                     g.Item(1).Row(r =>
                     {
                         // --- CORRECCIÓN: Usar 'tooth.MesialRestoration' ---
+                        // *** MODIFICACIÓN LÍNEA 379 ***
                         r.RelativeItem().Background(GetConditionColor(tooth.MesialCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
-                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.MesialRestoration));
+                            .Canvas((ICanvas canvas, Size size) => DrawRestoration(canvas, size, tooth.MesialRestoration));
                         // --- CORRECCIÓN: Usar 'tooth.OclusalRestoration' ---
+                        // *** MODIFICACIÓN LÍNEA 382 ***
                         r.RelativeItem().Background(GetConditionColor(tooth.OclusalCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
-                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.OclusalRestoration));
+                            .Canvas((ICanvas canvas, Size size) => DrawRestoration(canvas, size, tooth.OclusalRestoration));
                         // --- CORRECCIÓN: Usar 'tooth.DistalRestoration' (Este era el de la línea 389) ---
+                        // *** MODIFICACIÓN LÍNEA 385 ***
                         r.RelativeItem().Background(GetConditionColor(tooth.DistalCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
-                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.DistalRestoration));
+                            .Canvas((ICanvas canvas, Size size) => DrawRestoration(canvas, size, tooth.DistalRestoration));
                     });
 
                     // Fila 3 (Lingual)
                     // --- CORRECCIÓN: Usar 'tooth.LingualRestoration' ---
+                    // *** MODIFICACIÓN LÍNEA 391 ***
                     g.Item(1).Background(GetConditionColor(tooth.LingualCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
-                        .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.LingualRestoration));
+                        .Canvas((ICanvas canvas, Size size) => DrawRestoration(canvas, size, tooth.LingualRestoration));
                 });
             });
         }
