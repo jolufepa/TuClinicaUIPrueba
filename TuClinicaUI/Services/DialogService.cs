@@ -1,7 +1,10 @@
-﻿using System.Windows; // Necesitamos este using para MessageBox
+﻿// En: TuClinicaUI/Services/DialogService.cs
+using System.Windows;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.UI.Views;
 using TuClinica.Core.Enums;
+using System.Collections.Generic;  // <-- ¡AÑADIR ESTE USING!
+using TuClinica.Core.Models;       // <-- ¡AÑADIR ESTE USING! (Para Treatment y ManualChargeResult)
 
 namespace TuClinica.UI.Services
 {
@@ -22,17 +25,16 @@ namespace TuClinica.UI.Services
         {
             var dialog = new PasswordPromptDialog();
 
-            // La implementación del servicio es responsable de encontrar la ventana principal
-            if (Application.Current != null && Application.Current.MainWindow != null)
+            Window? owner = Application.Current?.MainWindow;
+            if (owner != null && owner != dialog)
             {
-                dialog.Owner = Application.Current.MainWindow;
+                dialog.Owner = owner;
             }
 
             var result = dialog.ShowDialog();
 
             if (result == true)
             {
-                // NOTA: Asume que PasswordPromptDialog tiene una propiedad Password
                 return (true, dialog.Password);
             }
             else
@@ -41,20 +43,15 @@ namespace TuClinica.UI.Services
             }
         }
 
-        // *** CAMBIO: Implementación ELIMINADA ***
-        /*
-        public (bool Ok, int? TreatmentId, ToothRestoration? Restoration, decimal? Price) ShowTreatmentPriceDialog()
-        {
-            ...
-        }
-        */
 
         public (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog()
         {
             var dialog = new NewPaymentDialog();
-            if (Application.Current != null && Application.Current.MainWindow != null)
+
+            Window? owner = Application.Current?.MainWindow;
+            if (owner != null && owner != dialog)
             {
-                dialog.Owner = Application.Current.MainWindow;
+                dialog.Owner = owner;
             }
 
             var result = dialog.ShowDialog();
@@ -81,6 +78,35 @@ namespace TuClinica.UI.Services
                 MessageBoxResult.No => DialogResult.No,
                 _ => DialogResult.No
             };
+        }
+
+        // Ahora este método es válido porque los usings de arriba
+        // le permiten encontrar 'ManualChargeResult' y 'Treatment'
+        public (bool Ok, ManualChargeResult? Data) ShowManualChargeDialog(IEnumerable<Treatment> availableTreatments)
+        {
+            var dialog = new ManualChargeDialog();
+
+            Window? owner = Application.Current.MainWindow;
+            if (owner != null && owner != dialog)
+            {
+                dialog.Owner = owner;
+            }
+
+            dialog.AvailableTreatments = availableTreatments;
+
+            if (dialog.ShowDialog() == true)
+            {
+                var resultData = new ManualChargeResult
+                {
+                    Concept = dialog.ManualConcept,
+                    UnitPrice = dialog.UnitPrice,
+                    Quantity = dialog.Quantity,
+                    TreatmentId = dialog.SelectedTreatment?.Id
+                };
+                return (true, resultData);
+            }
+
+            return (false, null);
         }
     }
 }

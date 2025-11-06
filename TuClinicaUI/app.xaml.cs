@@ -337,7 +337,7 @@ namespace TuClinica.UI
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                    // --- INICIO DE MODIFICACIÓN ROBUSTA ---
+                    // --- INICIO DE MODIFICACIÓN ROBUSTA (FAIL-FAST) ---
                     // 1. Comprobar explícitamente si hay migraciones pendientes
                     var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
 
@@ -350,17 +350,40 @@ namespace TuClinica.UI
                                         MessageBoxButton.OK,
                                         MessageBoxImage.Information);
 
-                        // 4. Aplicar la migración
-                        await db.Database.MigrateAsync();
+                        // --- ¡AQUÍ ESTÁ LA MEJORA! ---
+                        try
+                        {
+                            // 4. Intentamos migrar
+                            await db.Database.MigrateAsync();
 
-                        // 5. Confirmar el éxito
-                        MessageBox.Show("¡Base de datos actualizada con éxito!",
-                                        "Actualización Completa",
-                                        MessageBoxButton.OK,
-                                        MessageBoxImage.Information);
+                            // 5. Confirmar el éxito
+                            MessageBox.Show("¡Base de datos actualizada con éxito!",
+                                            "Actualización Completa",
+                                            MessageBoxButton.OK,
+                                            MessageBoxImage.Information);
+                        }
+                        catch (Exception migrationEx)
+                        {
+                            // ¡SI FALLA LA MIGRACIÓN, FORZAMOS EL CIERRE!
+                            string errorMsg = $"Error CRÍTICO al actualizar la base de datos: {migrationEx.Message}";
+
+                            // Detectar error de bloqueo
+                            if (migrationEx.Message.Contains("database is locked") || migrationEx.Message.Contains("SQLite Error 5"))
+                            {
+                                errorMsg += "\n\nCAUSA PROBABLE: La versión anterior de 'TuClinica.UI.exe' sigue abierta.\n\nPor favor, ciérrela desde el Administrador de Tareas (Ctrl+Shift+Esc) e inicie la aplicación de nuevo.";
+                            }
+
+                            MessageBox.Show(errorMsg, "Error de Migración", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                            // FORZAMOS EL CIERRE. No dejamos que la app continúe en un estado corrupto.
+                            Environment.Exit(100); // 100 = Código de error de migración
+                            return; // Salir del método OnStartup
+                        }
+                        // --- FIN DE LA MEJORA ---
                     }
                     // 6. Si no hay migraciones pendientes, la aplicación continúa en silencio.
-                    // --- FIN DE MODIFICACIÓN ROBUSTA ---
+                    // --- FIN DE MODIFICACIÓN ROBUSTA (FAIL-FAST) ---
+
 
                     if (!await db.Users.AnyAsync())
                     {

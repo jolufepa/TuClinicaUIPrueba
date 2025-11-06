@@ -300,14 +300,10 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null) return;
 
-            // *** CORRECCIÓN: Eliminada la llamada a _fileDialogService.ShowSaveDialog ***
-            // Ya no preguntamos al usuario dónde guardar.
-
             try
             {
                 string jsonState = JsonSerializer.Serialize(this.Odontogram); 
 
-                // Usamos el _pdfService que inyectamos
                 string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
 
                 var result = _dialogService.ShowConfirmation(
@@ -444,7 +440,14 @@ namespace TuClinica.UI.ViewModels
                 vm.LoadState(this.Odontogram, this.CurrentPatient);
 
                 dialog.DataContext = vm;
-                dialog.Owner = App.Current.MainWindow;
+
+                // --- INICIO DE LA CORRECCIÓN 1 ---
+                Window? owner = Application.Current.MainWindow;
+                if (owner != null && owner != dialog)
+                {
+                    dialog.Owner = owner;
+                }
+                // --- FIN DE LA CORRECCIÓN 1 ---
 
                 vm.DialogResult = null; 
                 dialog.ShowDialog(); 
@@ -532,7 +535,15 @@ namespace TuClinica.UI.ViewModels
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
             var dialog = _serviceProvider.GetRequiredService<ManualChargeDialog>();
-            dialog.Owner = Application.Current.MainWindow;
+            
+            // --- INICIO DE LA CORRECCIÓN 2 ---
+            Window? owner = Application.Current.MainWindow;
+            if (owner != null && owner != dialog)
+            {
+                dialog.Owner = owner;
+            }
+            // --- FIN DE LA CORRECCIÓN 2 ---
+            
             dialog.AvailableTreatments = this.AvailableTreatments; 
 
             if (dialog.ShowDialog() == true)
