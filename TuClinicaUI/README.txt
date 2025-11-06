@@ -118,3 +118,18 @@ Durante el desarrollo, se detectó una inconsistencia en la implementación de `
 Ciertos ViewModels (`LoginViewModel`, `PatientFileViewModel`) se instancian como Singletons **inmediatamente** al arrancar la aplicación, al mismo tiempo que el `DataContext` se está enlazando (binding). Esto crea una *race condition* (carrera de condiciones) donde el binding del XAML (`Command="{Binding MiComando}"`) se ejecuta *antes* de que el generador `[RelayCommand]` haya tenido tiempo de crear e inicializar la propiedad del comando. El binding falla silenciosamente (el botón "no hace nada").
 
 La **solución manual** (inicializar el comando *dentro* del constructor) garantiza que la propiedad del comando existe y tiene un valor asignado *antes* de que el `DataContext` se enlace al XAML, asegurando un arranque robusto. Los otros ViewModels no sufren este problema porque se crean más tarde (`Transient`) bajo demanda del usuario.
+
+--- *** NUEVA NOTA AÑADIDA *** ---
+--- Advertencia de Versión de API de QuestPDF (v2022 vs v2024) ---
+
+Durante la resolución de errores, se detectó un conflicto de API crítico en `PdfService.cs`. El proyecto utiliza la versión moderna de **QuestPDF (v2024.3.6)**, pero el código original para generar el odontograma estaba escrito para una API obsoleta (anterior a 2023).
+
+Esto provocaba una cadena de errores de compilación (como `CS1061 'Container' no contiene 'Expand'` o `CS0122 'ICanvas' no es accesible`) y errores en tiempo de ejecución (`System.NotImplementedException` al usar `.Canvas()`), lo que resultaba en la generación de PDFs de odontograma en blanco.
+
+**SOLUCIÓN:** El código obsoleto en `PdfService.cs` (específicamente en `ComposeOdontogramGrid` y `AddToothCell`) fue reescrito para usar la API moderna:
+
+  * `.Grid()` fue reemplazado por `**.Table()**`
+  * `.Expand()` fue reemplazado por `**.Extend()**`
+  * `.Canvas()` (que está obsoleto) fue **eliminado por completo**. La lógica de dibujo de superficies se reemplazó por un método `DrawSurface` que solo usa `**.Background()**`.
+
+Cualquier futura actualización de QuestPDF o modificación de `PdfService.cs` debe verificar que la API utilizada para el odontograma sigue siendo compatible con la versión de la librería.
