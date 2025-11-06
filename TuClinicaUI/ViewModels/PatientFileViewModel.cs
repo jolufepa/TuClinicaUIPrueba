@@ -17,6 +17,7 @@ using TuClinica.Core.Models;
 using TuClinica.UI.Messages;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
+using System.Diagnostics; // Para Process.Start
 
 namespace TuClinica.UI.ViewModels
 {
@@ -26,7 +27,10 @@ namespace TuClinica.UI.ViewModels
         private readonly IAuthService _authService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
+        // --- MODIFICACIÓN: Añade estos dos campos ---
         private readonly IFileDialogService _fileDialogService;
+        private readonly IPdfService _pdfService; // Necesario para la inyección del OdontogramViewModel
+
 
         // --- Estado Maestro ---
         [ObservableProperty]
@@ -80,12 +84,12 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand RegisterNewPaymentCommand { get; }
 
         // --- [NUEVOS COMANDOS] ---
-        public IAsyncRelayCommand PrintOdontogramCommand { get; }
+        public IAsyncRelayCommand PrintOdontogramCommand { get; } // Este es el de la pestaña que eliminamos
         public IRelayCommand NewBudgetCommand { get; }
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
 
-
+        // --- Comandos que SÍ se pueden generar automáticamente ---
         [ObservableProperty]
         private bool _hasNextPage;
         [ObservableProperty]
@@ -107,16 +111,21 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _isLoading = false;
 
+        // *** CONSTRUCTOR MODIFICADO ***
         public PatientFileViewModel(
           IAuthService authService,
           IDialogService dialogService,
           IServiceProvider serviceProvider,
-          IFileDialogService fileDialogService)
+          // --- MODIFICACIÓN: Añade estos dos parámetros ---
+          IFileDialogService fileDialogService,
+          IPdfService pdfService)
         {
             _authService = authService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
+            // --- MODIFICACIÓN: Asigna los nuevos servicios ---
             _fileDialogService = fileDialogService;
+            _pdfService = pdfService;
 
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
@@ -296,13 +305,38 @@ namespace TuClinica.UI.ViewModels
             await Task.CompletedTask;
         }
 
+        // Este es el comando de la pestaña que eliminamos. Lo dejamos aquí para no romper la compilación
+        // pero lo reimplementamos para que use la nueva lógica profesional.
         private async Task PrintOdontogramAsync()
         {
             if (CurrentPatient == null) return;
-            _dialogService.ShowMessage(
-                $"Funcionalidad Pendiente: Generar el PDF del Odontograma actual de {CurrentPatient.PatientDisplayInfo}. (Requiere implementación en PdfService).",
-                "Impresión de Odontograma");
-            await Task.CompletedTask;
+
+            // Esta es la implementación profesional
+            string suggestedName = $"Odontograma_{CurrentPatient.Surname}_{CurrentPatient.Name}.pdf";
+            var (ok, filePath) = _fileDialogService.ShowSaveDialog("Guardar PDF de Odontograma", suggestedName, "Archivos PDF (*.pdf)|*.pdf");
+
+            if (!ok) return;
+
+            try
+            {
+                string jsonState = JsonSerializer.Serialize(this.Odontogram); // Serializa el estado maestro
+
+                // Usamos el _pdfService que inyectamos
+                string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
+
+                var result = _dialogService.ShowConfirmation(
+                    $"PDF del odontograma generado con éxito en:\n{generatedFilePath}\n\n¿Desea abrir el archivo ahora?",
+                    "Éxito");
+
+                if (result == CoreDialogResult.Yes)
+                {
+                    Process.Start(new ProcessStartInfo(generatedFilePath) { UseShellExecute = true });
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al generar el PDF del odontograma:\n{ex.Message}", "Error de Impresión");
+            }
         }
 
         private async Task RegisterNewPayment()
@@ -424,8 +458,13 @@ namespace TuClinica.UI.ViewModels
             }
             try
             {
-                var dialog = _serviceProvider.GetRequiredService<OdontogramWindow>();
+                // *** ESTA LÍNEA ES LA CLAVE ***
+                // El ServiceProvider (DI) ahora crea OdontogramViewModel
+                // y le inyecta automáticamente IDialogService, IPdfService y IFileDialogService
+                // porque los registramos todos en App.xaml.cs
                 var vm = _serviceProvider.GetRequiredService<OdontogramViewModel>();
+
+                var dialog = _serviceProvider.GetRequiredService<OdontogramWindow>();
 
                 vm.LoadState(this.Odontogram, this.CurrentPatient);
 
@@ -446,6 +485,7 @@ namespace TuClinica.UI.ViewModels
                     }
                 }
 
+                // Refrescar el preview por si se guardaron cambios
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
 
@@ -510,7 +550,7 @@ namespace TuClinica.UI.ViewModels
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
             if (IsPatientDataReadOnly && CurrentPatient != null)
             {
-                _ = LoadPatient(CurrentPatient);
+                _ = LoadPatient(CurrentPatient); // Recarga para descartar cambios
             }
         }
 
@@ -529,8 +569,6 @@ namespace TuClinica.UI.ViewModels
             // 2. Mostrar el diálogo
             if (dialog.ShowDialog() == true)
             {
-                // *** INICIO DE CAMBIO: Lógica de Cantidad y Aviso ***
-
                 // 3. El usuario dio "Aceptar", leer los resultados del diálogo
                 string concept = dialog.ManualConcept;
                 decimal unitPrice = dialog.UnitPrice;
@@ -576,8 +614,6 @@ namespace TuClinica.UI.ViewModels
 
                         // 8. Mostrar aviso de éxito
                         _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
-
-                        // *** FIN DE CAMBIO ***
                     }
                     catch (Exception ex)
                     {
@@ -610,11 +646,14 @@ namespace TuClinica.UI.ViewModels
                     if (patientToUpdate != null)
                     {
                         // Transferir cambios
+                        patientToUpdate.Name = CurrentPatient.Name; // <-- Faltaban estos
+                        patientToUpdate.Surname = CurrentPatient.Surname; // <--
+                        patientToUpdate.DniNie = CurrentPatient.DniNie; // <--
                         patientToUpdate.Phone = CurrentPatient.Phone;
                         patientToUpdate.Address = CurrentPatient.Address;
                         patientToUpdate.Email = CurrentPatient.Email;
                         patientToUpdate.Notes = CurrentPatient.Notes;
-                        patientToUpdate.OdontogramStateJson = CurrentPatient.OdontogramStateJson;
+                        // No guardamos OdontogramStateJson aquí, se guarda desde la ventana modal
 
                         await patientRepo.SaveChangesAsync();
                         _dialogService.ShowMessage("Datos del paciente actualizados.", "Éxito");

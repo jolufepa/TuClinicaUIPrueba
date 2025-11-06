@@ -42,6 +42,7 @@
                            VerticalAlignment="Center"
                            Margin="15,10"/>
 
+
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
                     <TextBlock Text="SALDO TOTAL:" Foreground="White" FontWeight="SemiBold" Margin="0,0,5,0"/>
                     <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}'}"
@@ -59,6 +60,7 @@
                 <GroupBox Grid.Column="0" Header="Acciones" Margin="0,0,10,0" Padding="10">
                     <StackPanel>
 
+
                         <Button Content="Abrir Odontograma (Registro)"
                                 Command="{Binding OpenOdontogramWindowCommand}"
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
@@ -68,6 +70,7 @@
                                 Command="{Binding OpenRegisterChargeDialogCommand}"
                                 Margin="0,0,0,8"/>
 
+
                         <Button Content="Registrar Nuevo Pago (Abono)"
                                 Command="{Binding RegisterNewPaymentCommand}"
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
@@ -76,11 +79,12 @@
 
                         <Border Height="1" Background="#DDDDDD" Margin="0,5"/>
 
+
                         <Button Content="Nuevo Presupuesto" 
                                 Command="{Binding NewBudgetCommand}"
                                 Margin="0,8,0,8"/>
                         <Button Content="Imprimir Historial (PDF)"
-                                Command="{Binding PrintHistoryCommand}" 
+                                 Command="{Binding PrintHistoryCommand}" 
                                 Margin="0,0,0,8"/>
 
                     </StackPanel>
@@ -116,7 +120,7 @@
                                                IsReadOnly="{Binding IsPatientDataReadOnly}"/>
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="DNI/NIE:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,10,20,10"/>
                                     <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding CurrentPatient.DniNie}" Style="{StaticResource FichaTextBoxStyle}" 
-                                            IsReadOnly="{Binding IsPatientDataReadOnly}" Margin="0,10,0,10"/>
+                                               IsReadOnly="{Binding IsPatientDataReadOnly}" Margin="0,10,0,10"/>
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Teléfono:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
                                     <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding CurrentPatient.Phone, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
                                                IsReadOnly="{Binding IsPatientDataReadOnly}"/>
@@ -153,66 +157,6 @@
                             </Border>
                         </Grid>
                     </mah:MetroTabItem>
-
-                    <mah:MetroTabItem Header="Odontograma" Padding="20">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,15">
-                                <Button Content="Imprimir Odontograma (PDF)"
-                                        Command="{Binding PrintOdontogramCommand}"
-                                        Style="{StaticResource MahApps.Styles.Button.Square}"
-                                        Margin="0,0,10,0"/>
-                            </StackPanel>
-                            <controls:OdontogramPreviewControl 
-                                Grid.Row="1"
-                                DataContext="{Binding OdontogramPreviewVM}"
-                                Margin="5"/>
-                            <StackPanel Grid.Row="2" Margin="0,30,0,0" HorizontalAlignment="Center">
-                                <TextBlock Text="Leyenda de Colores:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,5">
-                                        <Border Width="20" Height="20" Background="White" BorderBrush="Gray" BorderThickness="1" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Sano" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,5">
-                                        <Border Width="20" Height="20" Background="Red" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Caries" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,5">
-                                        <Border Width="20" Height="20" Background="#FFFF8000" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Extracción/Fractura" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Margin="0,0,20,5">
-                                        <Border Width="20" Height="20" Background="Transparent" BorderBrush="Black" BorderThickness="1" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Ausente" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,5,20,0">
-                                        <Border Width="20" Height="20" Background="Blue" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Obturación/Restauración" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,5,20,0">
-                                        <Border Width="20" Height="20" Background="Gold" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Corona/Implante" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </Grid>
-                    </mah:MetroTabItem>
-
 
                     <mah:MetroTabItem Header="Historial Clínico" Padding="20">
                         <Grid>
@@ -267,7 +211,6 @@
                                     </DataGrid>
                                 </GroupBox>
                             </Grid>
-
                             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
                                 <Button Content="Anterior"
                                         Command="{Binding PreviousPageCommand}"
@@ -326,6 +269,7 @@
                 <StatusBarItem>
                     <TextBlock Text="Listo" FontWeight="SemiBold"/>
                 </StatusBarItem>
+
 
                 <StatusBarItem HorizontalAlignment="Right">
                     <Button Content="Eliminar Cargo Seleccionado"

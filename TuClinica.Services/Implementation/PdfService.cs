@@ -1,7 +1,7 @@
 ﻿using iTextSharp.text.pdf;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
+using QuestPDF.Infrastructure; // <-- LA LÍNEA QUE FALTABA Y CAUSABA LOS ERRORES DE 'ICanvas' Y 'Expand'
 using System;
 using System.IO;
 using System.Linq;
@@ -9,37 +9,72 @@ using System.Threading.Tasks;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
+using System.Collections.Generic;
+using System.Text.Json;
+using TuClinica.Core.Enums;
+using QuestPDF.Previewer;
 
 namespace TuClinica.Services.Implementation
 {
-    // Asegúrate de que esta clase sea pública y no parcial
+    // --- CLASES DTO PRIVADAS PARA DESERIALIZAR EL JSON DEL ODONTOGRAMA ---
+    internal class OdontogramToothState
+    {
+        public int ToothNumber { get; set; }
+        public ToothCondition FullCondition { get; set; }
+        public ToothCondition OclusalCondition { get; set; }
+        public ToothCondition MesialCondition { get; set; }
+        public ToothCondition DistalCondition { get; set; }
+        public ToothCondition VestibularCondition { get; set; }
+        public ToothCondition LingualCondition { get; set; }
+
+        public ToothRestoration FullRestoration { get; set; }
+        public ToothRestoration OclusalRestoration { get; set; }
+        public ToothRestoration MesialRestoration { get; set; }
+        public ToothRestoration DistalRestoration { get; set; }
+        public ToothRestoration VestibularRestoration { get; set; }
+        public ToothRestoration LingualRestoration { get; set; }
+    }
+    // -----------------------------------------------------------------
+
+
     public class PdfService : IPdfService
     {
         private readonly AppSettings _settings;
         private readonly string _baseBudgetsPath;
         private readonly IPatientRepository _patientRepository;
         private readonly string _basePrescriptionsPath;
+        private readonly string _baseOdontogramsPath;
+
 
         // --- Definición de colores del nuevo template ---
-        private static readonly string ColorTableHeaderBg = "#D9E5F6"; // Azul claro cabecera tabla
-        private static readonly string ColorTableBorder = "#9BC2E6"; // Borde azul tabla
-        private static readonly string ColorTotalsBg = "#F2F2F2";      // Fondo gris claro totales
+        private static readonly string ColorTableHeaderBg = "#D9E5F6";
+        private static readonly string ColorTableBorder = "#9BC2E6";
+        private static readonly string ColorTotalsBg = "#F2F2F2";
 
-        // *** CONSTRUCTOR CORREGIDO Y COMPLETO ***
+        // *** CONSTRUCTOR MODIFICADO ***
         public PdfService(AppSettings settings, string baseBudgetsPath, string basePrescriptionsPath, IPatientRepository patientRepository)
         {
             _settings = settings;
             _baseBudgetsPath = baseBudgetsPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             _basePrescriptionsPath = basePrescriptionsPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            _baseOdontogramsPath = Path.Combine(GetDataFolderPath(), "odontogramas"); // Nueva carpeta
 
             Directory.CreateDirectory(_baseBudgetsPath);
             Directory.CreateDirectory(_basePrescriptionsPath);
+            Directory.CreateDirectory(_baseOdontogramsPath);
 
-            _patientRepository = patientRepository; // <-- ASIGNACIÓN VITAL
+            _patientRepository = patientRepository;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        // --- 1. GENERACIÓN DE PRESUPUESTO PDF (Lógica principal sin cambios) ---
+        // --- Helper para obtener la ruta de datos (copiado de tu app.xaml.cs) ---
+        private static string GetDataFolderPath()
+        {
+            string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
+            return Path.Combine(appDataFolder, "Data");
+        }
+
+        // --- 1. GENERACIÓN DE PRESUPUESTO PDF (Tu código existente) ---
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
             string yearFolder = Path.Combine(_baseBudgetsPath, budget.IssueDate.Year.ToString());
@@ -84,7 +119,7 @@ namespace TuClinica.Services.Implementation
         }
 
 
-        // --- 2. GENERACIÓN DE RECETA PDF (Sin cambios) ---
+        // --- 2. GENERACIÓN DE RECETA PDF (Tu código existente) ---
         public async Task<string> GeneratePrescriptionPdfAsync(Prescription prescription)
         {
             // --- 1. Definir Rutas BASE ---
@@ -110,7 +145,7 @@ namespace TuClinica.Services.Implementation
             }
             var firstItem = prescription.Items.First();
 
-            // ... (Lógica de nombre de archivo sin cambios) ...
+            // ... (Lógica de nombre de archivo) ...
             string patientNameClean = patient!.Name.Replace(' ', '_').Replace(".", "").Replace(",", "");
             string patientSurnameClean = patient.Surname.Replace(' ', '_').Replace(".", "").Replace(",", "");
             string patientDniClean = patient.DniNie.Replace(' ', '_').Replace(".", "").Replace(",", "");
@@ -124,7 +159,7 @@ namespace TuClinica.Services.Implementation
                 throw new FileNotFoundException("No se encontró la plantilla PDF en la ruta esperada.", templatePath);
             }
 
-            // --- 3. Lógica de Cálculo de Dosis (Sin cambios) ---
+            // --- 3. Lógica de Cálculo de Dosis ---
             int diasTratamiento = 1;
             int unidadesPorToma = 1;
             int tomasAlDia = 1;
@@ -158,7 +193,7 @@ namespace TuClinica.Services.Implementation
             if (numEnvasesCalculado == 0) numEnvasesCalculado = 1;
             string medicFull = firstItem.MedicationName ?? "";
 
-            // --- 4. Rellenar PDF con iTextSharp (Sin cambios) ---
+            // --- 4. Rellenar PDF con iTextSharp ---
             await Task.Run(() =>
             {
                 PdfReader pdfReader = null;
@@ -228,11 +263,228 @@ namespace TuClinica.Services.Implementation
             return outputPath;
         }
 
+
+        // --- 3. IMPLEMENTACIÓN DEL NUEVO MÉTODO DE ODONTOGRAMA ---
+        public async Task<string> GenerateOdontogramPdfAsync(Patient patient, string odontogramJsonState)
+        {
+            // 1. Definir ruta
+            string yearFolder = Path.Combine(_baseOdontogramsPath, DateTime.Now.Year.ToString());
+            Directory.CreateDirectory(yearFolder);
+            string fileName = $"Odontograma_{patient.Surname}_{patient.Name}_{DateTime.Now:yyyyMMdd}.pdf";
+            string filePath = Path.Combine(yearFolder, fileName);
+
+            // 2. Deserializar el JSON
+            List<OdontogramToothState> teeth;
+            try
+            {
+                // Usamos PropertyNameCaseInsensitive para que coincida "toothNumber" con "ToothNumber"
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                teeth = JsonSerializer.Deserialize<List<OdontogramToothState>>(odontogramJsonState, options)
+                        ?? new List<OdontogramToothState>();
+            }
+            catch (Exception)
+            {
+                teeth = new List<OdontogramToothState>(); // Cargar vacío si el JSON es inválido
+            }
+
+            // 3. Generar PDF con QuestPDF
+            await Task.Run(() =>
+            {
+                Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4.Landscape()); // Hoja apaisada
+                        page.Margin(1.5f, Unit.Centimetre);
+                        page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
+
+                        // Encabezado
+                        page.Header().Column(col =>
+                        {
+                            col.Item().Text(_settings.ClinicName ?? "Clínica Dental").Bold().FontSize(14);
+                            col.Item().Text($"Odontograma de: {patient.PatientDisplayInfo}").FontSize(16).Bold();
+                            col.Item().Text($"Fecha de Emisión: {DateTime.Now:dd/MM/yyyy HH:mm}");
+                            col.Item().PaddingTop(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
+                        });
+
+                        // Contenido (El Odontograma)
+                        page.Content().AlignCenter().Column(col =>
+                        {
+                            col.Item().Element(c => ComposeOdontogramGrid(c, teeth));
+                            col.Item().PaddingTop(20);
+                            col.Item().Element(ComposeOdontogramLegend);
+                        });
+
+                        // Pie de página
+                        page.Footer().AlignCenter().Text(text =>
+                        {
+                            text.Span("Página ");
+                            text.CurrentPageNumber();
+                        });
+                    });
+                })
+                .GeneratePdf(filePath);
+            });
+
+            return filePath;
+        }
+
+        // --- MÉTODOS AUXILIARES PARA EL PDF DEL ODONTOGRAMA ---
+
+        private void ComposeOdontogramGrid(IContainer container, List<OdontogramToothState> teeth)
+        {
+            container.Grid(grid =>
+            {
+                grid.Columns(16); // 8 dientes por cuadrante, 2 cuadrantes por fila
+
+                // Fila 1: Cuadrante 1 (18 a 11) y Cuadrante 2 (21 a 28)
+                for (int i = 18; i >= 11; i--) AddToothCell(grid, teeth.FirstOrDefault(t => t.ToothNumber == i));
+                for (int i = 21; i <= 28; i++) AddToothCell(grid, teeth.FirstOrDefault(t => t.ToothNumber == i));
+
+                // Fila 2: Cuadrante 4 (48 a 41) y Cuadrante 3 (31 a 38)
+                for (int i = 48; i >= 41; i--) AddToothCell(grid, teeth.FirstOrDefault(t => t.ToothNumber == i));
+                for (int i = 31; i <= 38; i++) AddToothCell(grid, teeth.FirstOrDefault(t => t.ToothNumber == i));
+            });
+        }
+
+        private void AddToothCell(GridDescriptor grid, OdontogramToothState? tooth)
+        {
+            grid.Item(1).Width(40, Unit.Point).Height(40, Unit.Point).Column(col =>
+            {
+                if (tooth == null)
+                {
+                    // Si el diente no existe en el JSON (no debería pasar), dibuja un cuadro vacío
+                    col.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Text("?").AlignCenter();
+                    return;
+                }
+
+                // Texto del número de diente
+                col.Item().AlignCenter().Text(tooth.ToothNumber.ToString()).FontSize(8);
+
+                // Grid 3x3 para las superficies
+                // --- CORRECCIÓN: 'Expand()' ahora existe gracias al 'using' ---
+                col.Item().Expand().Grid(g =>
+                {
+                    g.Columns(3);
+                    // Fila 1 (Vestibular)
+                    // --- CORRECCIÓN: Usar 'tooth.VestibularRestoration' ---
+                    g.Item(1).Background(GetConditionColor(tooth.VestibularCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
+                        .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.VestibularRestoration));
+
+                    // Fila 2 (Mesial, Oclusal, Distal)
+                    g.Item(1).Row(r =>
+                    {
+                        // --- CORRECCIÓN: Usar 'tooth.MesialRestoration' ---
+                        r.RelativeItem().Background(GetConditionColor(tooth.MesialCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
+                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.MesialRestoration));
+                        // --- CORRECCIÓN: Usar 'tooth.OclusalRestoration' ---
+                        r.RelativeItem().Background(GetConditionColor(tooth.OclusalCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
+                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.OclusalRestoration));
+                        // --- CORRECCIÓN: Usar 'tooth.DistalRestoration' (Este era el de la línea 389) ---
+                        r.RelativeItem().Background(GetConditionColor(tooth.DistalCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
+                            .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.DistalRestoration));
+                    });
+
+                    // Fila 3 (Lingual)
+                    // --- CORRECCIÓN: Usar 'tooth.LingualRestoration' ---
+                    g.Item(1).Background(GetConditionColor(tooth.LingualCondition)).Border(0.5f).BorderColor(Colors.Grey.Medium)
+                        .Canvas((canvas, size) => DrawRestoration(canvas, size, tooth.LingualRestoration));
+                });
+            });
+        }
+
+        // --- CORRECCIÓN: 'ICanvas' ahora existe gracias al 'using' ---
+        private void DrawRestoration(ICanvas canvas, Size size, ToothRestoration restoration)
+        {
+            if (restoration == ToothRestoration.Ninguna)
+                return;
+
+            string color = GetRestorationColor(restoration);
+            canvas.DrawRectangle(0, 0, size.Width, size.Height, color);
+        }
+
+        private string GetConditionColor(ToothCondition condition)
+        {
+            // Mapea tus Enums a colores hexadecimales para QuestPDF
+            return condition switch
+            {
+                ToothCondition.Sano => Colors.White,
+                ToothCondition.Caries => Colors.Red.Lighten1,
+                ToothCondition.ExtraccionIndicada => Colors.Orange.Medium,
+                ToothCondition.Ausente => Colors.Grey.Lighten1,
+                ToothCondition.Fractura => Colors.Yellow.Medium,
+                _ => Colors.White,
+            };
+        }
+
+        private string GetRestorationColor(ToothRestoration restoration)
+        {
+            // Mapea tus Enums de restauración a colores
+            return restoration switch
+            {
+                ToothRestoration.Obturacion => Colors.Blue.Lighten1,
+                ToothRestoration.Corona => Colors.Yellow.Lighten1,
+                ToothRestoration.Implante => Colors.Grey.Darken1,
+                ToothRestoration.Endodoncia => Colors.Purple.Lighten1,
+                // Añade aquí más casos si los tienes (Sellador, Protesis, etc.)
+                _ => Colors.Transparent,
+            };
+        }
+
+        // Dibuja la leyenda
+        private void ComposeOdontogramLegend(IContainer container)
+        {
+            container.AlignCenter().Column(col =>
+            {
+                // Leyenda de Condiciones (Fondo)
+                col.Item().Row(row =>
+                {
+                    row.Spacing(15);
+                    row.AutoItem().Text("Condición:").Bold();
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.White).Border(1).BorderColor(Colors.Black);
+                        r.AutoItem().PaddingLeft(5).Text("Sano");
+                    });
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Red.Lighten1);
+                        r.AutoItem().PaddingLeft(5).Text("Caries");
+                    });
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Orange.Medium);
+                        r.AutoItem().PaddingLeft(5).Text("Extracción/Fractura");
+                    });
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Grey.Lighten1);
+                        r.AutoItem().PaddingLeft(5).Text("Ausente");
+                    });
+                });
+
+                // Leyenda de Restauraciones (Superficie)
+                col.Item().PaddingTop(5).Row(row =>
+                {
+                    row.Spacing(15);
+                    row.AutoItem().Text("Restauración:").Bold();
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Blue.Lighten1);
+                        r.AutoItem().PaddingLeft(5).Text("Obturación");
+                    });
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Yellow.Lighten1);
+                        r.AutoItem().PaddingLeft(5).Text("Corona");
+                    });
+                    row.AutoItem().Row(r => {
+                        r.AutoItem().Width(12).Height(12).Background(Colors.Purple.Lighten1);
+                        r.AutoItem().PaddingLeft(5).Text("Endodoncia");
+                    });
+                });
+            });
+        }
+
+
         // ---------------------------------------------------------------------
-        // --- INICIO: MÉTODOS AUXILIARES (PRESUPUESTO) - VERSIÓN FINAL 2.0 ---
+        // --- INICIO: MÉTODOS AUXILIARES (PRESUPUESTO) - (Tu código) ---
         // ---------------------------------------------------------------------
 
-        // Estilos para la nueva tabla
         private static IContainer HeaderCellStyle(IContainer c) =>
             c.Border(1).BorderColor(ColorTableBorder).Background(ColorTableHeaderBg)
              .PaddingVertical(5).PaddingHorizontal(5).AlignCenter();
@@ -278,7 +530,6 @@ namespace TuClinica.Services.Implementation
                         col.Item().Text(_settings.ClinicAddress ?? "Dirección");
                         col.Item().Text($"Tel: {_settings.ClinicPhone ?? "N/A"}");
 
-                        // *** CORRECCIÓN: Usando el email desde appsettings.json ***
                         if (!string.IsNullOrWhiteSpace(_settings.ClinicEmail))
                         {
                             col.Item().Text(_settings.ClinicEmail).FontColor(Colors.Blue.Medium).Underline();
@@ -288,11 +539,8 @@ namespace TuClinica.Services.Implementation
                     // --- Columna Derecha: Datos Paciente ---
                     row.RelativeItem(1).Column(col =>
                     {
-                        // *** CORRECCIÓN: Alineación vertical. Aumentado el padding. ***
-                        // Esto empuja el bloque de paciente hacia abajo.
                         col.Item().PaddingTop(3.8f, Unit.Centimetre).Column(patientCol =>
                         {
-                            // *** CORRECCIÓN: Bucle de Filas para alinear Label + Data ***
                             patientCol.Item().Row(r =>
                             {
                                 r.ConstantItem(70).Text("Paciente:").FontSize(11).Bold();
@@ -331,12 +579,12 @@ namespace TuClinica.Services.Implementation
 
                 col.Item().PaddingVertical(10);
 
-                // --- Tabla de Items (Sin cambios) ---
+                // --- Tabla de Items ---
                 col.Item().Element(c => ComposeTable(c, budget));
 
                 col.Item().PaddingVertical(10);
 
-                // --- Totales (Sin cambios) ---
+                // --- Totales ---
                 col.Item().AlignRight().Element(c => ComposeTotals(c, budget));
             });
         }
@@ -375,12 +623,10 @@ namespace TuClinica.Services.Implementation
 
         private void ComposeTotals(IContainer container, Budget budget)
         {
-            // Calculamos los valores igual que en el ViewModel/Diseño anterior
             decimal discountAmount = budget.Subtotal * (budget.DiscountPercent / 100);
             decimal baseImponible = budget.Subtotal - discountAmount;
             decimal vatAmount = baseImponible * (budget.VatPercent / 100);
 
-            // Contenedor de la tabla de totales, alineado a la derecha
             container.Width(250, Unit.Point).Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -389,7 +635,6 @@ namespace TuClinica.Services.Implementation
                     columns.RelativeColumn();
                 });
 
-                // Estilo para celdas de totales (label y valor)
                 static IContainer TotalsLabelCell(IContainer c) =>
                     c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
                      .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
@@ -436,18 +681,13 @@ namespace TuClinica.Services.Implementation
         }
 
         // --- FIN: MÉTODOS AUXILIARES (PRESUPUESTO) ---
-        // -------------------------------------------------------------------
 
-
-        // *** CORRECCIÓN: Función MaskDni añadida de nuevo ***
         private string MaskDni(string? dniNie)
         {
             if (string.IsNullOrWhiteSpace(dniNie) || dniNie.Length < 5) return dniNie ?? string.Empty;
-            // Lógica para enmascarar (Ej: 12345678Z -> 1234****Z)
             int startAsterisk = Math.Max(1, dniNie.Length - 4);
             int countAsterisk = Math.Max(0, dniNie.Length - startAsterisk - 1);
             if (countAsterisk == 0) return dniNie;
-            // Asegurarnos de no enmascarar más de 4 caracteres
             countAsterisk = Math.Min(countAsterisk, 4);
             startAsterisk = dniNie.Length - countAsterisk - 1;
 
@@ -455,14 +695,13 @@ namespace TuClinica.Services.Implementation
         }
 
         // ---------------------------------------------------------------------
-        // --- INICIO: MÉTODOS AUXILIARES (RECETA) - CON CORRECCIONES ---
+        // --- INICIO: MÉTODOS AUXILIARES (RECETA) - (Tu código) ---
         // ---------------------------------------------------------------------
 
         private void ComposePrescriptionHeader(IContainer container, Prescription prescription)
         {
             container.Row(row =>
             {
-                // Columna Izquierda: Datos del Prescriptor
                 row.RelativeItem(2).Column(col =>
                 {
                     col.Item().Text(_settings.ClinicName ?? "Clínica Dental P&D").Bold().FontSize(12).FontColor(Colors.Blue.Medium);
@@ -471,7 +710,6 @@ namespace TuClinica.Services.Implementation
                     col.Item().Text($"Col. Num: {prescription.PrescriptorCollegeNum ?? "N/A"}").FontSize(10);
                 });
 
-                // Columna Derecha: Datos del Paciente
                 row.RelativeItem(3).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Column(col =>
                 {
                     col.Item().Text("Datos del Paciente").Bold().FontSize(11);
@@ -523,6 +761,5 @@ namespace TuClinica.Services.Implementation
         }
 
         // --- FIN: MÉTODOS AUXILIARES (RECETA) ---
-        // -------------------------------------------------------------------
     }
 }

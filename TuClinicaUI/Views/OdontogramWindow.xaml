@@ -12,10 +12,7 @@
         Height="auto" Width="auto"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
-         Background="White">
-
-    <!-- SE ELIMINA LA INSTANCIACIÓN DE DATACONTEXT EN XAML PARA EVITAR XLS0507/XDG0002 -->
-    <!-- El DataContext se asigna en PatientFileViewModel al abrir la ventana. -->
+        Background="White">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -25,27 +22,22 @@
 
         <Border Grid.Row="0" BorderBrush="{DynamicResource PrimaryHueMidBrush}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                <Button Content="Guardar"
+                <Button Content="Guardar Cambios"
                         Command="{Binding SaveCommand}"
-                        Style="{StaticResource MahApps.Styles.Button}"
+                        Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
                         Margin="0,0,10,0"
                         IsEnabled="{Binding HasChanges}"/>
 
-                <Button Content="Aplicar Tratamiento"
-                        Command="{Binding ApplyTreatmentCommand}"
-                        Style="{StaticResource MahApps.Styles.Button.Square.Accent}"
-                        Margin="0,0,10,0"/>
-
-                <Button Content="Cancelar"
-                        Command="{Binding CloseCommand}"
-                        Style="{StaticResource MahApps.Styles.Button}"/>
+                <Button Content="Imprimir PDF"
+                        Command="{Binding PrintCommand}"
+                        Style="{StaticResource MahApps.Styles.Button}"
+                        Margin="5,0,0,0"/>
             </StackPanel>
         </Border>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
 
-                <!-- Título dinámico que ahora funciona con la corrección en OdontogramViewModel -->
                 <TextBlock Text="{Binding Patient.FullName, StringFormat='Odontograma de {0}'}"
                            FontSize="20" FontWeight="Bold"
                            Margin="0,0,0,20"
@@ -62,7 +54,6 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Cuadrante 1 -->
                     <ItemsControl Grid.Row="0" Grid.Column="0" ItemsSource="{Binding TeethQuadrant1}" Margin="0,0,10,10">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -76,7 +67,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Cuadrante 2 -->
                     <ItemsControl Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TeethQuadrant2}" Margin="10,0,0,10">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -90,7 +80,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Cuadrante 4 -->
                     <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding TeethQuadrant4}" Margin="0,10,10,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -104,7 +93,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Cuadrante 3 -->
                     <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding TeethQuadrant3}" Margin="10,10,0,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -122,6 +110,7 @@
                 <StackPanel Margin="0,30,0,0" HorizontalAlignment="Center">
                     <TextBlock Text="Leyenda de Colores:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <Grid>
+
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>

@@ -3,12 +3,19 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text.Json; // *** AÑADIDO PARA JSON ***
+using System.Text.Json;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
-using TuClinica.Core.Models; // Necesario para Patient
+using TuClinica.Core.Models;
 using TuClinica.UI.Messages;
-using TuClinica.UI.Views; // *** AÑADIDO PARA EL NUEVO DIÁLOGO ***
+using TuClinica.UI.Views;
+// --- USINGS AÑADIDOS PARA IMPRESIÓN PDF ---
+using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Windows; // Para Window
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult; // Alias
+// -------------------------------------
 
 namespace TuClinica.UI.ViewModels
 {
@@ -20,20 +27,20 @@ namespace TuClinica.UI.ViewModels
     }
     // --------------------------------------------------------------------
 
-    /// <summary>
-    /// ViewModel para la VENTANA MODAL del odontograma interactivo.
-    /// </summary>
     public partial class OdontogramViewModel : BaseViewModel, IRecipient<SurfaceClickedMessage>
     {
         private readonly IDialogService _dialogService;
+        // --- SERVICIOS AÑADIDOS ---
+        private readonly IPdfService _pdfService;
+        private readonly IFileDialogService _fileDialogService;
+
+        // --- CAMPO AÑADIDO PARA GUARDAR EL PACIENTE ---
+        private Patient? _currentPatient;
 
         [ObservableProperty]
-        private PatientDisplayModel _patient = new(); // Se enlaza con el título de la ventana
+        private PatientDisplayModel _patient = new();
 
-        // Colección maestra (usada internamente)
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
-
-        // Colecciones para el Data Binding en el XAML (los 4 cuadrantes)
         public ObservableCollection<ToothViewModel> TeethQuadrant1 { get; } = new();
         public ObservableCollection<ToothViewModel> TeethQuadrant2 { get; } = new();
         public ObservableCollection<ToothViewModel> TeethQuadrant3 { get; } = new();
@@ -42,16 +49,25 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool? _dialogResult;
 
-        public OdontogramViewModel(IDialogService dialogService)
+        // *** CONSTRUCTOR MODIFICADO (AHORA PROFESIONAL) ***
+        public OdontogramViewModel(
+            IDialogService dialogService,
+            IPdfService pdfService,
+            IFileDialogService fileDialogService)
         {
             _dialogService = dialogService;
+            // --- ASIGNACIÓN DE SERVICIOS ---
+            _pdfService = pdfService;
+            _fileDialogService = fileDialogService;
 
-            // Escuchar clics desde los ToothViewModels
             WeakReferenceMessenger.Default.Register<SurfaceClickedMessage>(this);
         }
 
         public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram, Patient? currentPatient)
         {
+            // --- GUARDAMOS EL PACIENTE COMPLETO ---
+            _currentPatient = currentPatient;
+
             // 1. Cargar el nombre del paciente para el título
             if (currentPatient != null)
             {
@@ -62,7 +78,7 @@ namespace TuClinica.UI.ViewModels
                 Patient.FullName = "Paciente Desconocido";
             }
 
-            // 2. Cargar el estado de los dientes y distribuirlos
+            // 2. Cargar el estado de los dientes (sin cambios)
             Odontogram.Clear();
             TeethQuadrant1.Clear();
             TeethQuadrant2.Clear();
@@ -73,15 +89,12 @@ namespace TuClinica.UI.ViewModels
             {
                 var copy = new ToothViewModel(tooth.ToothNumber)
                 {
-                    // Propiedades de Condición
                     FullCondition = tooth.FullCondition,
                     OclusalCondition = tooth.OclusalCondition,
                     MesialCondition = tooth.MesialCondition,
                     DistalCondition = tooth.DistalCondition,
                     VestibularCondition = tooth.VestibularCondition,
                     LingualCondition = tooth.LingualCondition,
-
-                    // Propiedades de Restauración
                     FullRestoration = tooth.FullRestoration,
                     OclusalRestoration = tooth.OclusalRestoration,
                     MesialRestoration = tooth.MesialRestoration,
@@ -89,67 +102,38 @@ namespace TuClinica.UI.ViewModels
                     VestibularRestoration = tooth.VestibularRestoration,
                     LingualRestoration = tooth.LingualRestoration
                 };
-
                 Odontogram.Add(copy);
-
-                // Distribución por cuadrante
-                if (copy.ToothNumber >= 11 && copy.ToothNumber <= 18)
-                {
-                    TeethQuadrant1.Add(copy);
-                }
-                else if (copy.ToothNumber >= 21 && copy.ToothNumber <= 28)
-                {
-                    TeethQuadrant2.Add(copy);
-                }
-                else if (copy.ToothNumber >= 31 && copy.ToothNumber <= 38)
-                {
-                    TeethQuadrant3.Add(copy);
-                }
-                else if (copy.ToothNumber >= 41 && copy.ToothNumber <= 48)
-                {
-                    TeethQuadrant4.Add(copy);
-                }
+                if (copy.ToothNumber >= 11 && copy.ToothNumber <= 18) TeethQuadrant1.Add(copy);
+                else if (copy.ToothNumber >= 21 && copy.ToothNumber <= 28) TeethQuadrant2.Add(copy);
+                else if (copy.ToothNumber >= 31 && copy.ToothNumber <= 38) TeethQuadrant3.Add(copy);
+                else if (copy.ToothNumber >= 41 && copy.ToothNumber <= 48) TeethQuadrant4.Add(copy);
             }
         }
 
         public void Receive(SurfaceClickedMessage message)
         {
+            // (Sin cambios)
             var tooth = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
             if (tooth == null) return;
-
-            // *** CAMBIO: Llamada al nuevo diálogo ***
             OpenStateDialog(tooth, message.Value);
         }
 
-        // *** CAMBIO: Lógica de diálogo modificada ***
         private void OpenStateDialog(ToothViewModel tooth, ToothSurface surface)
         {
-            // 1. Crear el nuevo diálogo visual
+            // (Sin cambios)
             var dialog = new OdontogramStateDialog();
-
-            // 2. Obtener el estado actual de la superficie clicada
             (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
-
-            // 3. Cargar el diálogo con ese estado
             dialog.LoadState(tooth.ToothNumber, surface, currentCond, currentRest);
-
-            // 4. Mostrar el diálogo
             if (dialog.ShowDialog() == true)
             {
-                // 5. Si el usuario aceptó, aplicar los nuevos estados
                 UpdateToothSurfaceCondition(tooth, surface, dialog.NewCondition);
                 UpdateToothSurfaceRestoration(tooth, surface, dialog.NewRestoration);
             }
         }
 
-        // --- FUNCIONES DE ACTUALIZACIÓN DE ESTADO ---
-
-        // *** CAMBIO: Nuevo método auxiliar ***
-        /// <summary>
-        /// Obtiene la Condición y Restauración actual de una superficie específica.
-        /// </summary>
         private (ToothCondition, ToothRestoration) GetSurfaceState(ToothViewModel tooth, ToothSurface surface)
         {
+            // (Sin cambios)
             return surface switch
             {
                 ToothSurface.Oclusal => (tooth.OclusalCondition, tooth.OclusalRestoration),
@@ -162,11 +146,9 @@ namespace TuClinica.UI.ViewModels
             };
         }
 
-        /// <summary>
-        /// Actualiza la propiedad de RESTAURACIÓN de la superficie (capa superior visual).
-        /// </summary>
         private void UpdateToothSurfaceRestoration(ToothViewModel tooth, ToothSurface surface, ToothRestoration restoration)
         {
+            // (Sin cambios)
             switch (surface)
             {
                 case ToothSurface.Oclusal: tooth.OclusalRestoration = restoration; break;
@@ -178,11 +160,9 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        /// <summary>
-        /// Actualiza la propiedad de CONDICIÓN de la superficie (capa de fondo visual).
-        /// </summary>
         private void UpdateToothSurfaceCondition(ToothViewModel tooth, ToothSurface surface, ToothCondition condition)
         {
+            // (Sin cambios)
             switch (surface)
             {
                 case ToothSurface.Oclusal: tooth.OclusalCondition = condition; break;
@@ -206,9 +186,52 @@ namespace TuClinica.UI.ViewModels
             DialogResult = false;
         }
 
-        /// <summary>
-        /// Serializa la colección Odontogram (solo los 32 ToothViewModels) a JSON.
-        /// </summary>
+        // *** COMANDO DE IMPRESIÓN REESCRITO PROFESIONALMENTE ***
+        [RelayCommand]
+        private async Task Print()
+        {
+            if (_currentPatient == null)
+            {
+                _dialogService.ShowMessage("No hay ningún paciente cargado para generar el PDF.", "Error");
+                return;
+            }
+
+            // 1. Pedir al usuario dónde guardar el archivo
+            // (Corrigiendo el error CS0029 que tuvimos antes)
+            string suggestedName = $"Odontograma_{_currentPatient.Surname}_{_currentPatient.Name}.pdf";
+            var (ok, filePath) = _fileDialogService.ShowSaveDialog("Guardar PDF de Odontograma", suggestedName, "Archivos PDF (*.pdf)|*.pdf");
+
+            if (!ok)
+            {
+                return; // El usuario canceló
+            }
+
+            try
+            {
+                // 2. Obtener el estado JSON actual
+                string jsonState = GetSerializedState();
+
+                // 3. Llamar al servicio de PDF que acabamos de implementar
+                string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(_currentPatient, jsonState);
+
+                // 4. Confirmar y abrir
+                // (Corrigiendo el error CS1061: usamos ShowConfirmation, no ShowConfirmationAsync)
+                var result = _dialogService.ShowConfirmation(
+                    $"PDF del odontograma generado con éxito en:\n{generatedFilePath}\n\n¿Desea abrir el archivo ahora?",
+                    "Éxito");
+
+                if (result == CoreDialogResult.Yes)
+                {
+                    // Abrir el PDF con el visor predeterminado
+                    Process.Start(new ProcessStartInfo(generatedFilePath) { UseShellExecute = true });
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al generar el PDF del odontograma:\n{ex.Message}", "Error de Impresión");
+            }
+        }
+
         public string GetSerializedState()
         {
             try
