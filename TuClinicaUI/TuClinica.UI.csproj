@@ -74,6 +74,10 @@
  
     </None>
     
+    <None Update="Assets\PlantillaRecetaBasica.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    
     </ItemGroup>
 
 

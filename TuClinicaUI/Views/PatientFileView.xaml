@@ -5,7 +5,76 @@
              xmlns:converters="clr-namespace:TuClinica.UI.Converters" 
              xmlns:controls="clr-namespace:TuClinica.UI.Views.Controls"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:selectors="clr-namespace:TuClinica.UI.Selectors"
+             xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+             xmlns:events="clr-namespace:TuClinica.UI.ViewModels.Events" 
              Height="Auto" Width="Auto">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary.MergedDictionaries>
+
+            <DataTemplate x:Key="CargoTemplate" DataType="{x:Type events:CargoEvent}">
+                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <iconPacks:PackIconModern Kind="CurrencyDollar" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#D32F2F" Width="20" Height="20" />
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Cargo.Diagnosis, TargetNullValue='Cargo Manual'}" />
+                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Cargo.VisitDate, StringFormat='dd/MM/yyyy'}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="#D32F2F" Margin="20,0"
+                                   Text="{Binding Cargo.TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" />
+
+                        <Button Grid.Column="3" 
+                                Command="{Binding DeleteCommand}"
+                                CommandParameter="{Binding Cargo}"
+                                ToolTip="Eliminar este cargo"
+                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                                Margin="5,0,0,0">
+                            <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+
+            <DataTemplate x:Key="AbonoTemplate" DataType="{x:Type events:AbonoEvent}">
+                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <iconPacks:PackIconModern Kind="CurrencyEuro" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#388E3C" Width="20" Height="20" />
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Abono.Method, TargetNullValue='Abono'}" />
+                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Abono.PaymentDate, StringFormat='dd/MM/yyyy'}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="#388E3C" Margin="20,0"
+                                   Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" />
+                    </Grid>
+                </Border>
+            </DataTemplate>
+
+            <selectors:HistorialTemplateSelector x:Key="HistorialSelector"
+                CargoTemplate="{StaticResource CargoTemplate}"
+                AbonoTemplate="{StaticResource AbonoTemplate}" />
+
+        </ResourceDictionary>
+    </UserControl.Resources>
 
     <Grid>
         <Grid Background="#80000000" 
@@ -182,9 +251,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
@@ -196,115 +263,22 @@
                                     Margin="0,0,8,0"/>
                         </StackPanel>
 
-                        <TextBox Grid.Row="1"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 mah:TextBoxHelper.Watermark="Buscar en historial o pagos..."
-                                 mah:TextBoxHelper.ClearTextButton="True"
-                                 Margin="0,0,0,10" FontSize="14"/>
+                        <ListView Grid.Row="1"
+                                  ItemsSource="{Binding HistorialCombinado}"
+                                  ItemTemplateSelector="{StaticResource HistorialSelector}"
+                                  BorderBrush="#DDDDDD"
+                                  BorderThickness="1"
+                                  HorizontalContentAlignment="Stretch"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
 
-                        <Grid Grid.Row="2">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                    <Setter Property="Focusable" Value="False"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
 
-                            <GroupBox Grid.Row="0" Header="Historial Clínico (Cargos - Pendientes/Saldados)" Margin="0,0,5,5">
-                                <DataGrid ItemsSource="{Binding FilteredVisitHistory}"
-                                          SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          CanUserAddRows="False"
-                                          SelectionMode="Single">
-
-                                    <DataGrid.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Eliminar Cargo Seleccionado" 
-                                                      Command="{Binding DeleteClinicalEntryAsyncCommand}"
-                                                      CommandParameter="{Binding SelectedHistoryEntry}">
-                                                <MenuItem.Icon>
-                                                    <iconPacks:PackIconModern Kind="Delete" Foreground="Red" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </DataGrid.ContextMenu>
-
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Fecha" Binding="{Binding VisitDate, StringFormat='dd/MM/yy'}" Width="70"/>
-                                        <DataGridTextColumn Header="Doctor" Binding="{Binding DoctorName}" Width="80"/>
-                                        <DataGridTextColumn Header="Diagnóstico/Concepto" Binding="{Binding Diagnosis}" Width="*"/>
-                                        <DataGridTextColumn Header="Costo" Binding="{Binding TotalCost, StringFormat='{}{0:C}'}" Width="80"/>
-                                        <DataGridTextColumn Header="Saldo Pendiente" Binding="{Binding Balance, StringFormat='{}{0:C}'}" Width="100"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </GroupBox>
-
-                            <GroupBox Grid.Row="1" Header="Historial de Pagos (Abonos)" Margin="0,5,5,0">
-                                <DataGrid ItemsSource="{Binding FilteredPaymentHistory}"
-                                          SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          CanUserAddRows="False"
-                                          SelectionMode="Single">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Fecha" Binding="{Binding PaymentDate, StringFormat='dd/MM/yy'}" Width="70"/>
-                                        <DataGridTextColumn Header="Método" Binding="{Binding Method}" Width="90"/>
-                                        <DataGridTextColumn Header="Monto" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="90"/>
-                                        <DataGridTextColumn Header="No Asignado" Binding="{Binding UnallocatedAmount, StringFormat='{}{0:C}'}" Width="*"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </GroupBox>
-                        </Grid>
-
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
-                            <Button Content="Anterior"
-                                    Command="{Binding PreviousPageCommand}"
-                                    IsEnabled="{Binding CurrentPage, Converter={StaticResource IsGreaterThanZeroConverter}}"
-                                    Style="{StaticResource MahApps.Styles.Button.Square}"
-                                    Margin="0,0,10,0"/>
-                            <TextBlock Text="{Binding CurrentPage}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBlock Text="de" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBlock Text="{Binding TotalPages}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <Button Content="Siguiente"
-                                    Command="{Binding NextPageCommand}"
-                                    IsEnabled="{Binding HasNextPage}"
-                                    Style="{StaticResource MahApps.Styles.Button.Square}"/>
-                        </StackPanel>
-                    </Grid>
-                </mah:MetroTabItem>
-
-                <mah:MetroTabItem Padding="20">
-                    <mah:MetroTabItem.Header>
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconModern Kind="CurrencyEuro" VerticalAlignment="Center" Margin="0,0,5,0" />
-                            <TextBlock Text="Facturación" />
-                        </StackPanel>
-                    </mah:MetroTabItem.Header>
-
-                    <Grid>
-                        <GroupBox Header="Asignación de Pagos" Margin="10,0,0,0" Padding="10" VerticalAlignment="Top">
-                            <StackPanel>
-                                <TextBlock Text="Cargos Pendientes:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                                <ComboBox ItemsSource="{Binding PendingCharges}"
-                                          DisplayMemberPath="ChargeDisplayInfo"
-                                          SelectedItem="{Binding SelectedCharge, Mode=TwoWay}"
-                                          mah:TextBoxHelper.Watermark="Seleccionar cargo a pagar..."
-                                          Margin="0,0,0,10"/>
-                                <TextBlock Text="Pagos No Asignados:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                                <ComboBox ItemsSource="{Binding UnallocatedPayments}"
-                                          DisplayMemberPath="PaymentDisplayInfo"
-                                          mah:TextBoxHelper.Watermark="Seleccionar pago para usar..."
-                                          SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
-                                          Margin="0,0,0,10"/>
-                                <Label Content="Monto a Asignar (€):"/>
-                                <mah:NumericUpDown Value="{Binding AmountToAllocate, Mode=TwoWay}"
-                                                   Minimum="0" Interval="0.01"
-                                                   StringFormat="C" Culture="es-ES"
-                                                   Margin="0,0,0,20"/>
-                                <Button Content="Asignar Pago al Cargo"
-                                        Command="{Binding AllocatePaymentCommand}"
-                                        Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
-                            </StackPanel>
-                        </GroupBox>
                     </Grid>
                 </mah:MetroTabItem>
             </mah:MetroTabControl>

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection; // Para IServiceProvider
 using System;
@@ -14,6 +15,7 @@ using TuClinica.Core.Enums; // Para BudgetStatus
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
+using TuClinica.UI.Messages;
 using TuClinica.UI.Services;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
@@ -21,7 +23,7 @@ using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 namespace TuClinica.UI.ViewModels
 {
-    public partial class BudgetsViewModel : BaseViewModel
+    public partial class BudgetsViewModel : BaseViewModel, IRecipient<NavigateToNewBudgetMessage>
     {
         // --- Servicios Inyectados ---
         private readonly IPatientRepository _patientRepository;
@@ -62,6 +64,7 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(VatAmount))]
         [NotifyPropertyChangedFor(nameof(TotalAmount))]
+        // --- ¡¡CORRECCIÓN AQUÍ!! ---
         private decimal _vatPercent = 0; // Por defecto 0% IVA 
 
         // --- Propiedades para el HISTORIAL ---
@@ -70,12 +73,10 @@ namespace TuClinica.UI.ViewModels
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(OpenPdfCommand))]
-        // *** NUEVO: Notificar a los comandos de estado cuando la selección cambie ***
         [NotifyCanExecuteChangedFor(nameof(MarkAsAcceptedCommand))]
         [NotifyCanExecuteChangedFor(nameof(MarkAsRejectedCommand))]
         [NotifyCanExecuteChangedFor(nameof(MarkAsPendingCommand))]
         private Budget? _selectedBudgetFromHistory;
-        // *** FIN NUEVO ***
 
         // --- Propiedades Calculadas (Formulario Creación) ---
         public decimal Subtotal => BudgetItems?.Sum(item => item.Quantity * item.UnitPrice) ?? 0;
@@ -114,7 +115,29 @@ namespace TuClinica.UI.ViewModels
 
             // Cargar historial al iniciar
             _ = LoadBudgetHistoryAsync();
+
+            WeakReferenceMessenger.Default.Register(this);
         }
+
+        /// <summary>
+        /// Recibe el mensaje para pre-seleccionar un paciente.
+        /// </summary>
+        public void Receive(NavigateToNewBudgetMessage message)
+        {
+            // Este método es llamado por MainWindowViewModel
+            // (Esta lógica la movimos en el paso anterior)
+        }
+
+        /// <summary>
+        /// Configura el ViewModel para un nuevo presupuesto, pre-seleccionando un paciente.
+        /// </summary>
+        public void SetPatientForNewBudget(Patient patient)
+        {
+            ClearBudget();
+            CurrentPatient = patient;
+        }
+
+
         // Este método se llama automáticamente cuando CurrentPatient cambia
         partial void OnCurrentPatientChanged(Patient? value)
         {
@@ -147,8 +170,6 @@ namespace TuClinica.UI.ViewModels
         }
 
         // --- Comandos (Formulario Creación) ---
-
-
 
         // Método que ejecuta el comando SelectPatientCommand (Corregido)
         private void SelectPatient()
@@ -337,7 +358,7 @@ namespace TuClinica.UI.ViewModels
             string pdfPath = string.Empty;
             try
             {
-                
+
 
                 pdfPath = await _pdfService.GenerateBudgetPdfAsync(newBudget);
                 newBudget.PdfFilePath = pdfPath; // Guardamos la ruta
@@ -392,7 +413,8 @@ namespace TuClinica.UI.ViewModels
             CurrentPatient = null;
             BudgetItems.Clear();
             DiscountPercent = 0;
-            VatPercent = 21;
+            // --- ¡¡CORRECCIÓN AQUÍ!! ---
+            VatPercent = 0; // Restablecer a 0
         }
 
         // --- Métodos y Comandos para el HISTORIAL ---
@@ -505,6 +527,5 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al actualizar el estado del presupuesto:\n{ex.Message}", "Error de base de datos");
             }
         }
-        // *** FIN NUEVO ***
     }
 }

@@ -63,8 +63,10 @@ namespace TuClinica.Services.Tests
             Assert.AreEqual(200m, _viewModel.Subtotal, "El subtotal no se calculó correctamente.");
         }
 
+        // --- ¡¡TEST MODIFICADO!! ---
         [TestMethod]
-        public void Calculos_DebeCalcularTotalCorrectamente_ConDescuentoEIVA()
+        // 1. Cambiamos el nombre del test para reflejar la nueva lógica
+        public void Calculos_DebeCalcularTotalCorrectamente_ConDescuentoYVatCERO()
         {
             // Arrange (Preparar)
             // Añadimos un item base de 1000€
@@ -72,21 +74,21 @@ namespace TuClinica.Services.Tests
             _viewModel.BudgetItems.Add(item);
 
             // Act (Actuar)
-            // Aplicamos un 10% de descuento y 21% de IVA
+            // Aplicamos un 10% de descuento y 0% de IVA
             _viewModel.DiscountPercent = 10;
-            _viewModel.VatPercent = 21;
+            _viewModel.VatPercent = 0; // 2. IVA 0%
 
             // Assert (Verificar)
             // Verificamos todos los cálculos encadenados
             // Subtotal = 1000
             // DiscountAmount = 100 (10% de 1000)
             // Base Imponible = 900 (1000 - 100)
-            // VatAmount = 189 (21% de 900)
-            // TotalAmount = 1089 (900 + 189)
+            // VatAmount = 0 (0% de 900) <-- 3. Cálculo corregido
+            // TotalAmount = 900 (900 + 0) <-- 4. Cálculo corregido
             Assert.AreEqual(1000m, _viewModel.Subtotal);
             Assert.AreEqual(100m, _viewModel.DiscountAmount);
-            Assert.AreEqual(189m, _viewModel.VatAmount);
-            Assert.AreEqual(1089m, _viewModel.TotalAmount, "El cálculo del total con IVA y descuento es incorrecto.");
+            Assert.AreEqual(0m, _viewModel.VatAmount); // <-- 5. Assert corregido
+            Assert.AreEqual(900m, _viewModel.TotalAmount, "El cálculo del total con IVA 0% y descuento es incorrecto."); // <-- 6. Assert corregido
         }
 
         [TestMethod]

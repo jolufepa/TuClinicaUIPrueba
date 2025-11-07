@@ -18,12 +18,17 @@ using TuClinica.UI.Messages;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 using System.Diagnostics; // Para Process.Start
+using System.IO; // <-- ¡¡ESTE ERA EL ERROR CS0103!!
+using TuClinica.UI.ViewModels.Events;
 
 namespace TuClinica.UI.ViewModels
 {
+    // --- (Clases HistorialEventBase, CargoEvent, AbonoEvent) ---
+    // (Estas clases ya las creaste en la carpeta ViewModels/Events)
+
     public partial class PatientFileViewModel : BaseViewModel
     {
-        // --- Servicios ---
+        // --- Servicios ---
         private readonly IAuthService _authService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
@@ -36,28 +41,32 @@ namespace TuClinica.UI.ViewModels
         private Patient? _currentPatient;
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
 
-        // --- Colecciones de Historial ---
-        [ObservableProperty]
+        // --- Colecciones de Historial (MAESTRAS) ---
+        [ObservableProperty]
         private ObservableCollection<ClinicalEntry> _visitHistory = new();
         [ObservableProperty]
         private ObservableCollection<Payment> _paymentHistory = new();
 
-        // --- Resumen de Saldo ---
-        [ObservableProperty]
+        // --- NUEVA COLECCIÓN PARA LA BITÁCORA (UI) ---
+        [ObservableProperty]
+        private ObservableCollection<HistorialEventBase> _historialCombinado = new();
+
+        // --- Resumen de Saldo ---
+        [ObservableProperty]
         private decimal _totalCharged;
         [ObservableProperty]
         private decimal _totalPaid;
         [ObservableProperty]
         private decimal _currentBalance;
 
-        // --- Colecciones Facturación (Asignación de Pagos) ---
-        [ObservableProperty]
+        // --- Colecciones Facturación (Asignación de Pagos) ---
+        [ObservableProperty]
         private ObservableCollection<ClinicalEntry> _pendingCharges = new();
         [ObservableProperty]
         private ObservableCollection<Payment> _unallocatedPayments = new();
 
-        // --- Estado de Asignación (Panel de Facturación) ---
-        [ObservableProperty]
+        // --- Estado de Asignación (Panel de Facturación) ---
+        [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(AllocatePaymentCommand))]
         private ClinicalEntry? _selectedCharge;
         [ObservableProperty]
@@ -66,17 +75,10 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private decimal _amountToAllocate;
 
-        // Historial de la tabla seleccionada
-        [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(DeleteClinicalEntryAsyncCommand))]
-        private ClinicalEntry? _selectedHistoryEntry;
-
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
         // --- DECLARACIÓN MANUAL DE COMANDOS CRÍTICOS ---
-        public IAsyncRelayCommand DeleteClinicalEntryAsyncCommand { get; }
-        public IRelayCommand PreviousPageCommand { get; }
-        public IRelayCommand NextPageCommand { get; }
+        public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
         public IRelayCommand ToggleEditPatientDataCommand { get; }
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
         public IAsyncRelayCommand AllocatePaymentCommand { get; }
@@ -88,21 +90,7 @@ namespace TuClinica.UI.ViewModels
 
         // --- Comandos que SÍ se pueden generar automáticamente ---
         [ObservableProperty]
-        private bool _hasNextPage;
-        [ObservableProperty]
         private bool _isPatientDataReadOnly = true;
-        [ObservableProperty]
-        private string _searchText = string.Empty;
-        [ObservableProperty]
-        private int _currentPage = 1;
-        [ObservableProperty]
-        private int _pageSize = 10;
-        [ObservableProperty]
-        private int _totalPages = 1;
-        [ObservableProperty]
-        private ObservableCollection<ClinicalEntry> _filteredVisitHistory = new();
-        [ObservableProperty]
-        private ObservableCollection<Payment> _filteredPaymentHistory = new();
         [ObservableProperty]
         private OdontogramPreviewViewModel _odontogramPreviewVM = new();
         [ObservableProperty]
@@ -122,13 +110,10 @@ namespace TuClinica.UI.ViewModels
             _pdfService = pdfService;
 
             InitializeOdontogram();
-            // **** CAMBIO AQUÍ: El handler ahora es async void ****
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
 
             // --- INICIALIZACIÓN MANUAL DE COMANDOS ---
-            DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
-            PreviousPageCommand = new RelayCommand(PreviousPage, () => CurrentPage > 1);
-            NextPageCommand = new RelayCommand(NextPage, () => CurrentPage < TotalPages);
+            DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
             SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync);
             AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate);
@@ -152,6 +137,7 @@ namespace TuClinica.UI.ViewModels
                 CurrentPatient = patient;
                 IsPatientDataReadOnly = true;
 
+                // Carga inicial de datos (sin cambios)
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -167,26 +153,17 @@ namespace TuClinica.UI.ViewModels
                     var clinicalHistory = (await clinicalHistoryTask).ToList();
                     var paymentHistory = (await paymentHistoryTask).ToList();
 
+                    // Sigue poblando las listas maestras
                     VisitHistory.Clear();
                     PaymentHistory.Clear();
                     clinicalHistory.ForEach(VisitHistory.Add);
                     paymentHistory.ForEach(PaymentHistory.Add);
                 }
 
-                TotalCharged = VisitHistory.Sum(c => c.TotalCost);
-                TotalPaid = PaymentHistory.Sum(p => p.Amount);
-                CurrentBalance = TotalCharged - TotalPaid;
-
-                PendingCharges.Clear();
-                VisitHistory.Where(c => c.Balance > 0).OrderBy(c => c.VisitDate).ToList().ForEach(PendingCharges.Add);
-                UnallocatedPayments.Clear();
-                PaymentHistory.Where(p => p.UnallocatedAmount > 0).OrderBy(p => p.PaymentDate).ToList().ForEach(UnallocatedPayments.Add);
+                await RefreshBillingCollections();
 
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
-
-                CurrentPage = 1;
-                ApplyFiltersAndPaging();
             }
             catch (Exception ex)
             {
@@ -249,6 +226,10 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null) return;
 
+            List<ClinicalEntry> clinicalHistory;
+            List<Payment> paymentHistory;
+
+            // 1. Recargar datos de la BD
             using (var scope = _serviceProvider.CreateScope())
             {
                 var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -258,42 +239,88 @@ namespace TuClinica.UI.ViewModels
                 var paymentHistoryTask = paymentRepo.GetPaymentsForPatientAsync(CurrentPatient.Id);
                 await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask);
 
-                var clinicalHistory = (await clinicalHistoryTask).ToList();
-                var paymentHistory = (await paymentHistoryTask).ToList();
+                clinicalHistory = (await clinicalHistoryTask).ToList();
+                paymentHistory = (await paymentHistoryTask).ToList();
 
+                // 2. Actualizar colecciones maestras
                 VisitHistory.Clear();
                 PaymentHistory.Clear();
                 clinicalHistory.ForEach(VisitHistory.Add);
                 paymentHistory.ForEach(PaymentHistory.Add);
             }
 
+            // 3. Calcular totales
             TotalCharged = VisitHistory.Sum(c => c.TotalCost);
             TotalPaid = PaymentHistory.Sum(p => p.Amount);
             CurrentBalance = TotalCharged - TotalPaid;
 
+            // 4. Actualizar pestaña "Facturación" (aunque esté oculta, la lógica puede ser útil)
             PendingCharges.Clear();
             VisitHistory.Where(c => c.Balance > 0).OrderBy(c => c.VisitDate).ToList().ForEach(PendingCharges.Add);
             UnallocatedPayments.Clear();
             PaymentHistory.Where(p => p.UnallocatedAmount > 0).OrderBy(p => p.PaymentDate).ToList().ForEach(UnallocatedPayments.Add);
 
-            ApplyFiltersAndPaging();
+            // --- 5. Poblar la Bitácora ---
+            HistorialCombinado.Clear();
+
+            foreach (var cargo in clinicalHistory)
+            {
+                HistorialCombinado.Add(new CargoEvent(cargo, this));
+            }
+            foreach (var abono in paymentHistory)
+            {
+                HistorialCombinado.Add(new AbonoEvent(abono));
+            }
+
+            var sortedList = HistorialCombinado.OrderByDescending(e => e.Timestamp).ToList();
+
+            HistorialCombinado.Clear();
+            foreach (var item in sortedList)
+            {
+                HistorialCombinado.Add(item);
+            }
         }
 
         private void NewBudget()
         {
             if (CurrentPatient == null) return;
-            _dialogService.ShowMessage(
-               $"Funcionalidad Pendiente: Abrir vista de Presupuestos e iniciar nuevo presupuesto para {CurrentPatient.PatientDisplayInfo}. (Esta acción debería navegar a BudgetsView).",
-               "Navegación Pendiente");
+            WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(CurrentPatient));
         }
 
         private async Task PrintHistoryAsync()
         {
-            if (CurrentPatient == null) return;
-            _dialogService.ShowMessage(
-                $"Funcionalidad Pendiente: Generar el PDF del Historial Clínico completo de {CurrentPatient.PatientDisplayInfo}.",
-                "Impresión de Historial");
-            await Task.CompletedTask;
+            if (CurrentPatient == null)
+            {
+                _dialogService.ShowMessage("No hay un paciente cargado.", "Error");
+                return;
+            }
+
+            _dialogService.ShowMessage("Generando el informe PDF del historial... Por favor, espere.", "Generando PDF");
+
+            try
+            {
+                // 1. Llamar al servicio para generar el PDF en memoria
+                byte[] pdfBytes = await _pdfService.GenerateHistoryPdfAsync(
+                    CurrentPatient,
+                    VisitHistory.ToList(),      // Pasa la lista de cargos
+                    PaymentHistory.ToList(),    // Pasa la lista de pagos
+                    CurrentBalance              // Pasa el saldo actual
+                );
+
+                // 2. Crear un nombre de archivo temporal único
+                string tempFileName = $"Historial_{CurrentPatient.Surname}_{CurrentPatient.Name}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                string tempFilePath = Path.Combine(Path.GetTempPath(), tempFileName);
+
+                // 3. Guardar los bytes en ese archivo temporal
+                await File.WriteAllBytesAsync(tempFilePath, pdfBytes);
+
+                // 4. Abrir el archivo con el visor de PDF predeterminado
+                Process.Start(new ProcessStartInfo(tempFilePath) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Se produjo un error al generar o abrir el PDF del historial:\n{ex.Message}", "Error de Impresión");
+            }
         }
 
 
@@ -409,11 +436,7 @@ namespace TuClinica.UI.ViewModels
                         masterTooth.OclusalRestoration = savedTooth.OclusalRestoration;
                         masterTooth.MesialRestoration = savedTooth.MesialRestoration;
                         masterTooth.DistalRestoration = savedTooth.DistalRestoration;
-
-                        // **** ¡¡AQUÍ ESTABA EL BUG!! ****
-                        // Corregido de 'VesttabularRestoration' a 'VestibularRestoration'
                         masterTooth.VestibularRestoration = savedTooth.VestibularRestoration;
-
                         masterTooth.LingualRestoration = savedTooth.LingualRestoration;
                     }
                 }
@@ -424,12 +447,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        partial void OnSelectedHistoryEntryChanged(ClinicalEntry? value)
-        {
-            DeleteClinicalEntryAsyncCommand.NotifyCanExecuteChanged();
-        }
-
-        // **** CAMBIO AQUÍ: Convertido a 'async void' para poder usar 'await' ****
         private async void OpenOdontogramWindow()
         {
             if (CurrentPatient == null)
@@ -461,13 +478,10 @@ namespace TuClinica.UI.ViewModels
                     if (CurrentPatient.OdontogramStateJson != newJsonState)
                     {
                         CurrentPatient.OdontogramStateJson = newJsonState;
-
-                        // **** CAMBIO AQUÍ: 'await' para esperar a que termine el guardado ****
                         await SavePatientOdontogramStateAsync();
                     }
                 }
 
-                // **** ESTAS LÍNEAS AHORA SE EJECUTAN *DESPUÉS* DE GUARDAR ****
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
 
@@ -500,9 +514,9 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        private bool CanDeleteClinicalEntry()
+        private bool CanDeleteClinicalEntry(ClinicalEntry? entry)
         {
-            return SelectedHistoryEntry != null;
+            return entry != null;
         }
 
         partial void OnSelectedChargeChanged(ClinicalEntry? value)
@@ -532,6 +546,7 @@ namespace TuClinica.UI.ViewModels
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
             if (IsPatientDataReadOnly && CurrentPatient != null)
             {
+                // Recarga los datos originales si se cancela la edición
                 _ = LoadPatient(CurrentPatient);
             }
         }
@@ -642,7 +657,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        private async Task DeleteClinicalEntryAsync()
+        private async Task DeleteClinicalEntryAsync(ClinicalEntry? SelectedHistoryEntry)
         {
             if (SelectedHistoryEntry == null || CurrentPatient == null) return;
             var result = _dialogService.ShowConfirmation(
@@ -674,76 +689,6 @@ namespace TuClinica.UI.ViewModels
             {
                 _dialogService.ShowMessage($"Error al eliminar el cargo: {ex.Message}", "Error de Base de Datos");
             }
-        }
-
-        // --- MÉTODOS DE PAGINACIÓN ---
-        private void PreviousPage()
-        {
-            if (CurrentPage > 1)
-            {
-                CurrentPage--;
-            }
-        }
-        private void NextPage()
-        {
-            if (CurrentPage < TotalPages)
-            {
-                CurrentPage++;
-            }
-        }
-        partial void OnSearchTextChanged(string value)
-        {
-            ApplyFiltersAndPaging();
-        }
-        partial void OnCurrentPageChanged(int value)
-        {
-            ApplyFiltersAndPaging();
-            PreviousPageCommand.NotifyCanExecuteChanged();
-            NextPageCommand.NotifyCanExecuteChanged();
-        }
-        partial void OnTotalPagesChanged(int value)
-        {
-            HasNextPage = CurrentPage < TotalPages;
-            NextPageCommand.NotifyCanExecuteChanged();
-        }
-        private void ApplyFiltersAndPaging()
-        {
-            var filteredClinical = string.IsNullOrWhiteSpace(SearchText)
-              ? VisitHistory.ToList()
-              : VisitHistory.Where(c =>
-                c.Diagnosis?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true ||
-                c.DoctorName?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true ||
-                c.VisitDate.ToString("dd/MM/yyyy").Contains(SearchText)).ToList();
-
-            var filteredPayments = string.IsNullOrWhiteSpace(SearchText)
-              ? PaymentHistory.ToList()
-              : PaymentHistory.Where(p =>
-                p.Method?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true ||
-                p.PaymentDate.ToString("dd/MM/yyyy").Contains(SearchText)).ToList();
-
-            int maxItems = Math.Max(filteredClinical.Count, filteredPayments.Count);
-            TotalPages = Math.Max(1, (int)Math.Ceiling((double)maxItems / PageSize));
-
-            if (CurrentPage > TotalPages) CurrentPage = TotalPages;
-            if (CurrentPage < 1) CurrentPage = 1;
-
-            var pagedClinical = filteredClinical
-              .OrderByDescending(c => c.VisitDate)
-              .Skip((CurrentPage - 1) * PageSize)
-              .Take(PageSize)
-              .ToList();
-
-            var pagedPayments = filteredPayments
-              .OrderByDescending(p => p.PaymentDate)
-              .Skip((CurrentPage - 1) * PageSize)
-              .Take(PageSize)
-              .ToList();
-
-            FilteredVisitHistory.Clear();
-            foreach (var item in pagedClinical) FilteredVisitHistory.Add(item);
-
-            FilteredPaymentHistory.Clear();
-            foreach (var item in pagedPayments) FilteredPaymentHistory.Add(item);
         }
     }
 }

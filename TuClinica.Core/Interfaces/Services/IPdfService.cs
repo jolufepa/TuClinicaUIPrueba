@@ -1,9 +1,7 @@
-﻿// Contenido existente...
-using System.Threading.Tasks;
-using TuClinica.Core.Models; // Necesitamos Budget
-// --- AÑADE ESTOS USINGS ---
+﻿using System.Threading.Tasks;
+using TuClinica.Core.Models;
 using System.Collections.ObjectModel;
-using TuClinica.Core.Models; // Para Patient (ya debería estar)
+using System.Collections.Generic; // <-- AÑADIR ESTE USING
 
 namespace TuClinica.Core.Interfaces.Services
 {
@@ -15,13 +13,21 @@ namespace TuClinica.Core.Interfaces.Services
         // Método existente
         Task<string> GeneratePrescriptionPdfAsync(Prescription prescription);
 
-        // --- AÑADE ESTE NUEVO MÉTODO ---
-        /// <summary>
-        /// Genera un PDF profesional del odontograma de un paciente.
-        /// </summary>
-        /// <param name="patient">El paciente al que pertenece el odontograma.</param>
-        /// <param name="odontogramJsonState">El estado del odontograma serializado como JSON.</param>
-        /// <returns>La ruta al archivo PDF generado.</returns>
+        // Método existente
+        Task<string> GenerateBasicPrescriptionPdfAsync(Prescription prescription);
+
+        // Método existente
         Task<string> GenerateOdontogramPdfAsync(Patient patient, string odontogramJsonState);
+
+        // --- AÑADIR ESTE NUEVO MÉTODO ---
+        /// <summary>
+        /// Genera un PDF del historial de contabilidad del paciente en memoria.
+        /// </summary>
+        /// <param name="patient">Datos del paciente</param>
+        /// <param name="entries">Lista de todos los cargos</param>
+        /// <param name="payments">Lista de todos los pagos</param>
+        /// <param name="totalBalance">El saldo total calculado</param>
+        /// <returns>Un array de bytes (byte[]) con el contenido del PDF.</returns>
+        Task<byte[]> GenerateHistoryPdfAsync(Patient patient, List<ClinicalEntry> entries, List<Payment> payments, decimal totalBalance);
     }
 }

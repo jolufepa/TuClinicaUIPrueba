@@ -1,8 +1,8 @@
 ﻿using iTextSharp.text.pdf;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
-using QuestPDF.Infrastructure; 
-using QuestPDF.Drawing;     
+using QuestPDF.Infrastructure;
+using QuestPDF.Drawing;
 using System;
 using System.IO;
 using System.Linq;
@@ -54,14 +54,14 @@ namespace TuClinica.Services.Implementation
         public PdfService(AppSettings settings, string baseBudgetsPath, string basePrescriptionsPath, IPatientRepository patientRepository)
         {
             _settings = settings;
-            _baseBudgetsPath = baseBudgetsPath; 
-            _basePrescriptionsPath = basePrescriptionsPath; 
-            
-            _baseOdontogramsPath = Path.Combine(GetDataFolderPath(), "odontogramas"); 
+            _baseBudgetsPath = baseBudgetsPath;
+            _basePrescriptionsPath = basePrescriptionsPath;
+
+            _baseOdontogramsPath = Path.Combine(GetDataFolderPath(), "odontogramas");
 
             Directory.CreateDirectory(_baseBudgetsPath);
             Directory.CreateDirectory(_basePrescriptionsPath);
-            Directory.CreateDirectory(_baseOdontogramsPath); 
+            Directory.CreateDirectory(_baseOdontogramsPath);
 
             _patientRepository = patientRepository;
             QuestPDF.Settings.License = LicenseType.Community;
@@ -73,7 +73,7 @@ namespace TuClinica.Services.Implementation
             return Path.Combine(appDataFolder, "Data");
         }
 
-        // --- 1. GENERACIÓN DE PRESUPUESTO PDF (Sin cambios) ---
+        // --- 1. GENERACIÓN DE PRESUPUESTO PDF ---
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
             string yearFolder = Path.Combine(_baseBudgetsPath, budget.IssueDate.Year.ToString());
@@ -108,7 +108,7 @@ namespace TuClinica.Services.Implementation
 
                         page.Header().Element(c => ComposeHeader(c, budget, maskedDni));
                         page.Content().Element(c => ComposeContent(c, budget));
-                        page.Footer().Element(ComposeFooter);
+                        page.Footer().Element(c => ComposeFooter(c));
                     });
                 })
                 .GeneratePdf(filePath);
@@ -118,7 +118,7 @@ namespace TuClinica.Services.Implementation
         }
 
 
-        // --- 2. GENERACIÓN DE RECETA PDF (Sin cambios) ---
+        // --- 2. GENERACIÓN DE RECETA PDF (OFICIAL) ---
         public async Task<string> GeneratePrescriptionPdfAsync(Prescription prescription)
         {
             string templatePath = Path.Combine(AppContext.BaseDirectory, "Assets", "PlantillaReceta.pdf");
@@ -146,7 +146,6 @@ namespace TuClinica.Services.Implementation
             string patientSurnameClean = patient.Surname.Replace(' ', '_').Replace(".", "").Replace(",", "");
             string patientDniClean = patient.DniNie.Replace(' ', '_').Replace(".", "").Replace(",", "");
             string comprehensiveIdentifier = $"{patientSurnameClean}_{patientNameClean}_{patientDniClean}";
-            // *** CORRECCIÓN: Usar hora/min/seg para nombre único ***
             string fileNameSuffix = prescription.Id > 0 ? prescription.Id.ToString() : prescription.IssueDate.ToString("yyyyMMdd_HHmmss");
             string fileName = $"Receta_{comprehensiveIdentifier}_{fileNameSuffix}.pdf";
             string outputPath = Path.Combine(yearFolder, fileName);
@@ -156,7 +155,147 @@ namespace TuClinica.Services.Implementation
                 throw new FileNotFoundException("No se encontró la plantilla PDF en la ruta esperada.", templatePath);
             }
 
-            // ... (lógica de cálculo de dosis sin cambios) ...
+            int diasTratamiento = 1;
+            int unidadesPorToma = 1;
+            int tomasAlDia = 1;
+            int unidadesPorEnvase = 30;
+
+            if (!string.IsNullOrWhiteSpace(firstItem.Duration))
+            {
+                var matchDias = System.Text.RegularExpressions.Regex.Match(firstItem.Duration, @"\d+");
+                if (matchDias.Success) int.TryParse(matchDias.Groups[0].Value, out diasTratamiento);
+            }
+            if (!string.IsNullOrWhiteSpace(firstItem.Quantity))
+            {
+                var matchUnidades = System.Text.RegularExpressions.Regex.Match(firstItem.Quantity, @"\d+");
+                if (matchUnidades.Success) int.TryParse(matchUnidades.Groups[0].Value, out unidadesPorToma);
+            }
+            if (!string.IsNullOrWhiteSpace(firstItem.DosagePauta))
+            {
+                var pautaLower = firstItem.DosagePauta.ToLower();
+                var matchHoras = System.Text.RegularExpressions.Regex.Match(pautaLower, @"cada\s+(\d+)\s*(horas?|hs?)");
+                if (matchHoras.Success)
+                {
+                    if (int.TryParse(matchHoras.Groups[1].Value, out int horas) && horas > 0 && horas <= 24)
+                    {
+                        tomasAlDia = 24 / horas;
+                    }
+                }
+            }
+
+            int unidadesTotales = diasTratamiento * unidadesPorToma * tomasAlDia;
+            int numEnvasesCalculado = (unidadesPorEnvase > 0) ? (int)Math.Ceiling((double)unidadesTotales / unidadesPorEnvase) : 1;
+            if (numEnvasesCalculado == 0) numEnvasesCalculado = 1;
+            string medicFull = firstItem.MedicationName ?? "";
+
+
+            await Task.Run(() =>
+            {
+                PdfReader pdfReader = null;
+                PdfStamper pdfStamper = null;
+                FileStream fs = null;
+
+                try
+                {
+                    pdfReader = new PdfReader(templatePath);
+                    fs = new FileStream(outputPath, FileMode.Create);
+                    pdfStamper = new PdfStamper(pdfReader, fs);
+                    AcroFields formFields = pdfStamper.AcroFields;
+
+                    const int ALIGN_CENTER = 1;
+
+                    formFields.SetFieldProperty("Fecha", "textsize", 8f, null);
+                    formFields.SetFieldProperty("FechaCop", "textsize", 8f, null);
+                    formFields.SetFieldProperty("Fecha", "alignment", ALIGN_CENTER, null);
+                    formFields.SetFieldProperty("FechaCop", "alignment", ALIGN_CENTER, null);
+
+                    string fechaFormato = prescription.IssueDate.ToString("dd/MM/yyyy");
+                    string duracionNumero = diasTratamiento.ToString();
+                    string nombreCompleto = $"{patient.Name} {patient.Surname}";
+
+                    formFields.SetField("CIF", _settings.ClinicCif ?? "");
+                    formFields.SetField("NombrePac", nombreCompleto);
+                    formFields.SetField("DNIPac", patient.DniNie);
+                    formFields.SetField("NombrePacCop", nombreCompleto);
+                    formFields.SetField("DNIPacCop", patient.DniNie);
+
+                    formFields.SetField("Unidades", unidadesTotales.ToString());
+                    formFields.SetField("Pauta", firstItem.DosagePauta ?? "");
+                    formFields.SetField("Fecha", fechaFormato);
+                    formFields.SetField("NumEnv", numEnvasesCalculado.ToString());
+                    formFields.SetField("DurTrat", duracionNumero);
+                    formFields.SetField("Medic", medicFull);
+                    formFields.SetField("MedicamentoNombre", firstItem.MedicationName ?? "");
+                    formFields.SetField("Fecha_af_date", fechaFormato);
+
+                    formFields.SetField("UnidadesCop", unidadesTotales.ToString());
+                    formFields.SetField("PautaCop", firstItem.DosagePauta ?? "");
+                    formFields.SetField("FechaCop", fechaFormato);
+                    formFields.SetField("NumEnvCop", numEnvasesCalculado.ToString());
+                    formFields.SetField("DurTratCop", duracionNumero);
+                    formFields.SetField("MedicCop", medicFull);
+                    formFields.SetField("MedicamentoNombreCop", firstItem.MedicationName ?? "");
+                    formFields.SetField("Fecha_Cop_af_date", fechaFormato);
+                    formFields.SetField("Indicaciones", prescription.Instructions ?? "");
+
+                    formFields.SetField("PrescriptorNombre", prescription.PrescriptorName ?? "");
+                    formFields.SetField("PrescriptorNombreCop", prescription.PrescriptorName ?? "");
+
+                    pdfStamper.FormFlattening = true;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error al rellenar plantilla PDF ({Path.GetFileName(outputPath)}): {ex.Message} (Ruta plantilla: {templatePath})", ex);
+                }
+                finally
+                {
+                    pdfStamper?.Close();
+                    fs?.Dispose();
+                    pdfReader?.Close();
+                }
+            });
+
+            return outputPath;
+        }
+
+        // --- 3. GENERACIÓN DE RECETA PDF (BÁSICA) ---
+        public async Task<string> GenerateBasicPrescriptionPdfAsync(Prescription prescription)
+        {
+            string templatePath = Path.Combine(AppContext.BaseDirectory, "Assets", "PlantillaRecetaBasica.pdf");
+
+            string yearFolder = Path.Combine(_basePrescriptionsPath, prescription.IssueDate.Year.ToString());
+            Directory.CreateDirectory(yearFolder);
+
+            var patient = prescription.Patient;
+            if (patient == null)
+            {
+                var loadedPatient = await _patientRepository.GetByIdAsync(prescription.PatientId);
+                if (loadedPatient == null)
+                {
+                    throw new InvalidOperationException($"Faltan datos del paciente (ID: {prescription.PatientId}) para generar la receta.");
+                }
+                prescription.Patient = loadedPatient;
+                patient = loadedPatient;
+            }
+            if (!prescription.Items.Any())
+            {
+                throw new InvalidOperationException($"La receta (ID: {prescription.Id}) no contiene items (medicamentos).");
+            }
+            var firstItem = prescription.Items.First();
+
+            string patientNameClean = patient!.Name.Replace(' ', '_').Replace(".", "").Replace(",", "");
+            string patientSurnameClean = patient.Surname.Replace(' ', '_').Replace(".", "").Replace(",", "");
+            string patientDniClean = patient.DniNie.Replace(' ', '_').Replace(".", "").Replace(",", "");
+            string comprehensiveIdentifier = $"{patientSurnameClean}_{patientNameClean}_{patientDniClean}";
+            string fileNameSuffix = prescription.Id > 0 ? prescription.Id.ToString() : prescription.IssueDate.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"RecetaBasica_{comprehensiveIdentifier}_{fileNameSuffix}.pdf";
+            string outputPath = Path.Combine(yearFolder, fileName);
+
+            if (!File.Exists(templatePath))
+            {
+                throw new FileNotFoundException("No se encontró la plantilla PDF básica en la ruta esperada.", templatePath);
+            }
+
             int diasTratamiento = 1;
             int unidadesPorToma = 1;
             int tomasAlDia = 1;
@@ -261,16 +400,13 @@ namespace TuClinica.Services.Implementation
         }
 
 
-        // --- 3. IMPLEMENTACIÓN DEL NUEVO MÉTODO DE ODONTOGRAMA ---
+        // --- 4. GENERACIÓN DE ODONTOGRAMA PDF ---
         public async Task<string> GenerateOdontogramPdfAsync(Patient patient, string odontogramJsonState)
         {
-            // *** CORRECCIÓN: Ruta de guardado automática y única ***
             string yearFolder = Path.Combine(_baseOdontogramsPath, DateTime.Now.Year.ToString());
             Directory.CreateDirectory(yearFolder);
-            // Añadimos hora, minuto y segundo para un nombre único
             string fileName = $"Odontograma_{patient.Surname}_{patient.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             string filePath = Path.Combine(yearFolder, fileName);
-            // *** FIN DE LA CORRECCIÓN ***
 
             List<OdontogramToothState> teeth;
             try
@@ -281,7 +417,7 @@ namespace TuClinica.Services.Implementation
             }
             catch (Exception)
             {
-                teeth = new List<OdontogramToothState>(); 
+                teeth = new List<OdontogramToothState>();
             }
 
             await Task.Run(() =>
@@ -290,23 +426,23 @@ namespace TuClinica.Services.Implementation
                 {
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.A4.Landscape()); 
+                        page.Size(PageSizes.A4.Landscape());
                         page.Margin(1.5f, Unit.Centimetre);
                         page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
 
                         page.Header().Column(col =>
                         {
-                            col.Item().Text(_settings.ClinicName ?? "Clínica Dental").Bold().FontSize(14);
-                            col.Item().Text($"Odontograma de: {patient.PatientDisplayInfo}").FontSize(16).Bold();
-                            col.Item().Text($"Fecha de Emisión: {DateTime.Now:dd/MM/yyyy HH:mm}");
+                            // --- CORRECCIÓN CS1503 (API Moderna) ---
+                            col.Item().Text(text => text.Span(_settings.ClinicName ?? "Clínica Dental").Bold().FontSize(14));
+                            col.Item().Text(text => text.Span($"Odontograma de: {patient.PatientDisplayInfo}").FontSize(16).Bold());
+                            col.Item().Text(text => text.Span($"Fecha de Emisión: {DateTime.Now:dd/MM/yyyy HH:mm}"));
                             col.Item().PaddingTop(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
                         });
 
                         page.Content().AlignCenter().Column(col =>
                         {
                             col.Item().Element(c => ComposeOdontogramGrid(c, teeth));
-                            col.Item().PaddingTop(20);
-                            col.Item().Element(ComposeOdontogramLegend);
+                            col.Item().PaddingTop(20).Element(c => ComposeOdontogramLegend(c));
                         });
 
                         page.Footer().AlignCenter().Text(text =>
@@ -322,9 +458,7 @@ namespace TuClinica.Services.Implementation
             return filePath;
         }
 
-        // --- MÉTODOS AUXILIARES PARA EL PDF DEL ODONTOGRAMA (CORREGIDOS) ---
-
-        // (API moderna)
+        // --- MÉTODOS AUXILIARES PARA EL PDF DEL ODONTOGRAMA (Corregidos API Moderna) ---
         private void ComposeOdontogramGrid(IContainer container, List<OdontogramToothState> teeth)
         {
             container.Table(table =>
@@ -345,22 +479,24 @@ namespace TuClinica.Services.Implementation
             });
         }
 
-        // (API moderna)
         private void AddToothCell(TableDescriptor table, OdontogramToothState? tooth)
         {
             table.Cell().Height(40, Unit.Point).Column(col =>
             {
                 if (tooth == null)
                 {
-                    col.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Text("?").AlignCenter();
+                    // --- CORRECCIÓN CS0023 / CS1503 (API Moderna) ---
+                    // .Text debe ser la última llamada en el contenedor.
+                    col.Item().Border(1).BorderColor(Colors.Grey.Lighten2).AlignCenter().Text(text => text.Span("?"));
                     return;
                 }
 
-                col.Item().AlignCenter().Text(tooth.ToothNumber.ToString()).FontSize(8);
-                
-                col.Item().Extend().Table(g => 
+                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                col.Item().AlignCenter().Text(text => text.Span(tooth.ToothNumber.ToString()).FontSize(8));
+
+                col.Item().Extend().Table(g =>
                 {
-                    g.ColumnsDefinition(c => 
+                    g.ColumnsDefinition(c =>
                     {
                         c.RelativeColumn();
                         c.RelativeColumn();
@@ -368,46 +504,41 @@ namespace TuClinica.Services.Implementation
                     });
 
                     // Fila 0: (empty), VESTIBULAR, (empty)
-                    g.Cell(); 
-                    g.Cell().Element(c => DrawSurface(c, tooth.VestibularCondition, tooth.VestibularRestoration)); 
-                    g.Cell(); 
+                    g.Cell();
+                    g.Cell().Element(c => DrawSurface(c, tooth.VestibularCondition, tooth.VestibularRestoration));
+                    g.Cell();
 
                     // Fila 1: MESIAL, OCLUSAL, DISTAL
-                    g.Cell().Element(c => DrawSurface(c, tooth.MesialCondition, tooth.MesialRestoration)); 
-                    g.Cell().Element(c => DrawSurface(c, tooth.OclusalCondition, tooth.OclusalRestoration)); 
-                    g.Cell().Element(c => DrawSurface(c, tooth.DistalCondition, tooth.DistalRestoration)); 
+                    g.Cell().Element(c => DrawSurface(c, tooth.MesialCondition, tooth.MesialRestoration));
+                    g.Cell().Element(c => DrawSurface(c, tooth.OclusalCondition, tooth.OclusalRestoration));
+                    g.Cell().Element(c => DrawSurface(c, tooth.DistalCondition, tooth.DistalRestoration));
 
                     // Fila 2: (empty), LINGUAL, (empty)
-                    g.Cell(); 
-                    g.Cell().Element(c => DrawSurface(c, tooth.LingualCondition, tooth.LingualRestoration)); 
-                    g.Cell(); 
+                    g.Cell();
+                    g.Cell().Element(c => DrawSurface(c, tooth.LingualCondition, tooth.LingualRestoration));
+                    g.Cell();
                 });
             });
         }
 
-        // *** CORRECCIÓN: API MODERNA (Sin .Canvas()) ***
         private IContainer DrawSurface(IContainer container, ToothCondition condition, ToothRestoration restoration)
         {
             string finalColor;
 
             if (restoration != ToothRestoration.Ninguna)
             {
-                // La restauración (ej. empaste azul) tiene prioridad
                 finalColor = GetRestorationColor(restoration);
             }
             else
             {
-                // Si no hay restauración, se muestra la condición (ej. caries roja)
                 finalColor = GetConditionColor(condition);
             }
 
-            // Simplemente aplicamos el color de fondo y el borde.
             return container
-                .Background(finalColor) 
+                .Background(finalColor)
                 .Border(0.5f).BorderColor(Colors.Grey.Medium);
         }
-        // *** FIN DE LA CORRECCIÓN CLAVE ***
-        
+
         private string GetConditionColor(ToothCondition condition)
         {
             return condition switch
@@ -429,7 +560,7 @@ namespace TuClinica.Services.Implementation
                 ToothRestoration.Corona => Colors.Yellow.Lighten1,
                 ToothRestoration.Implante => Colors.Grey.Darken1,
                 ToothRestoration.Endodoncia => Colors.Purple.Lighten1,
-                _ => Colors.Transparent, // Si es "Ninguna", usamos transparente
+                _ => Colors.Transparent,
             };
         }
 
@@ -440,95 +571,332 @@ namespace TuClinica.Services.Implementation
                 col.Item().Row(row =>
                 {
                     row.Spacing(15);
-                    row.AutoItem().Text("Condición:").Bold();
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    row.AutoItem().Text(text => text.Span("Condición:").Bold());
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.White).Border(1).BorderColor(Colors.Black);
-                        r.AutoItem().PaddingLeft(5).Text("Sano");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Sano"));
                     });
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Red.Lighten1);
-                        r.AutoItem().PaddingLeft(5).Text("Caries");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Caries"));
                     });
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Orange.Medium);
-                        r.AutoItem().PaddingLeft(5).Text("Extracción/Fractura");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Extracción/Fractura"));
                     });
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Grey.Lighten1);
-                        r.AutoItem().PaddingLeft(5).Text("Ausente");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Ausente"));
                     });
                 });
 
                 col.Item().PaddingTop(5).Row(row =>
                 {
                     row.Spacing(15);
-                    row.AutoItem().Text("Restauración:").Bold();
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    row.AutoItem().Text(text => text.Span("Restauración:").Bold());
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Blue.Lighten1);
-                        r.AutoItem().PaddingLeft(5).Text("Obturación");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Obturación"));
                     });
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Yellow.Lighten1);
-                        r.AutoItem().PaddingLeft(5).Text("Corona");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Corona"));
                     });
                     row.AutoItem().Row(r => {
                         r.AutoItem().Width(12).Height(12).Background(Colors.Purple.Lighten1);
-                        r.AutoItem().PaddingLeft(5).Text("Endodoncia");
+                        r.AutoItem().PaddingLeft(5).Text(text => text.Span("Endodoncia"));
                     });
                 });
             });
         }
 
 
+        // --- ¡¡INICIO DE CÓDIGO PARA HISTORIAL!! ---
+
+        // --- 5. GENERACIÓN DE HISTORIAL PDF ---
+        public async Task<byte[]> GenerateHistoryPdfAsync(Patient patient, List<ClinicalEntry> entries, List<Payment> payments, decimal totalBalance)
+        {
+            // Usamos Task.Run para no bloquear el hilo de UI
+            return await Task.Run(() =>
+            {
+                // Genera el documento en memoria y devuelve los bytes
+                return Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4); // Vertical
+                        page.Margin(1.5f, Unit.Centimetre);
+                        page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
+
+                        page.Header().Element(c => ComposeHistoryHeader(c, patient));
+                        page.Content().Element(c => ComposeHistoryContent(c, entries, payments, totalBalance));
+                        page.Footer().Element(c => ComposeFooter(c));
+                    });
+                })
+                .GeneratePdf(); // <-- Este método devuelve byte[]
+            });
+        }
+
+        /// <summary>
+        /// Crea el encabezado para el PDF del historial.
+        /// </summary>
+        private void ComposeHistoryHeader(IContainer container, Patient patient)
+        {
+            container.Column(column =>
+            {
+                // Título principal con los datos de la clínica
+                column.Item().Row(row =>
+                {
+                    // Columna 1: Logo y Datos Clínica
+                    row.RelativeItem(1).Column(col =>
+                    {
+                        string logoPath = string.Empty;
+                        if (!string.IsNullOrEmpty(_settings.ClinicLogoPath))
+                        {
+                            logoPath = Path.Combine(AppContext.BaseDirectory, _settings.ClinicLogoPath);
+                        }
+
+                        if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+                        {
+                            try
+                            {
+                                // --- CORRECCIÓN CS0023 (API Moderna) ---
+                                // Separamos la configuración del contenedor de la llamada a .Image()
+                                var imageContainer = col.Item().PaddingBottom(5).MaxHeight(2.5f, Unit.Centimetre);
+                                imageContainer.Image(logoPath);
+                            }
+                            catch { /* Ignorar error de logo */ }
+                        }
+
+                        // --- CORRECCIÓN CS1503 (API Moderna) ---
+                        col.Item().Text(text => text.Span(_settings.ClinicName ?? "Clínica Dental").Bold().FontSize(12));
+                        col.Item().Text(text => text.Span($"CIF: {_settings.ClinicCif ?? "N/A"}"));
+                        col.Item().Text(text => text.Span(_settings.ClinicAddress ?? "Dirección"));
+                        col.Item().Text(text => text.Span($"Tel: {_settings.ClinicPhone ?? "N/A"}"));
+                    });
+
+                    // Columna 2: Título del Documento y Fecha
+                    row.RelativeItem(1).Column(col =>
+                    {
+                        // --- CORRECCIÓN CS1503 (API Moderna) ---
+                        col.Item().AlignRight().Text(text => text.Span("Historial de Paciente").Bold().FontSize(16));
+                        col.Item().AlignRight().Text(text => text.Span($"Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}"));
+                    });
+                });
+
+                // Título del Paciente (el que solicitaste)
+                column.Item().PaddingTop(20).Column(col =>
+                {
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    col.Item().Text(text => text.Span("Historial de visitas de").FontSize(12));
+                    col.Item().Text(text => text.Span($"{patient.Name} {patient.Surname}").Bold().FontSize(14));
+                    col.Item().Text(text => text.Span($"DNI/NIE: {patient.DniNie}"));
+                });
+
+                column.Item().PaddingTop(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
+            });
+        }
+
+        /// <summary>
+        /// Crea el contenido principal con las tablas de cargos y abonos.
+        /// </summary>
+        private void ComposeHistoryContent(IContainer container, List<ClinicalEntry> entries, List<Payment> payments, decimal totalBalance)
+        {
+            container.PaddingVertical(15).Column(col =>
+            {
+                col.Spacing(20); // Espacio entre elementos
+
+                // --- TABLA 1: CARGOS Y VISITAS ---
+                col.Item().Column(tableCol =>
+                {
+                    // --- CORRECCIÓN API MODERNA (CS1929 / CS1503) ---
+                    tableCol.Item().PaddingBottom(5).Text(text => text.Span("Resumen de Cargos y Visitas").Bold().FontSize(14));
+
+                    tableCol.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.ConstantColumn(65); // Fecha
+                            columns.RelativeColumn(1);  // Doctor
+                            columns.RelativeColumn(3);  // Concepto
+                            columns.RelativeColumn(1);  // Coste
+                            columns.RelativeColumn(1);  // Saldo
+                        });
+
+                        table.Header(header =>
+                        {
+                            // --- CORRECCIÓN CS1503 (API Moderna) ---
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Fecha"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Doctor"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Concepto"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Coste"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Pendiente"));
+                        });
+
+                        foreach (var entry in entries.OrderBy(e => e.VisitDate))
+                        {
+                            // --- CORRECCIÓN CS1503 (API Moderna) ---
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span($"{entry.VisitDate:dd/MM/yy}"));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(entry.DoctorName));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(entry.Diagnosis));
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{entry.TotalCost:C}"));
+
+                            // --- CORRECCIÓN CS0023 (API Moderna) ---
+                            // El .Text() debe ser la última llamada en el contenedor de la celda
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => {
+                                var color = entry.Balance > 0 ? Colors.Red.Medium : Colors.Green.Medium;
+                                text.Span($"{entry.Balance:C}").FontColor(color);
+                            });
+                        }
+                    });
+                });
+
+                // --- TABLA 2: PAGOS Y ABONOS ---
+                col.Item().Column(tableCol =>
+                {
+                    // --- CORRECCIÓN API MODERNA (CS1929 / CS1503) ---
+                    tableCol.Item().PaddingBottom(5).Text(text => text.Span("Resumen de Pagos y Abonos").Bold().FontSize(14));
+
+                    tableCol.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.ConstantColumn(65); // Fecha
+                            columns.RelativeColumn(1);  // Método
+                            columns.RelativeColumn(3);  // (Espacio vacío)
+                            columns.RelativeColumn(1);  // Importe
+                            columns.RelativeColumn(1);  // No Asignado
+                        });
+
+                        table.Header(header =>
+                        {
+                            // --- CORRECCIÓN CS1503 (API Moderna) ---
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Fecha"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Método"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("")); // Celda vacía
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Importe"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Restante"));
+                        });
+
+                        foreach (var payment in payments.OrderBy(p => p.PaymentDate))
+                        {
+                            // --- CORRECCIÓN CS1503 (API Moderna) ---
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span($"{payment.PaymentDate:dd/MM/yy}"));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(payment.Method));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span("")); // Celda vacía
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{payment.Amount:C}"));
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{payment.UnallocatedAmount:C}"));
+                        }
+                    });
+                });
+
+                // --- RESUMEN DE SALDO TOTAL ---
+                col.Item().AlignRight().Width(250, Unit.Point).Column(totalCol =>
+                {
+                    totalCol.Item().BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(5);
+                    totalCol.Item().Row(row =>
+                    {
+                        // --- CORRECCIÓN CS1503 (API Moderna) ---
+                        row.RelativeItem().Text(text => text.Span("Total Cargado:").Bold());
+                        row.RelativeItem().AlignRight().Text(text => text.Span($"{entries.Sum(e => e.TotalCost):C}"));
+                    });
+                    totalCol.Item().Row(row =>
+                    {
+                        // --- CORRECCIÓN CS1503 (API Moderna) ---
+                        row.RelativeItem().Text(text => text.Span("Total Abonado:").Bold());
+                        row.RelativeItem().AlignRight().Text(text => text.Span($"{payments.Sum(p => p.Amount):C}"));
+                    });
+                    totalCol.Item().Row(row =>
+                    {
+                        row.Spacing(10);
+                        var (color, label) = totalBalance > 0 ? (Colors.Red.Medium, "SALDO PENDIENTE:") : (Colors.Green.Medium, "SALDO A FAVOR:");
+                        if (totalBalance == 0) (color, label) = (Colors.Black, "SALDO TOTAL:");
+
+                        // --- CORRECCIÓN CS1503 Y CS0023/CS0815 (API Moderna) ---
+                        // 1. Crear el contenedor
+                        // 2. Aplicar modificadores de contenedor
+                        // 3. Llamar a Text() al final
+                        row.RelativeItem().Text(text =>
+                        {
+                            text.Span(label).FontColor(color).Bold().FontSize(14);
+                        });
+
+                        // 1. Crear el contenedor
+                        // 2. Aplicar modificadores de contenedor
+                        // 3. Llamar a Text() al final
+                        row.RelativeItem().AlignRight().Text(text =>
+                        {
+                            text.Span($"{totalBalance:C}").FontColor(color).Bold().FontSize(14);
+                        });
+                    });
+                });
+
+            });
+        }
+
+
         // --- MÉTODOS AUXILIARES (PRESUPUESTO) ---
+
+        // (Esta es tu sugerencia, ¡correcta!)
+        private IContainer BodyCellStyle(IContainer container)
+        {
+            // Por defecto, alineación a la izquierda y estilo de celda de cuerpo.
+            return container.Border(1).BorderColor(ColorTableBorder)
+                            .PaddingVertical(5).PaddingHorizontal(5)
+                            .AlignLeft();
+        }
+
+        // Sobrecarga para alineación derecha
+        private IContainer BodyCellStyle(IContainer container, bool alignRight)
+        {
+            var baseStyle = BodyCellStyle(container); // Llama a la base
+            return alignRight ? baseStyle.AlignRight() : baseStyle; // Modifica la alineación
+        }
 
         private static IContainer HeaderCellStyle(IContainer c) =>
             c.Border(1).BorderColor(ColorTableBorder).Background(ColorTableHeaderBg)
              .PaddingVertical(5).PaddingHorizontal(5).AlignCenter();
 
-        private static IContainer BodyCellStyle(IContainer c, bool alignRight = false)
-        {
-            var container = c.Border(1).BorderColor(ColorTableBorder)
-                             .PaddingVertical(5).PaddingHorizontal(5);
-
-            return alignRight ? container.AlignRight() : container.AlignLeft();
-        }
 
         private void ComposeHeader(IContainer container, Budget budget, string maskedDni)
         {
             container.Column(column =>
             {
-                column.Item().AlignCenter().Text("PRESUPUESTO").Bold().FontSize(18).Underline();
-                column.Item().PaddingBottom(20);
+                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                column.Item().AlignCenter().Text(text => text.Span("PRESUPUESTO").Bold().FontSize(18).Underline());
 
-                string logoPath = string.Empty;
-                if (!string.IsNullOrEmpty(_settings.ClinicLogoPath))
-                {
-                    logoPath = Path.Combine(AppContext.BaseDirectory, _settings.ClinicLogoPath);
-                }
-
-                column.Item().Row(row =>
+                column.Item().PaddingBottom(20).Row(row =>
                 {
                     row.RelativeItem(1).Column(col =>
                     {
+                        string logoPath = string.Empty;
+                        if (!string.IsNullOrEmpty(_settings.ClinicLogoPath))
+                        {
+                            logoPath = Path.Combine(AppContext.BaseDirectory, _settings.ClinicLogoPath);
+                        }
+
                         if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
                         {
                             try
                             {
-                                col.Item().MaxHeight(3.5f, Unit.Centimetre).Image(logoPath).FitArea();
-                                col.Item().PaddingBottom(5);
+                                // --- CORRECCIÓN CS0023 (API Moderna) ---
+                                var imageContainer = col.Item().PaddingBottom(5).MaxHeight(3.5f, Unit.Centimetre);
+                                imageContainer.Image(logoPath);
                             }
                             catch (Exception) { /* Ignorar error de logo */ }
                         }
 
-                        col.Item().Text(_settings.ClinicName ?? "Clínica Dental P&D").Bold().FontSize(12);
-                        col.Item().Text($"CIF: {_settings.ClinicCif ?? "N/A"}");
-                        col.Item().Text(_settings.ClinicAddress ?? "Dirección");
-                        col.Item().Text($"Tel: {_settings.ClinicPhone ?? "N/A"}");
+                        // --- CORRECCIÓN CS1503 (API Moderna) ---
+                        col.Item().Text(text => text.Span(_settings.ClinicName ?? "Clínica Dental P&D").Bold().FontSize(12));
+                        col.Item().Text(text => text.Span($"CIF: {_settings.ClinicCif ?? "N/A"}"));
+                        col.Item().Text(text => text.Span(_settings.ClinicAddress ?? "Dirección"));
+                        col.Item().Text(text => text.Span($"Tel: {_settings.ClinicPhone ?? "N/A"}"));
 
                         if (!string.IsNullOrWhiteSpace(_settings.ClinicEmail))
                         {
-                            col.Item().Text(_settings.ClinicEmail).FontColor(Colors.Blue.Medium).Underline();
+                            col.Item().Text(text => text.Span(_settings.ClinicEmail).FontColor(Colors.Blue.Medium).Underline());
                         }
                     });
 
@@ -538,19 +906,21 @@ namespace TuClinica.Services.Implementation
                         {
                             patientCol.Item().Row(r =>
                             {
-                                r.ConstantItem(70).Text("Paciente:").FontSize(11).Bold();
-                                r.RelativeItem().Text($"{budget.Patient?.Name ?? ""} {budget.Patient?.Surname ?? ""}")
-                                                 .FontSize(11);
+                                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                                r.ConstantItem(70).Text(text => text.Span("Paciente:").FontSize(11).Bold());
+                                r.RelativeItem().Text(text => text.Span($"{budget.Patient?.Name ?? ""} {budget.Patient?.Surname ?? ""}").FontSize(11));
                             });
                             patientCol.Item().Row(r =>
                             {
-                                r.ConstantItem(70).Text("DNI/NIF:").FontSize(11).Bold();
-                                r.RelativeItem().Text(maskedDni).FontSize(11);
+                                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                                r.ConstantItem(70).Text(text => text.Span("DNI/NIF:").FontSize(11).Bold());
+                                r.RelativeItem().Text(text => text.Span(maskedDni).FontSize(11));
                             });
                             patientCol.Item().Row(r =>
                             {
-                                r.ConstantItem(70).Text("Teléfono:").FontSize(11).Bold();
-                                r.RelativeItem().Text(budget.Patient?.Phone ?? "N/A").FontSize(11);
+                                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                                r.ConstantItem(70).Text(text => text.Span("Teléfono:").FontSize(11).Bold());
+                                r.RelativeItem().Text(text => text.Span(budget.Patient?.Phone ?? "N/A").FontSize(11));
                             });
                         });
                     });
@@ -564,17 +934,16 @@ namespace TuClinica.Services.Implementation
             {
                 col.Item().BorderBottom(1).BorderColor(Colors.Grey.Lighten1).PaddingBottom(5).Row(row =>
                 {
-                    row.ConstantItem(100).Text("PRESUPUESTO:").Bold();
-                    row.RelativeItem(2).Text(budget.BudgetNumber);
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    row.ConstantItem(100).Text(text => text.Span("PRESUPUESTO:").Bold());
+                    row.RelativeItem(2).Text(text => text.Span(budget.BudgetNumber));
 
-                    row.ConstantItem(50).Text("Fecha:").Bold();
-                    row.RelativeItem(1).Text($"{budget.IssueDate:dd/MM/yyyy}");
+                    row.ConstantItem(50).Text(text => text.Span("Fecha:").Bold());
+                    row.RelativeItem(1).Text(text => text.Span($"{budget.IssueDate:dd/MM/yyyy}"));
                 });
 
-                col.Item().PaddingVertical(10);
-                col.Item().Element(c => ComposeTable(c, budget));
-                col.Item().PaddingVertical(10);
-                col.Item().AlignRight().Element(c => ComposeTotals(c, budget));
+                col.Item().PaddingVertical(10).Element(c => ComposeTable(c, budget));
+                col.Item().PaddingVertical(10).AlignRight().Element(c => ComposeTotals(c, budget));
             });
         }
 
@@ -584,26 +953,28 @@ namespace TuClinica.Services.Implementation
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.RelativeColumn(3); 
-                    columns.RelativeColumn(1); 
-                    columns.RelativeColumn(1); 
-                    columns.RelativeColumn(1); 
+                    columns.RelativeColumn(3);
+                    columns.RelativeColumn(1);
+                    columns.RelativeColumn(1);
+                    columns.RelativeColumn(1);
                 });
 
                 table.Header(header =>
                 {
-                    header.Cell().Element(HeaderCellStyle).Text("Descripción");
-                    header.Cell().Element(HeaderCellStyle).Text("Cantidad");
-                    header.Cell().Element(HeaderCellStyle).Text("Precio Unit.");
-                    header.Cell().Element(HeaderCellStyle).Text("Total ítem");
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Descripción"));
+                    header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Cantidad"));
+                    header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Precio Unit."));
+                    header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Total ítem"));
                 });
 
                 foreach (var item in budget.Items ?? Enumerable.Empty<BudgetLineItem>())
                 {
-                    table.Cell().Element(c => BodyCellStyle(c)).Text(item.Description);
-                    table.Cell().Element(c => BodyCellStyle(c, true)).Text(item.Quantity.ToString());
-                    table.Cell().Element(c => BodyCellStyle(c, true)).Text($"{item.UnitPrice:N2} €");
-                    table.Cell().Element(c => BodyCellStyle(c, true)).Text($"{item.LineTotal:N2} €");
+                    // --- CORRECCIÓN CS1503 (API Moderna) ---
+                    table.Cell().Element(c => BodyCellStyle(c)).Text(text => text.Span(item.Description));
+                    table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span(item.Quantity.ToString()));
+                    table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{item.UnitPrice:N2} €"));
+                    table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{item.LineTotal:N2} €"));
                 }
             });
         }
@@ -630,20 +1001,31 @@ namespace TuClinica.Services.Implementation
                     c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
                      .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
 
-                table.Cell().Element(TotalsLabelCell).Text("Subtotal:").Bold();
-                table.Cell().Element(TotalsValueCell).Text($"{budget.Subtotal:N2} €");
+                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                table.Cell().Element(TotalsLabelCell).Text(text => text.Span("Subtotal:").Bold());
+                table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.Subtotal:N2} €"));
 
-                table.Cell().Element(TotalsLabelCell).Text($"Descuento ({budget.DiscountPercent}%):").Bold();
-                table.Cell().Element(TotalsValueCell).Text($"-{discountAmount:N2} €");
+                table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Descuento ({budget.DiscountPercent}%):").Bold());
+                table.Cell().Element(TotalsValueCell).Text(text => text.Span($"-{discountAmount:N2} €"));
 
-                table.Cell().Element(TotalsLabelCell).Text("Base Imponible:").Bold();
-                table.Cell().Element(TotalsValueCell).Text($"{baseImponible:N2} €");
+                table.Cell().Element(TotalsLabelCell).Text(text => text.Span("Base Imponible:").Bold());
+                table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{baseImponible:N2} €"));
 
-                table.Cell().Element(TotalsLabelCell).Text($"IVA ({budget.VatPercent}%):").Bold();
-                table.Cell().Element(TotalsValueCell).Text($"+{vatAmount:N2} €");
+                table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"IVA ({budget.VatPercent}%):").Bold());
+                table.Cell().Element(TotalsValueCell).Text(text => text.Span($"+{vatAmount:N2} €"));
 
-                table.Cell().Element(TotalsLabelCell).Text("Total:").FontSize(12).Bold();
-                table.Cell().Element(TotalsValueCell).Text($"{budget.TotalAmount:N2} €").FontSize(12).Bold();
+                // --- CORRECCIÓN CS1503 Y CS0023 (API Moderna) ---
+                var totalLabelCell = table.Cell().Element(TotalsLabelCell);
+                totalLabelCell.Text(text =>
+                {
+                    text.Span("Total:").FontSize(12).Bold();
+                });
+
+                var totalValueCell = table.Cell().Element(TotalsValueCell);
+                totalValueCell.Text(text =>
+                {
+                    text.Span($"{budget.TotalAmount:N2} €").FontSize(12).Bold();
+                });
             });
         }
 
@@ -651,7 +1033,8 @@ namespace TuClinica.Services.Implementation
         {
             container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(10).Column(col =>
             {
-                col.Item().Text("Nota: Presupuesto valido por 30 dias");
+                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                col.Item().Text(text => text.Span("Nota: Presupuesto valido por 30 dias"));
                 col.Item().AlignRight().Text(x =>
                 {
                     x.Span("Página ");
@@ -672,68 +1055,6 @@ namespace TuClinica.Services.Implementation
             startAsterisk = dniNie.Length - countAsterisk - 1;
 
             return dniNie.Substring(0, startAsterisk) + new string('*', countAsterisk) + dniNie.Substring(startAsterisk + countAsterisk);
-        }
-
-        private void ComposePrescriptionHeader(IContainer container, Prescription prescription)
-        {
-            container.Row(row =>
-            {
-                row.RelativeItem(2).Column(col =>
-                {
-                    col.Item().Text(_settings.ClinicName ?? "Clínica Dental P&D").Bold().FontSize(12).FontColor(Colors.Blue.Medium);
-                    col.Item().Text($"Dr(a): {prescription.PrescriptorName ?? "N/A"}").FontSize(10);
-                    col.Item().Text($"Especialidad: {prescription.PrescriptorSpecialty ?? "N/A"}").FontSize(10);
-                    col.Item().Text($"Col. Num: {prescription.PrescriptorCollegeNum ?? "N/A"}").FontSize(10);
-                });
-
-                row.RelativeItem(3).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Column(col =>
-                {
-                    col.Item().Text("Datos del Paciente").Bold().FontSize(11);
-                    col.Item().Text($"Nombre: {prescription.Patient?.PatientDisplayInfo ?? "N/A"}").FontSize(10);
-                    col.Item().Text($"Fecha: {prescription.IssueDate:dd/MM/yyyy}").AlignRight().FontSize(10);
-                });
-            });
-            container.PaddingTop(5).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private void ComposePrescriptionContent(IContainer container, Prescription prescription)
-        {
-            container.Column(col =>
-            {
-                col.Spacing(10);
-
-                col.Item().AlignCenter().PaddingVertical(5).Text("PRESCIPCIÓN MÉDICA").Bold().FontSize(14);
-
-                foreach (var item in prescription.Items)
-                {
-                    col.Item().Background(Colors.Grey.Lighten5).Padding(5).Column(itemCol =>
-                    {
-                        itemCol.Item().Text(item.MedicationName).Bold().FontSize(12).FontColor(Colors.Black);
-
-                        itemCol.Item().PaddingLeft(5).Text($"Pauta: {item.DosagePauta}");
-                        itemCol.Item().PaddingLeft(5).Text($"Cantidad: {item.Quantity} | Duración: {item.Duration}");
-                    });
-                }
-
-                if (!string.IsNullOrWhiteSpace(prescription.Instructions))
-                {
-                    col.Item().PaddingTop(10).Text(text =>
-                    {
-                        text.Span("Instrucciones Adicionales").Bold().Underline();
-                    });
-                    col.Item().Text(prescription.Instructions).Italic();
-                }
-
-                col.Item().PaddingVertical(20).Text(x =>
-                {
-                    x.Span("Firma del Prescriptor: ").Bold();
-                });
-            });
-        }
-
-        private void ComposePrescriptionFooter(IContainer container)
-        {
-            container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(5).AlignCenter().Text("Receta válida solo para el paciente indicado y su uso bajo supervisión médica.");
         }
     }
 }

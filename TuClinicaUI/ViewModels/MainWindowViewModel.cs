@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging; // <-- Este SÍ se queda
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
@@ -7,11 +8,13 @@ using System.Windows;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
+using TuClinica.UI.Messages; // <-- Este SÍ se queda
 
 // 1. ASEGÚRATE DE QUE EL NAMESPACE ES ESTE
 namespace TuClinica.UI.ViewModels
 {
-    public partial class MainWindowViewModel : BaseViewModel
+    // 2. IRecipient<...> SE QUEDA
+    public partial class MainWindowViewModel : BaseViewModel, IRecipient<NavigateToNewBudgetMessage>
     {
         private readonly IAuthService _authService;
         private readonly IServiceProvider _serviceProvider;
@@ -39,12 +42,12 @@ namespace TuClinica.UI.ViewModels
         public MainWindowViewModel(IAuthService authService,
                                    IServiceProvider serviceProvider,
                                    PatientFileViewModel patientFileViewModel,
-                                   HomeViewModel homeViewModel) 
+                                   HomeViewModel homeViewModel)
         {
             _authService = authService;
             _serviceProvider = serviceProvider;
-            _patientFileViewModel = patientFileViewModel; 
-            
+            _patientFileViewModel = patientFileViewModel;
+
             _homeViewModel = homeViewModel;
             LoadCurrentUserAndSetVisibility();
 
@@ -64,6 +67,29 @@ namespace TuClinica.UI.ViewModels
             }
 
             _homeViewModel = homeViewModel;
+
+            // 3. REGISTRARSE A LOS MENSAJES
+            WeakReferenceMessenger.Default.Register(this);
+        }
+
+        // 4. AÑADIR EL MÉTODO Receive (¡MODIFICADO!)
+        /// <summary>
+        /// Recibe el mensaje para navegar a la vista de presupuestos.
+        /// </summary>
+        public void Receive(NavigateToNewBudgetMessage message)
+        {
+            // --- INICIO DE LA LÓGICA CORREGIDA ---
+
+            // 1. Obtenemos una NUEVA instancia de BudgetsViewModel
+            var budgetVM = _serviceProvider.GetRequiredService<BudgetsViewModel>();
+
+            // 2. Llamamos al método público para pre-configurarla
+            budgetVM.SetPatientForNewBudget(message.Value);
+
+            // 3. Establecemos esta instancia pre-configurada como la vista activa
+            SelectedViewModel = budgetVM;
+
+            // --- FIN DE LA LÓGICA CORREGIDA ---
         }
 
         private void LoadCurrentUserAndSetVisibility()
@@ -113,6 +139,8 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand]
         private void NavigateToBudgets()
         {
+            // Esta navegación (desde el menú principal) debe mostrar un
+            // ViewModel limpio, por eso pedimos uno nuevo.
             SelectedViewModel = _serviceProvider.GetRequiredService<BudgetsViewModel>();
         }
 

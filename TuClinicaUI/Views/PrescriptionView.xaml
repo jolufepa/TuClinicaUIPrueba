@@ -44,12 +44,10 @@
                     <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
                     <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
                     <ComboBox Grid.Row="2" Margin="0,5,0,15"
-                          ItemsSource="{Binding Medications}"
+                           ItemsSource="{Binding Medications}"
                            FontSize="21"
-          
-                          SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
-          
-                          DisplayMemberPath="FullDisplay"  IsEditable="True"
+                           SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
+                           DisplayMemberPath="FullDisplay"  IsEditable="True"
                           Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions>
@@ -77,15 +75,22 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBox Grid.Row="4" Margin="0,15,0,0"
+                    <TextBox Grid.Row="4" 
+                             Margin="0,15,0,0"
                              mah:TextBoxHelper.Watermark="Instrucciones adicionales para el paciente (Ej: Tomar después de las comidas)..."
                              Text="{Binding Instructions, UpdateSourceTrigger=PropertyChanged}"
-                             Height="100" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                             Height="100" 
+                             TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
 
-                    <Button Grid.Row="5" 
-                            Content="Generar Receta PDF"
-                            Command="{Binding GeneratePrescriptionPdfCommand}" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                            HorizontalAlignment="Right" Margin="0,20,0,0"/>
+                    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button Content="Impresión Básica"
+                                Command="{Binding GenerateBasicPrescriptionPdfCommand}"
+                                Margin="0,0,10,0"/>
+
+                        <Button Content="Generar Receta PDF"
+                                Command="{Binding GeneratePrescriptionPdfCommand}" 
+                                Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+                    </StackPanel>
                 </Grid>
             </mah:MetroTabItem>
 
@@ -97,7 +102,7 @@
                     </Grid.ColumnDefinitions>
 
                     <DataGrid Grid.Column="0" ItemsSource="{Binding Medications}" SelectedItem="{Binding SelectedMedication}"
-                              AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
+                           AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="*"/>
                             <DataGridTextColumn Header="Presentación" Binding="{Binding Presentation}" Width="*"/>

@@ -15,7 +15,6 @@ using TuClinica.DataAccess;
 using TuClinica.UI.Views;
 using TuClinica.Core.Interfaces;
 
-// ELIMINAMOS EL KEYWORD 'partial'
 
 namespace TuClinica.UI.ViewModels
 {
@@ -38,21 +37,19 @@ namespace TuClinica.UI.ViewModels
             {
                 if (SetProperty(ref _selectedPatient, value))
                 {
-                    // Llama a la lógica de notificación manual
                     OnSelectedPatientChanged(value);
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
                 }
             }
         }
 
-        // --- Propiedad Display (versión string para la UI) ---
         private string _selectedPatientFullNameDisplay = "Ningún paciente seleccionado";
         public string SelectedPatientFullNameDisplay
         {
             get => _selectedPatientFullNameDisplay;
-            set => SetProperty(ref _selectedPatientFullNameDisplay, value); // ELIMINAR LA PALABRA CLAVE 'private'
+            set => SetProperty(ref _selectedPatientFullNameDisplay, value);
         }
-        // ----------------------------------------------------
 
         private string _medicationSearchText = string.Empty;
         public string MedicationSearchText
@@ -63,6 +60,7 @@ namespace TuClinica.UI.ViewModels
                 if (SetProperty(ref _medicationSearchText, value))
                 {
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
                 }
             }
         }
@@ -76,10 +74,10 @@ namespace TuClinica.UI.ViewModels
                 if (SetProperty(ref _dosageSearchText, value))
                 {
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
                 }
             }
         }
-        // ... (el resto de propiedades simples como Quantity, Duration, Instructions no necesitan el check de CanExecute en el set)
 
         public string MedicationQuantity { get; set; } = "1";
         public string TreatmentDuration { get; set; } = "10 días";
@@ -99,8 +97,8 @@ namespace TuClinica.UI.ViewModels
 
         // --- COMANDOS MANUALES (IRelayCommand) ---
         public IRelayCommand SelectPatientCommand { get; }
-        // Generado manualmente para poder usar CanExecute y NotifyCanExecuteChanged
         public IAsyncRelayCommand GeneratePrescriptionPdfCommand { get; }
+        public IAsyncRelayCommand GenerateBasicPrescriptionPdfCommand { get; } // <-- AÑADIDO
         public IAsyncRelayCommand LoadMedicationsCommand { get; }
         public IAsyncRelayCommand SaveMedicationCommand { get; }
         public IAsyncRelayCommand LoadDosagesCommand { get; }
@@ -121,9 +119,10 @@ namespace TuClinica.UI.ViewModels
             _prescriptionRepository = prescriptionRepository;
             _dialogService = dialogService;
 
-            // Inicialización de comandos (usando CommunityToolkit.Mvvm.Input.RelayCommand, pero instanciados manualmente)
+            // Inicialización de comandos
             SelectPatientCommand = new RelayCommand(SelectPatient);
             GeneratePrescriptionPdfCommand = new AsyncRelayCommand(GeneratePrescriptionPdfAsync, CanGeneratePrescription);
+            GenerateBasicPrescriptionPdfCommand = new AsyncRelayCommand(GenerateBasicPrescriptionPdfAsync, CanGeneratePrescription); // <-- AÑADIDO
             LoadMedicationsCommand = new AsyncRelayCommand(LoadMedicationsAsync);
             SaveMedicationCommand = new AsyncRelayCommand(SaveMedicationAsync);
             LoadDosagesCommand = new AsyncRelayCommand(LoadDosagesAsync);
@@ -131,12 +130,10 @@ namespace TuClinica.UI.ViewModels
 
 
             _ = LoadInitialDataAsync();
-            _dialogService = dialogService;
         }
 
         private async Task LoadInitialDataAsync()
         {
-            // Cargar listas para gestión
             await LoadMedicationsAsync();
             await LoadDosagesAsync();
         }
@@ -171,7 +168,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- Propiedad para capturar el objeto seleccionado ---
         private Medication? _selectedMedicationForPrescription;
         public Medication? SelectedMedicationForPrescription
         {
@@ -180,23 +176,27 @@ namespace TuClinica.UI.ViewModels
             {
                 if (SetProperty(ref _selectedMedicationForPrescription, value))
                 {
-                    // LÓGICA CLAVE: Si se selecciona un objeto, usamos la propiedad FullDisplay para rellenar el campo de texto.
                     if (value != null)
                     {
-                        MedicationSearchText = value.FullDisplay; // <--- USAMOS FullDisplay
+                        MedicationSearchText = value.FullDisplay;
                     }
                 }
             }
         }
 
+        // --- INICIO DE LA REFACTORIZACIÓN ---
 
-        private async Task GeneratePrescriptionPdfAsync()
+        /// <summary>
+        /// Lógica centralizada para validar, crear y guardar la receta en la BD.
+        /// </summary>
+        /// <returns>La prescripción guardada, o null si falla la validación o el guardado.</returns>
+        private async Task<Prescription?> CreateAndSavePrescriptionAsync()
         {
             // 1. Validar datos
             if (!CanGeneratePrescription())
             {
                 _dialogService.ShowMessage("Debe seleccionar un paciente e introducir un medicamento y una pauta.", "Datos incompletos");
-                return;
+                return null;
             }
 
             // 2. Obtener datos del prescriptor (desde AppSettings)
@@ -211,11 +211,8 @@ namespace TuClinica.UI.ViewModels
                 Patient = SelectedPatient,
                 IssueDate = DateTime.Now,
                 Instructions = this.Instructions,
-               
                 PrescriptorName = currentUser?.Username ?? settings.ClinicName,
-                // Usa el nuevo campo CollegeNumber (o un string vacío si es nulo)
                 PrescriptorCollegeNum = currentUser?.CollegeNumber ?? string.Empty,
-                // Usa el nuevo campo Specialty (o "General" si es nulo)
                 PrescriptorSpecialty = currentUser?.Specialty ?? "General",
             };
 
@@ -233,27 +230,37 @@ namespace TuClinica.UI.ViewModels
             // 5. Guardar la receta en la BD
             try
             {
-                prescription.Patient = null;
+                prescription.Patient = null; // Evitar que EF intente guardar el paciente
                 await _prescriptionRepository.AddAsync(prescription);
                 await _prescriptionRepository.SaveChangesAsync();
+                return prescription; // Devolver la prescripción guardada (con su ID)
             }
             catch (Exception ex)
             {
                 string innerExMessage = ex.InnerException?.Message ?? ex.Message;
                 _dialogService.ShowMessage($"Error al guardar la receta en la BD: {innerExMessage}", "Error BD");
-                return;
+                return null; // Falló el guardado
             }
+        }
 
+        /// <summary>
+        /// Método del comando para la receta OFICIAL.
+        /// </summary>
+        private async Task GeneratePrescriptionPdfAsync()
+        {
+            // 1. Crear y guardar la prescripción
+            var prescription = await CreateAndSavePrescriptionAsync();
+            if (prescription == null) return; // Falló la validación o el guardado
 
-            // 6. Generar el PDF
+            // 2. Generar el PDF específico
             string pdfPath = string.Empty;
             try
             {
                 pdfPath = await _pdfService.GeneratePrescriptionPdfAsync(prescription);
 
-                _dialogService.ShowMessage($"PDF de Receta generado para: {SelectedPatient.Name}\nGuardado en: {pdfPath}", "Receta Generada");
+                _dialogService.ShowMessage($"PDF de Receta Oficial generado para: {SelectedPatient!.Name}\nGuardado en: {pdfPath}", "Receta Generada");
 
-                // Abrir el PDF
+                // 3. Abrir el PDF
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
             catch (Exception pdfEx)
@@ -261,14 +268,55 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al generar el PDF de la receta:\n{pdfEx.Message}", "Error PDF");
             }
 
-            // 7. Limpiar formulario
+            // 4. Limpiar formulario
+            ClearForm();
+        }
+
+        /// <summary>
+        /// ¡NUEVO! Método del comando para la receta BÁSICA.
+        /// </summary>
+        private async Task GenerateBasicPrescriptionPdfAsync()
+        {
+            // 1. Crear y guardar la prescripción (lógica idéntica)
+            var prescription = await CreateAndSavePrescriptionAsync();
+            if (prescription == null) return; // Falló la validación o el guardado
+
+            // 2. Generar el PDF específico (¡llamando al nuevo método del servicio!)
+            string pdfPath = string.Empty;
+            try
+            {
+                pdfPath = await _pdfService.GenerateBasicPrescriptionPdfAsync(prescription);
+
+                _dialogService.ShowMessage($"PDF de Receta Básica generado para: {SelectedPatient!.Name}\nGuardado en: {pdfPath}", "Receta Generada");
+
+                // 3. Abrir el PDF
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath) { UseShellExecute = true });
+            }
+            catch (Exception pdfEx)
+            {
+                _dialogService.ShowMessage($"Error al generar el PDF de la receta básica:\n{pdfEx.Message}", "Error PDF");
+            }
+
+            // 4. Limpiar formulario
+            ClearForm();
+        }
+
+        /// <summary>
+        /// Método helper para limpiar el formulario.
+        /// </summary>
+        private void ClearForm()
+        {
             SelectedPatient = null;
             MedicationSearchText = string.Empty;
             DosageSearchText = string.Empty;
             Instructions = string.Empty;
             MedicationQuantity = "1";
             TreatmentDuration = "10 días";
+            SelectedMedicationForPrescription = null; // Limpiar el ComboBox
         }
+
+        // --- FIN DE LA REFACTORIZACIÓN ---
+
 
         private bool CanGeneratePrescription()
         {
@@ -277,10 +325,8 @@ namespace TuClinica.UI.ViewModels
                    !string.IsNullOrWhiteSpace(DosageSearchText);
         }
 
-        // Lógica de notificación de cambio de paciente (reemplaza al método parcial)
         private void OnSelectedPatientChanged(Patient? value)
         {
-            // Actualización del nuevo campo de display
             SelectedPatientFullNameDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
         }
 
