@@ -7,35 +7,22 @@
         xmlns:vm="clr-namespace:TuClinica.UI.ViewModels"
         xmlns:ctrl="clr-namespace:TuClinica.UI.Views.Controls"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
         Title="Odontograma"
         Height="auto" Width="auto"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
-        Background="White">
+        Background="White"
+        d:DataContext="{d:DesignInstance Type=vm:OdontogramViewModel}">
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" BorderBrush="{DynamicResource PrimaryHueMidBrush}" BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                <Button Content="Guardar Cambios"
-                        Command="{Binding SaveCommand}"
-                        Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                        Margin="0,0,10,0"
-                        IsEnabled="{Binding HasChanges}"/>
-
-                <Button Content="Imprimir PDF"
-                        Command="{Binding PrintCommand}"
-                        Style="{StaticResource MahApps.Styles.Button}"
-                        Margin="5,0,0,0"/>
-            </StackPanel>
-        </Border>
-
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="20">
 
                 <TextBlock Text="{Binding Patient.FullName, StringFormat='Odontograma de {0}'}"
@@ -48,7 +35,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -110,7 +96,6 @@
                 <StackPanel Margin="0,30,0,0" HorizontalAlignment="Center">
                     <TextBlock Text="Leyenda de Colores:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <Grid>
-
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -141,5 +126,33 @@
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+
+        <Border Grid.Row="1" Background="{DynamicResource MahApps.Brushes.Gray9}" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="Imprimir PDF"
+                        Command="{Binding PrintCommand}"
+                        Style="{StaticResource MahApps.Styles.Button.Flat}"
+                        Foreground="White"
+                        mah:ControlsHelper.FocusBorderBrush="White"
+                        mah:ControlsHelper.MouseOverBorderBrush="White"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Aceptar"
+                            Command="{Binding AcceptCommand}"
+                            IsDefault="True"
+                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                            Margin="0,0,10,0"/>
+                    <Button Content="Cancelar"
+                            Command="{Binding CancelCommand}"
+                            IsCancel="True" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </mah:MetroWindow>

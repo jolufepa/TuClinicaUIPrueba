@@ -28,7 +28,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IFileDialogService _fileDialogService;
-        private readonly IPdfService _pdfService; 
+        private readonly IPdfService _pdfService;
 
 
         // --- Estado Maestro ---
@@ -81,7 +81,7 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
         public IAsyncRelayCommand AllocatePaymentCommand { get; }
         public IAsyncRelayCommand RegisterNewPaymentCommand { get; }
-        public IAsyncRelayCommand PrintOdontogramCommand { get; } 
+        public IAsyncRelayCommand PrintOdontogramCommand { get; }
         public IRelayCommand NewBudgetCommand { get; }
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
@@ -122,6 +122,7 @@ namespace TuClinica.UI.ViewModels
             _pdfService = pdfService;
 
             InitializeOdontogram();
+            // **** CAMBIO AQUÍ: El handler ahora es async void ****
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
 
             // --- INICIALIZACIÓN MANUAL DE COMANDOS ---
@@ -159,7 +160,7 @@ namespace TuClinica.UI.ViewModels
 
                     var clinicalHistoryTask = clinicalEntryRepo.GetHistoryForPatientAsync(patient.Id);
                     var paymentHistoryTask = paymentRepo.GetPaymentsForPatientAsync(patient.Id);
-                    var treatmentsTask = LoadAvailableTreatments(treatmentRepo); 
+                    var treatmentsTask = LoadAvailableTreatments(treatmentRepo);
 
                     await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask);
 
@@ -295,14 +296,14 @@ namespace TuClinica.UI.ViewModels
             await Task.CompletedTask;
         }
 
-        
+
         private async Task PrintOdontogramAsync()
         {
             if (CurrentPatient == null) return;
 
             try
             {
-                string jsonState = JsonSerializer.Serialize(this.Odontogram); 
+                string jsonState = JsonSerializer.Serialize(this.Odontogram);
 
                 string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
 
@@ -345,7 +346,7 @@ namespace TuClinica.UI.ViewModels
                     await paymentRepo.SaveChangesAsync();
                 }
 
-                await RefreshBillingCollections(); 
+                await RefreshBillingCollections();
             }
             catch (Exception ex)
             {
@@ -408,7 +409,11 @@ namespace TuClinica.UI.ViewModels
                         masterTooth.OclusalRestoration = savedTooth.OclusalRestoration;
                         masterTooth.MesialRestoration = savedTooth.MesialRestoration;
                         masterTooth.DistalRestoration = savedTooth.DistalRestoration;
+
+                        // **** ¡¡AQUÍ ESTABA EL BUG!! ****
+                        // Corregido de 'VesttabularRestoration' a 'VestibularRestoration'
                         masterTooth.VestibularRestoration = savedTooth.VestibularRestoration;
+
                         masterTooth.LingualRestoration = savedTooth.LingualRestoration;
                     }
                 }
@@ -424,8 +429,8 @@ namespace TuClinica.UI.ViewModels
             DeleteClinicalEntryAsyncCommand.NotifyCanExecuteChanged();
         }
 
-        [RelayCommand]
-        private void OpenOdontogramWindow()
+        // **** CAMBIO AQUÍ: Convertido a 'async void' para poder usar 'await' ****
+        private async void OpenOdontogramWindow()
         {
             if (CurrentPatient == null)
             {
@@ -441,16 +446,14 @@ namespace TuClinica.UI.ViewModels
 
                 dialog.DataContext = vm;
 
-                // --- INICIO DE LA CORRECCIÓN 1 ---
                 Window? owner = Application.Current.MainWindow;
                 if (owner != null && owner != dialog)
                 {
                     dialog.Owner = owner;
                 }
-                // --- FIN DE LA CORRECCIÓN 1 ---
 
-                vm.DialogResult = null; 
-                dialog.ShowDialog(); 
+                vm.DialogResult = null;
+                dialog.ShowDialog();
 
                 if (vm.DialogResult == true)
                 {
@@ -458,10 +461,13 @@ namespace TuClinica.UI.ViewModels
                     if (CurrentPatient.OdontogramStateJson != newJsonState)
                     {
                         CurrentPatient.OdontogramStateJson = newJsonState;
-                        _ = SavePatientOdontogramStateAsync();
+
+                        // **** CAMBIO AQUÍ: 'await' para esperar a que termine el guardado ****
+                        await SavePatientOdontogramStateAsync();
                     }
                 }
 
+                // **** ESTAS LÍNEAS AHORA SE EJECUTAN *DESPUÉS* DE GUARDAR ****
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
 
@@ -526,7 +532,7 @@ namespace TuClinica.UI.ViewModels
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
             if (IsPatientDataReadOnly && CurrentPatient != null)
             {
-                _ = LoadPatient(CurrentPatient); 
+                _ = LoadPatient(CurrentPatient);
             }
         }
 
@@ -535,16 +541,14 @@ namespace TuClinica.UI.ViewModels
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
             var dialog = _serviceProvider.GetRequiredService<ManualChargeDialog>();
-            
-            // --- INICIO DE LA CORRECCIÓN 2 ---
+
             Window? owner = Application.Current.MainWindow;
             if (owner != null && owner != dialog)
             {
                 dialog.Owner = owner;
             }
-            // --- FIN DE LA CORRECCIÓN 2 ---
-            
-            dialog.AvailableTreatments = this.AvailableTreatments; 
+
+            dialog.AvailableTreatments = this.AvailableTreatments;
 
             if (dialog.ShowDialog() == true)
             {
@@ -552,7 +556,7 @@ namespace TuClinica.UI.ViewModels
                 decimal unitPrice = dialog.UnitPrice;
                 int quantity = dialog.Quantity;
                 int? treatmentId = dialog.SelectedTreatment?.Id;
-                
+
                 decimal totalCost = unitPrice * quantity;
 
                 using (var scope = _serviceProvider.CreateScope())
@@ -566,8 +570,8 @@ namespace TuClinica.UI.ViewModels
                             PatientId = CurrentPatient.Id,
                             DoctorId = _authService.CurrentUser.Id,
                             VisitDate = DateTime.Now,
-                            Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept, 
-                            TotalCost = totalCost, 
+                            Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
+                            TotalCost = totalCost,
                         };
 
                         if (treatmentId.HasValue)
@@ -578,13 +582,13 @@ namespace TuClinica.UI.ViewModels
                                 Surfaces = ToothSurface.Completo,
                                 TreatmentId = treatmentId.Value,
                                 TreatmentPerformed = ToothRestoration.Ninguna,
-                                Price = totalCost 
+                                Price = totalCost
                             });
                         }
-                        
+
                         await clinicalRepo.AddAsync(clinicalEntry);
                         await clinicalRepo.SaveChangesAsync();
-                        await RefreshBillingCollections(); 
+                        await RefreshBillingCollections();
 
                         _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
                     }
@@ -618,9 +622,9 @@ namespace TuClinica.UI.ViewModels
                     var patientToUpdate = await patientRepo.GetByIdAsync(CurrentPatient.Id);
                     if (patientToUpdate != null)
                     {
-                        patientToUpdate.Name = CurrentPatient.Name; 
-                        patientToUpdate.Surname = CurrentPatient.Surname; 
-                        patientToUpdate.DniNie = CurrentPatient.DniNie; 
+                        patientToUpdate.Name = CurrentPatient.Name;
+                        patientToUpdate.Surname = CurrentPatient.Surname;
+                        patientToUpdate.DniNie = CurrentPatient.DniNie;
                         patientToUpdate.Phone = CurrentPatient.Phone;
                         patientToUpdate.Address = CurrentPatient.Address;
                         patientToUpdate.Email = CurrentPatient.Email;
@@ -664,7 +668,7 @@ namespace TuClinica.UI.ViewModels
                         _dialogService.ShowMessage("No se pudo eliminar el cargo (quizás ya estaba borrado).", "Error");
                     }
                 }
-                await RefreshBillingCollections(); 
+                await RefreshBillingCollections();
             }
             catch (Exception ex)
             {
@@ -724,13 +728,13 @@ namespace TuClinica.UI.ViewModels
             if (CurrentPage < 1) CurrentPage = 1;
 
             var pagedClinical = filteredClinical
-              .OrderByDescending(c => c.VisitDate) 
+              .OrderByDescending(c => c.VisitDate)
               .Skip((CurrentPage - 1) * PageSize)
               .Take(PageSize)
               .ToList();
 
             var pagedPayments = filteredPayments
-              .OrderByDescending(p => p.PaymentDate) 
+              .OrderByDescending(p => p.PaymentDate)
               .Skip((CurrentPage - 1) * PageSize)
               .Take(PageSize)
               .ToList();

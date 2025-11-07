@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
+using System.Linq; // Necesario para OrderBy
 using TuClinica.Core.Models;
 using TuClinica.UI.Messages;
 
@@ -9,21 +10,13 @@ namespace TuClinica.UI.ViewModels
 {
     public partial class OdontogramPreviewViewModel : ObservableObject
     {
-        // Cuadrante 1: 18 → 11
-        [ObservableProperty]
-        private ObservableCollection<ToothViewModel> _teethQuadrant1 = new();
+        // --- PROPIEDADES CAMBIADAS: De 4 cuadrantes a 2 arcos ---
 
-        // Cuadrante 2: 21 → 28
         [ObservableProperty]
-        private ObservableCollection<ToothViewModel> _teethQuadrant2 = new();
+        private ObservableCollection<ToothViewModel> _upperArch = new();
 
-        // Cuadrante 3: 38 → 31
         [ObservableProperty]
-        private ObservableCollection<ToothViewModel> _teethQuadrant3 = new();
-
-        // Cuadrante 4: 41 → 48
-        [ObservableProperty]
-        private ObservableCollection<ToothViewModel> _teethQuadrant4 = new();
+        private ObservableCollection<ToothViewModel> _lowerArch = new();
 
         // Comando para abrir el odontograma completo
         public IRelayCommand OpenFullOdontogramCommand { get; }
@@ -44,22 +37,34 @@ namespace TuClinica.UI.ViewModels
         /// </summary>
         public void LoadFromMaster(ObservableCollection<ToothViewModel> master)
         {
-            // Limpiar cuadrantes
-            TeethQuadrant1.Clear();
-            TeethQuadrant2.Clear();
-            TeethQuadrant3.Clear();
-            TeethQuadrant4.Clear();
+            // Limpiar arcos
+            UpperArch.Clear();
+            LowerArch.Clear();
 
-            foreach (var tooth in master)
+            // --- LÓGICA ACTUALIZADA ---
+
+            // Cuadrante 1 (18 -> 11)
+            foreach (var tooth in master.Where(t => t.ToothNumber >= 11 && t.ToothNumber <= 18).OrderByDescending(t => t.ToothNumber))
             {
-                if (tooth.ToothNumber >= 11 && tooth.ToothNumber <= 18)
-                    TeethQuadrant1.Add(tooth);
-                else if (tooth.ToothNumber >= 21 && tooth.ToothNumber <= 28)
-                    TeethQuadrant2.Add(tooth);
-                else if (tooth.ToothNumber >= 31 && tooth.ToothNumber <= 38)
-                    TeethQuadrant3.Add(tooth);
-                else if (tooth.ToothNumber >= 41 && tooth.ToothNumber <= 48)
-                    TeethQuadrant4.Add(tooth);
+                UpperArch.Add(tooth);
+            }
+
+            // Cuadrante 2 (21 -> 28)
+            foreach (var tooth in master.Where(t => t.ToothNumber >= 21 && t.ToothNumber <= 28).OrderBy(t => t.ToothNumber))
+            {
+                UpperArch.Add(tooth);
+            }
+
+            // Cuadrante 4 (48 -> 41)
+            foreach (var tooth in master.Where(t => t.ToothNumber >= 41 && t.ToothNumber <= 48).OrderByDescending(t => t.ToothNumber))
+            {
+                LowerArch.Add(tooth);
+            }
+
+            // Cuadrante 3 (31 -> 38)
+            foreach (var tooth in master.Where(t => t.ToothNumber >= 31 && t.ToothNumber <= 38).OrderBy(t => t.ToothNumber))
+            {
+                LowerArch.Add(tooth);
             }
         }
     }
