@@ -1,4 +1,5 @@
 ﻿using iTextSharp.text.pdf;
+
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -98,7 +99,7 @@ namespace TuClinica.Services.Implementation
 
             await Task.Run(() =>
             {
-                Document.Create(container =>
+                QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
@@ -202,8 +203,23 @@ namespace TuClinica.Services.Implementation
                     pdfStamper = new PdfStamper(pdfReader, fs);
                     AcroFields formFields = pdfStamper.AcroFields;
 
-                    const int ALIGN_CENTER = 1;
+                    // --- INICIO DE LA SOLUCIÓN (TAMAÑO DE LETRA + APLANADO) ---
 
+                    // 1. Cargar una fuente base (ESENCIAL para aplanar con texto)
+                    BaseFont helvetica = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+
+                    // 2. Asignar la fuente a los campos de medicamento
+                    formFields.SetFieldProperty("Medic", "textfont", helvetica, null);
+                    formFields.SetFieldProperty("MedicCop", "textfont", helvetica, null);
+
+                    // 3. Asignar el TAMAÑO DE FUENTE (8f)
+                    formFields.SetFieldProperty("Medic", "textsize", 8f, null);
+                    formFields.SetFieldProperty("MedicCop", "textsize", 8f, null);
+
+                    // --- FIN DE LA SOLUCIÓN ---
+
+                    // Código de la fecha (este ya estaba bien)
+                    const int ALIGN_CENTER = 1;
                     formFields.SetFieldProperty("Fecha", "textsize", 8f, null);
                     formFields.SetFieldProperty("FechaCop", "textsize", 8f, null);
                     formFields.SetFieldProperty("Fecha", "alignment", ALIGN_CENTER, null);
@@ -241,6 +257,9 @@ namespace TuClinica.Services.Implementation
                     formFields.SetField("PrescriptorNombre", prescription.PrescriptorName ?? "");
                     formFields.SetField("PrescriptorNombreCop", prescription.PrescriptorName ?? "");
 
+                    // 4. APLANAR EL FORMULARIO
+                    // Esto "quema" el texto con la fuente y tamaño definidos
+                    // y ELIMINA el campo de formulario azul.
                     pdfStamper.FormFlattening = true;
                 }
                 catch (Exception ex)
@@ -422,7 +441,7 @@ namespace TuClinica.Services.Implementation
 
             await Task.Run(() =>
             {
-                Document.Create(container =>
+                QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
@@ -622,7 +641,7 @@ namespace TuClinica.Services.Implementation
             return await Task.Run(() =>
             {
                 // Genera el documento en memoria y devuelve los bytes
-                return Document.Create(container =>
+                return QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
