@@ -77,12 +77,9 @@ namespace TuClinica.Services.Implementation
         // --- 1. GENERACIÓN DE PRESUPUESTO PDF ---
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
-            string yearFolder = Path.Combine(_baseBudgetsPath, budget.IssueDate.Year.ToString());
-            Directory.CreateDirectory(yearFolder);
+            
 
-            string fileName = $"Presupuesto_{budget.BudgetNumber}.pdf";
-            string filePath = Path.Combine(yearFolder, fileName);
-
+                
             var patient = budget.Patient;
             if (patient == null)
             {
@@ -91,10 +88,26 @@ namespace TuClinica.Services.Implementation
                 {
                     throw new InvalidOperationException($"Los datos del paciente (ID: {budget.PatientId}) no estaban cargados al generar el PDF del presupuesto {budget.BudgetNumber}.");
                 }
-                budget.Patient = loadedPatient;
+                budget.Patient = loadedPatient; // Asignamos de nuevo al presupuesto
                 patient = loadedPatient;
             }
 
+            // 2. Crear la carpeta del año
+            string yearFolder = Path.Combine(_baseBudgetsPath, budget.IssueDate.Year.ToString());
+            Directory.CreateDirectory(yearFolder);
+
+            // 3. Limpiar los nombres para usarlos en el archivo
+            //    (Reutilizamos la lógica de limpieza que ya se usa en las recetas)
+            string patientSurnameClean = patient.Surname.Replace(' ', '_').Replace(".", "").Replace(",", "");
+            string patientNameClean = patient.Name.Replace(' ', '_').Replace(".", "").Replace(",", "");
+
+            // 4. Definir el NUEVO nombre de archivo
+            string fileName = $"{budget.BudgetNumber}_{patientSurnameClean}_{patientNameClean}.pdf";
+            string filePath = Path.Combine(yearFolder, fileName);
+
+            // --- FIN DE LA MODIFICACIÓN ---
+
+            // El resto del método continúa igual...
             string maskedDni = MaskDni(patient.DniNie);
 
             await Task.Run(() =>
