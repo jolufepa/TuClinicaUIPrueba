@@ -4,54 +4,45 @@
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:TuClinica.UI"
-                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+              
+   xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:views="clr-namespace:TuClinica.UI.Views"           
                  xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
                  mc:Ignorable="d"
                  Title="Gestión Clínica Dental PD" 
-                 WindowState="Maximized"
+              
+   WindowState="Maximized"
                  d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}" d:DesignHeight="309.96" d:DesignWidth="241">
 
-    <!-- Los recursos (como el BooleanToVisibilityConverter)
-         se han movido a App.xaml para que sean globales. -->
     <mah:MetroWindow.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Los diccionarios de MahApps ya están cargados en App.xaml -->
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- =================================================== -->
-            <!-- === MAPA DE VISTAS (DATATEMPLATES) === -->
-            <!-- =================================================== -->
-
-            <!-- Vista de Pacientes -->
             <DataTemplate DataType="{x:Type viewmodels:PatientsViewModel}">
                 <views:PatientsView/>
             </DataTemplate>
             <DataTemplate DataType="{x:Type viewmodels:HomeViewModel}">
                 <views:HomeView/>
+
             </DataTemplate>
-            <!-- Vista de Presupuestos -->
             <DataTemplate DataType="{x:Type viewmodels:BudgetsViewModel}">
                 <views:BudgetsView/>
             </DataTemplate>
 
-            <!-- Vista de Tratamientos -->
             <DataTemplate DataType="{x:Type viewmodels:TreatmentsViewModel}">
+
                 <views:TreatmentsView/>
             </DataTemplate>
 
-            <!-- Vista de Administración -->
             <DataTemplate DataType="{x:Type viewmodels:AdminViewModel}">
                 <views:AdminView/>
             </DataTemplate>
 
-            <!-- Vista de Recetas -->
             <DataTemplate DataType="{x:Type viewmodels:PrescriptionViewModel}">
                 <views:PrescriptionView/>
             </DataTemplate>
 
-            <!-- ¡NUEVO! Vista de Ficha de Paciente -->
             <DataTemplate DataType="{x:Type viewmodels:PatientFileViewModel}">
                 <views:PatientFileView/>
             </DataTemplate>
@@ -61,58 +52,50 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <!-- Menú Lateral -->
-            <ColumnDefinition Width="*"/>
-            <!-- Contenido Principal -->
+            <ColumnDefinition Width="1*"/>
+            <ColumnDefinition Width="4*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Columna 0: Menú Lateral -->
-        <Border Grid.Column="0" Background="{DynamicResource MahApps.Brushes.Gray9}" Width="200" RenderTransformOrigin="0.5,0.5" Height="292" VerticalAlignment="Top">
-            <Border.RenderTransform>
-                <TransformGroup>
-                    <ScaleTransform/>
-                    <SkewTransform AngleX="0.153"/>
-                    <RotateTransform/>
-                    <TranslateTransform X="0.331"/>
-                </TransformGroup>
-            </Border.RenderTransform>
+        <Border Grid.Column="0" Background="{DynamicResource MahApps.Brushes.Gray9}">
+
             <StackPanel Margin="10">
                 <TextBlock Text="MENÚ PRINCIPAL" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
 
-                <!-- Botón Pacientes -->
                 <Button Content="Pacientes" Margin="0,5"
                         Command="{Binding NavigateToPatientsCommand}"
-                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="36"/>
+  
+                      Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
 
-                <!-- Botón Presupuestos -->
                 <Button Content="Presupuestos" Margin="0,5"
                         Command="{Binding NavigateToBudgetsCommand}"
-                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="37"/>
+            
+            Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
 
-                <!-- Botón Tratamientos -->
                 <Button Content="Tratamientos" Margin="0,5"
                         Command="{Binding NavigateToTreatmentsCommand}"
-                        Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="35"/>
+                      
+  Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
 
-                <!-- Botón Recetas -->
                 <Button Content="Recetas" Margin="0,5"
                         Command="{Binding NavigateToPrescriptionsCommand}"
-                        Visibility="{Binding IsPrescriptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="36"/>
-                <Button Content="Administración"
-                        Command="{Binding NavigateToAdminCommand}"
-                        Visibility="{Binding IsAdminMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Height="39"/>
+                        Visibility="{Binding IsPrescriptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
 
-                <!-- Botón Administración -->
+                <Button Content="Administración" Margin="0,5"
+                        Command="{Binding NavigateToAdminCommand}"
+                        Visibility="{Binding IsAdminMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
             </StackPanel>
+
         </Border>
 
-        <!-- Columna 1: Área de Contenido Principal -->
         <Border Grid.Column="1" Background="WhiteSmoke" Padding="20">
-            <!-- El ContentControl muestra la vista activa
-                 basándose en el DataTemplate que coincide con SelectedViewModel -->
             <ContentControl Content="{Binding SelectedViewModel}" />
         </Border>
+
     </Grid>
 
 </mah:MetroWindow>
