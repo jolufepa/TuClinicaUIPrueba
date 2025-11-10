@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection; // Para IServiceProvider
 using System;
 using System.Collections.ObjectModel; // Para ObservableCollection
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations; // Para [Range]
 using System.Diagnostics; // Para Process.Start (abrir PDF)
 using System.IO; // Para Path
 using System.Linq; // Para Sum, etc.
@@ -64,8 +65,21 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(VatAmount))]
         [NotifyPropertyChangedFor(nameof(TotalAmount))]
-        // --- ¡¡CORRECCIÓN AQUÍ!! ---
         private decimal _vatPercent = 0; // Por defecto 0% IVA 
+
+        // --- Propiedades de Financiación ---
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(GenerateBudgetCommand))]
+        [NotifyPropertyChangedFor(nameof(MonthlyPayment))]
+        [NotifyPropertyChangedFor(nameof(TotalFinanced))]
+        [Range(0, 360)] // Rango de 0 a 30 años (360 meses)
+        private int _numberOfMonths = 0;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(MonthlyPayment))]
+        [NotifyPropertyChangedFor(nameof(TotalFinanced))]
+        [Range(0, 100)] // Rango de 0% a 100%
+        private decimal _interestRate = 0;
 
         // --- Propiedades para el HISTORIAL ---
         [ObservableProperty]
@@ -84,6 +98,12 @@ namespace TuClinica.UI.ViewModels
         public decimal BaseImponible => Subtotal - DiscountAmount;
         public decimal VatAmount => BaseImponible * (VatPercent / 100);
         public decimal TotalAmount => BaseImponible + VatAmount;
+
+        // --- Nuevas Propiedades Calculadas de Financiación ---
+        public decimal MonthlyPayment { get; private set; }
+        public decimal TotalFinanced { get; private set; }
+        public bool IsFinanced => NumberOfMonths > 0;
+
 
         public bool IsPatientSelected => CurrentPatient != null;
         public bool CanGenerateBudget => IsPatientSelected && BudgetItems.Any();
@@ -166,8 +186,85 @@ namespace TuClinica.UI.ViewModels
             OnPropertyChanged(nameof(BaseImponible));
             OnPropertyChanged(nameof(VatAmount));
             OnPropertyChanged(nameof(TotalAmount));
+            RecalculateFinancing(); // <-- AÑADIDO
             GenerateBudgetCommand.NotifyCanExecuteChanged();
         }
+
+        // --- CORRECCIÓN: Métodos parciales para reaccionar a cambios ---
+
+        // El método erróneo OnTotalAmountChanged() ha sido eliminado.
+
+        // Estos métodos SÍ existen porque DiscountPercent y VatPercent son [ObservableProperty]
+        partial void OnDiscountPercentChanged(decimal value)
+        {
+            // Esta propiedad también afecta a TotalAmount, así que recalculamos
+            RecalculateFinancing();
+        }
+
+        partial void OnVatPercentChanged(decimal value)
+        {
+            // Esta propiedad también afecta a TotalAmount, así que recalculamos
+            RecalculateFinancing();
+        }
+
+        partial void OnNumberOfMonthsChanged(int value)
+        {
+            RecalculateFinancing();
+            OnPropertyChanged(nameof(IsFinanced));
+        }
+
+        partial void OnInterestRateChanged(decimal value)
+        {
+            RecalculateFinancing();
+        }
+        // --- FIN DE LA CORRECCIÓN ---
+
+
+        // --- Lógica de cálculo de financiación ---
+        private void RecalculateFinancing()
+        {
+            if (NumberOfMonths <= 0 || TotalAmount == 0)
+            {
+                MonthlyPayment = 0;
+                TotalFinanced = TotalAmount; // El total es el pago único
+            }
+            else if (InterestRate == 0)
+            {
+                // Financiación simple 0%
+                MonthlyPayment = TotalAmount / NumberOfMonths;
+                TotalFinanced = TotalAmount;
+            }
+            else
+            {
+                // Cálculo profesional (Fórmula de amortización de préstamo - Sistema Francés)
+                try
+                {
+                    // Convertimos a double para usar Math.Pow
+                    double totalV = (double)TotalAmount;
+                    // Interés mensual (ej: 5.5% anual -> 0.055 / 12)
+                    double i = (double)(InterestRate / 100) / 12;
+                    int n = NumberOfMonths;
+
+                    // Fórmula: Cuota = [V * i] / [1 - (1 + i)^-n]
+                    double monthlyPaymentDouble = (totalV * i) / (1 - Math.Pow(1 + i, -n));
+
+                    // Redondeamos a 2 decimales
+                    MonthlyPayment = (decimal)Math.Round(monthlyPaymentDouble, 2, MidpointRounding.AwayFromZero);
+                    TotalFinanced = MonthlyPayment * n;
+                }
+                catch (Exception)
+                {
+                    // Evita errores si los valores son extremos (ej. Overflow)
+                    MonthlyPayment = 0;
+                    TotalFinanced = TotalAmount;
+                }
+            }
+
+            // Notificamos a la UI
+            OnPropertyChanged(nameof(MonthlyPayment));
+            OnPropertyChanged(nameof(TotalFinanced));
+        }
+
 
         // --- Comandos (Formulario Creación) ---
 
@@ -303,7 +400,12 @@ namespace TuClinica.UI.ViewModels
                 VatPercent = VatPercent,
                 TotalAmount = TotalAmount,
                 Status = BudgetStatus.Pendiente,
-                Patient = null
+                Patient = null,
+
+                // --- AÑADIR ESTAS LÍNEAS ---
+                NumberOfMonths = this.NumberOfMonths,
+                InterestRate = this.InterestRate
+                // --- FIN LÍNEAS AÑADIDAS ---
             };
 
             // --- 2. Guardar en BD (con manejo de reintentos) ---
@@ -413,8 +515,9 @@ namespace TuClinica.UI.ViewModels
             CurrentPatient = null;
             BudgetItems.Clear();
             DiscountPercent = 0;
-            // --- ¡¡CORRECCIÓN AQUÍ!! ---
             VatPercent = 0; // Restablecer a 0
+            NumberOfMonths = 0; // <-- AÑADIDO
+            InterestRate = 0;   // <-- AÑADIDO
         }
 
         // --- Métodos y Comandos para el HISTORIAL ---

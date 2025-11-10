@@ -18,14 +18,11 @@ using TuClinica.UI.Messages;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 using System.Diagnostics; // Para Process.Start
-using System.IO; // <-- ¡¡ESTE ERA EL ERROR CS0103!!
+using System.IO;
 using TuClinica.UI.ViewModels.Events;
 
 namespace TuClinica.UI.ViewModels
 {
-    // --- (Clases HistorialEventBase, CargoEvent, AbonoEvent) ---
-    // (Estas clases ya las creaste en la carpeta ViewModels/Events)
-
     public partial class PatientFileViewModel : BaseViewModel
     {
         // --- Servicios ---
@@ -33,7 +30,8 @@ namespace TuClinica.UI.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IFileDialogService _fileDialogService;
-        private readonly IPdfService _pdfService;
+        // 1. ELIMINAMOS IPdfService de aquí
+        // private readonly IPdfService _pdfService;
 
 
         // --- Estado Maestro ---
@@ -96,18 +94,20 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _isLoading = false;
 
+        // --- 2. CONSTRUCTOR MODIFICADO ---
         public PatientFileViewModel(
           IAuthService authService,
           IDialogService dialogService,
           IServiceProvider serviceProvider,
-          IFileDialogService fileDialogService,
-          IPdfService pdfService)
+          IFileDialogService fileDialogService)
+        // 3. IPdfService ELIMINADO de los parámetros
         {
             _authService = authService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _fileDialogService = fileDialogService;
-            _pdfService = pdfService;
+            // 4. ELIMINAMOS la asignación de _pdfService
+            // _pdfService = pdfService;
 
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
@@ -287,6 +287,7 @@ namespace TuClinica.UI.ViewModels
             WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(CurrentPatient));
         }
 
+        // --- 5. MÉTODO MODIFICADO (PrintHistoryAsync) ---
         private async Task PrintHistoryAsync()
         {
             if (CurrentPatient == null)
@@ -299,22 +300,30 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // 1. Llamar al servicio para generar el PDF en memoria
-                byte[] pdfBytes = await _pdfService.GenerateHistoryPdfAsync(
-                    CurrentPatient,
-                    VisitHistory.ToList(),      // Pasa la lista de cargos
-                    PaymentHistory.ToList(),    // Pasa la lista de pagos
-                    CurrentBalance              // Pasa el saldo actual
-                );
+                byte[] pdfBytes;
 
-                // 2. Crear un nombre de archivo temporal único
+                // 1. Crear un ámbito para resolver el IPdfService
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
+
+                    // 2. Llamar al servicio para generar el PDF en memoria
+                    pdfBytes = await pdfService.GenerateHistoryPdfAsync(
+                        CurrentPatient,
+                        VisitHistory.ToList(),      // Pasa la lista de cargos
+                        PaymentHistory.ToList(),    // Pasa la lista de pagos
+                        CurrentBalance              // Pasa el saldo actual
+                    );
+                } // El ámbito y el pdfService se destruyen aquí
+
+                // 3. Crear un nombre de archivo temporal único
                 string tempFileName = $"Historial_{CurrentPatient.Surname}_{CurrentPatient.Name}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
                 string tempFilePath = Path.Combine(Path.GetTempPath(), tempFileName);
 
-                // 3. Guardar los bytes en ese archivo temporal
+                // 4. Guardar los bytes en ese archivo temporal
                 await File.WriteAllBytesAsync(tempFilePath, pdfBytes);
 
-                // 4. Abrir el archivo con el visor de PDF predeterminado
+                // 5. Abrir el archivo con el visor de PDF predeterminado
                 Process.Start(new ProcessStartInfo(tempFilePath) { UseShellExecute = true });
             }
             catch (Exception ex)
@@ -323,7 +332,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-
+        // --- 6. MÉTODO MODIFICADO (PrintOdontogramAsync) ---
         private async Task PrintOdontogramAsync()
         {
             if (CurrentPatient == null) return;
@@ -331,8 +340,15 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 string jsonState = JsonSerializer.Serialize(this.Odontogram);
+                string generatedFilePath;
 
-                string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
+                // 1. Crear ámbito
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
+                    // 2. Generar PDF
+                    generatedFilePath = await pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
+                } // Ámbito destruido
 
                 var result = _dialogService.ShowConfirmation(
                     $"PDF del odontograma generado con éxito en:\n{generatedFilePath}\n\n¿Desea abrir el archivo ahora?",

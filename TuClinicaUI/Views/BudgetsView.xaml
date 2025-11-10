@@ -14,6 +14,7 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -98,7 +99,9 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+
                     <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right">
+
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                             <Label Content="Descuento (%):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right"/>
                             <mah:NumericUpDown Value="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="1" Width="80"/>
@@ -107,6 +110,20 @@
                             <Label Content="IVA (%):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right"/>
                             <mah:NumericUpDown Value="{Binding VatPercent, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="1" Width="80"/>
                         </StackPanel>
+
+                        <Border BorderBrush="LightGray" BorderThickness="0,1,0,0" Margin="0,10,0,5" Padding="0,5,0,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                    <Label Content="Plazos (meses):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right" FontWeight="SemiBold"/>
+                                    <mah:NumericUpDown Value="{Binding NumberOfMonths, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="360" Interval="1" Width="80"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5"
+                                            Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Label Content="Interés (TIN %):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right" FontWeight="SemiBold"/>
+                                    <mah:NumericUpDown Value="{Binding InterestRate, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="0.1" StringFormat="N2" Width="80"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                         <Border BorderBrush="LightGray" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0">
                             <Grid MinWidth="250">
                                 <Grid.ColumnDefinitions>
@@ -118,19 +135,46 @@
                                     <RowDefinition/>
                                     <RowDefinition/>
                                     <RowDefinition/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
+
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Subtotal:" Margin="0,0,10,0"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Subtotal, StringFormat=C, ConverterCulture='es-ES'}" HorizontalAlignment="Right"/>
+
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Descuento:" Margin="0,0,10,0"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DiscountAmount, StringFormat='{}{0:N2} €'}" HorizontalAlignment="Right" Foreground="Red"/>
+
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="IVA:" Margin="0,0,10,0"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding VatAmount, StringFormat='{}{0:N2} €'}" HorizontalAlignment="Right"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="TOTAL:" FontWeight="Bold" FontSize="16" Margin="0,5,10,0"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="TOTAL (Contado):" FontWeight="Bold" FontSize="16" Margin="0,5,10,0"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalAmount, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="16" HorizontalAlignment="Right" Margin="0,5,0,0"/>
+
+                                <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="0,10,0,0"
+                                            Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Separator/>
+                                    <Grid Margin="0,5,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Cuota Mensual:" FontWeight="SemiBold" FontSize="14" Foreground="DarkBlue"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding MonthlyPayment, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right" Foreground="DarkBlue"/>
+                                    </Grid>
+                                    <Grid Margin="0,5,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Total Financiado:" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding TotalFinanced, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </StackPanel>
                 </Grid>
+
 
                 <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Limpiar Presupuesto" Margin="0,0,10,0" Command="{Binding ClearBudgetCommand}"/>

@@ -18,8 +18,7 @@ namespace TuClinica.Core.Models
 
         public int PatientId { get; set; }
         [ForeignKey("PatientId")]
-        // *** CORRECCIÓN: Añadido '?' para indicar que Patient puede ser null ***
-        public Patient? Patient { get; set; } // Quitamos '= null!'
+        public Patient? Patient { get; set; }
 
         [Column(TypeName = "decimal(18, 2)")]
         public decimal Subtotal { get; set; }
@@ -33,11 +32,26 @@ namespace TuClinica.Core.Models
         [Column(TypeName = "decimal(18, 2)")]
         public decimal TotalAmount { get; set; }
 
-        // Permitir que PdfFilePath sea null si aún no se ha generado
-        public string? PdfFilePath { get; set; } // Cambiado a nullable también
+        public string? PdfFilePath { get; set; }
 
         public BudgetStatus Status { get; set; } = BudgetStatus.Pendiente;
 
         public ICollection<BudgetLineItem> Items { get; set; } = new List<BudgetLineItem>();
+
+        // --- INICIO DE CÓDIGO AÑADIDO (FINANCIACIÓN) ---
+
+        /// <summary>
+        /// Número de plazos de financiación (0 = Pago único).
+        /// </summary>
+        public int NumberOfMonths { get; set; } = 0;
+
+        /// <summary>
+        /// Tasa de Interés Nominal (TIN) anual para la financiación.
+        /// Ej: 5.5 para 5.5%
+        /// </summary>
+        [Column(TypeName = "decimal(18, 2)")]
+        public decimal InterestRate { get; set; } = 0;
+
+       
     }
 }

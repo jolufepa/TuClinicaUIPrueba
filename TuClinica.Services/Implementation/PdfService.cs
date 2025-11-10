@@ -74,12 +74,12 @@ namespace TuClinica.Services.Implementation
             return Path.Combine(appDataFolder, "Data");
         }
 
-        // --- 1. GENERACIÓN DE PRESUPUESTO PDF ---
+        // --- 1. GENERACIÓN DE PRESUPUESTO PDF (MODIFICADO) ---
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
-            
+            // --- INICIO DE LA MODIFICACIÓN (Nombre de archivo) ---
 
-                
+            // 1. Asegurarnos de tener los datos del paciente PRIMERO
             var patient = budget.Patient;
             if (patient == null)
             {
@@ -97,11 +97,10 @@ namespace TuClinica.Services.Implementation
             Directory.CreateDirectory(yearFolder);
 
             // 3. Limpiar los nombres para usarlos en el archivo
-            //    (Reutilizamos la lógica de limpieza que ya se usa en las recetas)
             string patientSurnameClean = patient.Surname.Replace(' ', '_').Replace(".", "").Replace(",", "");
             string patientNameClean = patient.Name.Replace(' ', '_').Replace(".", "").Replace(",", "");
 
-            // 4. Definir el NUEVO nombre de archivo
+            // 4. Definir el NUEVO nombre de archivo (Formato: 2025-0001_Apellido_Nombre.pdf)
             string fileName = $"{budget.BudgetNumber}_{patientSurnameClean}_{patientNameClean}.pdf";
             string filePath = Path.Combine(yearFolder, fileName);
 
@@ -122,6 +121,8 @@ namespace TuClinica.Services.Implementation
 
                         page.Header().Element(c => ComposeHeader(c, budget, maskedDni));
                         page.Content().Element(c => ComposeContent(c, budget));
+
+                        // --- LLAMADA AL PIE DE PÁGINA (MODIFICADO) ---
                         page.Footer().Element(c => ComposeFooter(c));
                     });
                 })
@@ -1011,11 +1012,23 @@ namespace TuClinica.Services.Implementation
             });
         }
 
+        // --- MÉTODO ComposeTotals (MODIFICADO PARA FINANCIACIÓN) ---
         private void ComposeTotals(IContainer container, Budget budget)
         {
             decimal discountAmount = budget.Subtotal * (budget.DiscountPercent / 100);
             decimal baseImponible = budget.Subtotal - discountAmount;
             decimal vatAmount = baseImponible * (budget.VatPercent / 100);
+
+            // --- INICIO CÓDIGO MODIFICADO ---
+
+            // Definición de estilos de celda (sin cambios)
+            static IContainer TotalsLabelCell(IContainer c) =>
+                c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
+                 .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
+
+            static IContainer TotalsValueCell(IContainer c) =>
+                c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
+                 .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
 
             container.Width(250, Unit.Point).Table(table =>
             {
@@ -1025,15 +1038,7 @@ namespace TuClinica.Services.Implementation
                     columns.RelativeColumn();
                 });
 
-                static IContainer TotalsLabelCell(IContainer c) =>
-                    c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
-                     .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
-
-                static IContainer TotalsValueCell(IContainer c) =>
-                    c.Background(ColorTotalsBg).Border(1).BorderColor(ColorTableBorder)
-                     .PaddingHorizontal(5).PaddingVertical(2).AlignRight();
-
-                // --- CORRECCIÓN CS1503 (API Moderna) ---
+                // --- Filas de Cálculo Base (sin cambios) ---
                 table.Cell().Element(TotalsLabelCell).Text(text => text.Span("Subtotal:").Bold());
                 table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.Subtotal:N2} €"));
 
@@ -1046,11 +1051,12 @@ namespace TuClinica.Services.Implementation
                 table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"IVA ({budget.VatPercent}%):").Bold());
                 table.Cell().Element(TotalsValueCell).Text(text => text.Span($"+{vatAmount:N2} €"));
 
-                // --- CORRECCIÓN CS1503 Y CS0023 (API Moderna) ---
+                // --- Total Contado (MODIFICADO) ---
                 var totalLabelCell = table.Cell().Element(TotalsLabelCell);
                 totalLabelCell.Text(text =>
                 {
-                    text.Span("Total:").FontSize(12).Bold();
+                    // Texto cambiado de "Total:" a "Total (Contado):"
+                    text.Span("Total (Contado):").FontSize(12).Bold();
                 });
 
                 var totalValueCell = table.Cell().Element(TotalsValueCell);
@@ -1058,24 +1064,84 @@ namespace TuClinica.Services.Implementation
                 {
                     text.Span($"{budget.TotalAmount:N2} €").FontSize(12).Bold();
                 });
+
+
+                // --- INICIO CÓDIGO AÑADIDO (FINANCIACIÓN EN PDF) ---
+                if (budget.NumberOfMonths > 0)
+                {
+                    // Separador
+                    table.Cell().ColumnSpan(2).PaddingTop(5);
+
+                    decimal monthlyPayment = 0;
+                    decimal totalFinanced = 0;
+
+                    if (budget.InterestRate == 0)
+                    {
+                        // Cálculo simple si no hay interés
+                        monthlyPayment = budget.TotalAmount / budget.NumberOfMonths;
+                        totalFinanced = budget.TotalAmount;
+                    }
+                    else
+                    {
+                        // Re-calculamos la cuota para el PDF
+                        try
+                        {
+                            double totalV = (double)budget.TotalAmount;
+                            double i = (double)(budget.InterestRate / 100) / 12; // Interés mensual
+                            int n = budget.NumberOfMonths;
+                            // Fórmula de amortización
+                            double monthlyPaymentDouble = (totalV * i) / (1 - Math.Pow(1 + i, -n));
+                            monthlyPayment = (decimal)Math.Round(monthlyPaymentDouble, 2, MidpointRounding.AwayFromZero);
+                            totalFinanced = monthlyPayment * n;
+                        }
+                        catch { /* Ignorar error de cálculo en PDF */ }
+                    }
+
+                    // Fila: Plazos
+                    table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Plazos:").Bold());
+                    table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.NumberOfMonths} meses"));
+
+                    // Fila: Interés
+                    table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Interés (TIN):").Bold());
+                    table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.InterestRate:N2} %"));
+
+                    // Fila: Cuota Mensual
+                    table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Cuota Mensual:").FontSize(12).Bold().FontColor(Colors.Blue.Darken2));
+                    table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{monthlyPayment:N2} €").FontSize(12).Bold().FontColor(Colors.Blue.Darken2));
+
+                    // Fila: Total Financiado
+                    table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Total Financiado:").Bold());
+                    table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{totalFinanced:N2} €"));
+                }
+                // --- FIN CÓDIGO AÑADIDO ---
+
+            });
+            // --- FIN CÓDIGO MODIFICADO ---
+        }
+
+        // --- MÉTODO ComposeFooter (MODIFICADO PARA RGPD) ---
+        private void ComposeFooter(IContainer container)
+        {
+            // El texto legal que proporcionaste
+            string legalText = "De conformidad con lo establecido en el RGPD 2016/679 de 27 de Abril, se le informa que los datos personales facilitados voluntariamente y sin carácter obligatorio por usted han sido incorporados a un fichero o soporte de datos personales cuya titularidad corresponde a P&D DENTAL SCP con domicilio en RAMBLA JUST OLIVERES 56, 2-1 (HOSPITALET LLOB) quien procederá al tratamiento de sus datos personales sobre la base juridica del consentimiento prestado por usted. Por último, se le informa que le asisten los derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición al tratamiento, pudiendo ejercitarlos mediante petición escrita dirigida al titular del.";
+
+            container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(10).Column(col =>
+            {
+                // 1. "Nota: Presupuesto valido por 30 dias"
+                col.Item().Text(text => text.Span("Nota: Presupuesto valido por 30 dias"));
+
+                // 2. Nuevo Texto Legal (RGPD)
+                col.Item().PaddingTop(5).Text(text =>
+                {
+                    text.Span(legalText)
+                        .FontSize(7) // Letra pequeña
+                        .FontColor(Colors.Grey.Medium); // Color gris
+                });
+
+                // 3. Paginación eliminada (como solicitaste)
             });
         }
 
-        private void ComposeFooter(IContainer container)
-        {
-            container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(10).Column(col =>
-            {
-                // --- CORRECCIÓN CS1503 (API Moderna) ---
-                col.Item().Text(text => text.Span("Nota: Presupuesto valido por 30 dias"));
-                col.Item().AlignRight().Text(x =>
-                {
-                    x.Span("Página ");
-                    x.CurrentPageNumber();
-                    x.Span(" de ");
-                    x.TotalPages();
-                });
-            });
-        }
 
         private string MaskDni(string? dniNie)
         {

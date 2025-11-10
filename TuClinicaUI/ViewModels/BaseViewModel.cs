@@ -4,7 +4,7 @@ namespace TuClinica.UI.ViewModels
 {
     // Esta clase nos da la habilidad de notificar a la UI
     // cuando una propiedad cambia (ej: el nombre de un paciente).
-    public abstract class BaseViewModel : ObservableObject
+    public abstract class BaseViewModel : ObservableValidator
     {
         // Esta será la base para TODOS nuestros ViewModels
     }
