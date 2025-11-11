@@ -1,10 +1,13 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿// En: TuClinica.Services.Tests/BudgetsViewModelTests.cs
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq; // <-- La librería que acabamos de instalar
 using System;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
+// --- CAMBIO 1: Añadir using para IServiceScopeFactory ---
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TuClinica.Services.Tests
 {
@@ -16,7 +19,10 @@ namespace TuClinica.Services.Tests
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IBudgetRepository> _budgetRepoMock;
         private Mock<IPdfService> _pdfServiceMock;
-        private Mock<IServiceProvider> _serviceProviderMock;
+
+        // --- CAMBIO 2: Renombrar a 'scopeFactoryMock' ---
+        private Mock<IServiceScopeFactory> _scopeFactoryMock;
+
         private Mock<IDialogService> _dialogServiceMock;
 
         // 2. Declaramos la variable para el ViewModel que vamos a probar
@@ -31,16 +37,20 @@ namespace TuClinica.Services.Tests
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _budgetRepoMock = new Mock<IBudgetRepository>();
             _pdfServiceMock = new Mock<IPdfService>();
-            _serviceProviderMock = new Mock<IServiceProvider>();
+
+            // --- CAMBIO 3: Inicializar el mock de la factory ---
+            _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+
             _dialogServiceMock = new Mock<IDialogService>();
 
             // 4. Creamos el ViewModel, pasándole los objetos "falsos" (.Object)
+            // --- CAMBIO 4: Pasar la factory al constructor ---
             _viewModel = new BudgetsViewModel(
                 _patientRepoMock.Object,
                 _treatmentRepoMock.Object,
                 _budgetRepoMock.Object,
                 _pdfServiceMock.Object,
-                _serviceProviderMock.Object,
+                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
                 _dialogServiceMock.Object
             );
         }

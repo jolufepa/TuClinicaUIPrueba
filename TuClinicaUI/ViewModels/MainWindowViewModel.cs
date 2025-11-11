@@ -1,6 +1,7 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/MainWindowViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging; // <-- Este SÍ se queda
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
@@ -8,19 +9,22 @@ using System.Windows;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
-using TuClinica.UI.Messages; // <-- Este SÍ se queda
+using TuClinica.UI.Messages;
 
-// 1. ASEGÚRATE DE QUE EL NAMESPACE ES ESTE
 namespace TuClinica.UI.ViewModels
 {
-    // 2. IRecipient<...> SE QUEDA
     public partial class MainWindowViewModel : BaseViewModel, IRecipient<NavigateToNewBudgetMessage>
     {
         private readonly IAuthService _authService;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private User? _currentUser;
 
-        // 1. Guardamos una referencia al VM singleton
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Este campo mantendrá el ámbito (y sus servicios Scoped como AppDbContext)
+        // vivo mientras la vista esté activa.
+        private IServiceScope? _currentViewScope;
+        // --- FIN DE LA CORRECCIÓN ---
+
         private readonly PatientFileViewModel _patientFileViewModel;
         private readonly HomeViewModel _homeViewModel;
 
@@ -30,108 +34,97 @@ namespace TuClinica.UI.ViewModels
         private bool _isDoctorMenuVisible;
         [ObservableProperty]
         private bool _isReceptionMenuVisible;
-
-        // *** AÑADIDO: Visibilidad para Recetas ***
         [ObservableProperty]
         private bool _isPrescriptionMenuVisible;
 
         [ObservableProperty]
         private BaseViewModel? _selectedViewModel;
 
-        // 2. Modifica el constructor
         public MainWindowViewModel(IAuthService authService,
-                                   IServiceProvider serviceProvider,
+                                   IServiceScopeFactory scopeFactory,
                                    PatientFileViewModel patientFileViewModel,
                                    HomeViewModel homeViewModel)
         {
             _authService = authService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _patientFileViewModel = patientFileViewModel;
-
             _homeViewModel = homeViewModel;
+
             LoadCurrentUserAndSetVisibility();
 
-            try
-            {
-                // 3. Modificamos cómo se crea PatientsViewModel
-                var patientsVM = _serviceProvider.GetRequiredService<PatientsViewModel>();
+            // --- INICIO DE LA CORRECCIÓN ---
+            // El bloque try-catch original aquí no era necesario,
+            // ya que el 'patientsVM' que creaba era temporal y se descartaba,
+            // no afectaba a la navegación real.
+            // La navegación inicial es a HomeViewModel (un Singleton).
+            SelectedViewModel = _homeViewModel;
+            // --- FIN DE LA CORRECCIÓN ---
 
-                // 4. Le pasamos el comando de navegación al PatientsViewModel
-                patientsVM.SetNavigationCommand(NavigateToPatientFileCommand);
-
-                SelectedViewModel = _homeViewModel;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error crítico al cargar la vista inicial:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-
-            _homeViewModel = homeViewModel;
-
-            // 3. REGISTRARSE A LOS MENSAJES
             WeakReferenceMessenger.Default.Register(this);
         }
 
-        // 4. AÑADIR EL MÉTODO Receive (¡MODIFICADO!)
-        /// <summary>
-        /// Recibe el mensaje para navegar a la vista de presupuestos.
-        /// </summary>
         public void Receive(NavigateToNewBudgetMessage message)
         {
-            // --- INICIO DE LA LÓGICA CORREGIDA ---
+            // --- CORRECCIÓN: Gestionar el ciclo de vida del ámbito ---
 
-            // 1. Obtenemos una NUEVA instancia de BudgetsViewModel
-            var budgetVM = _serviceProvider.GetRequiredService<BudgetsViewModel>();
+            // 1. Destruir el ámbito anterior (si existe)
+            _currentViewScope?.Dispose();
 
-            // 2. Llamamos al método público para pre-configurarla
+            // 2. Crear un nuevo ámbito
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            // 3. Resolver la vista desde el NUEVO ámbito
+            var budgetVM = _currentViewScope.ServiceProvider.GetRequiredService<BudgetsViewModel>();
+
+            // 4. Configurar y mostrar
             budgetVM.SetPatientForNewBudget(message.Value);
-
-            // 3. Establecemos esta instancia pre-configurada como la vista activa
             SelectedViewModel = budgetVM;
-
-            // --- FIN DE LA LÓGICA CORREGIDA ---
         }
 
         private void LoadCurrentUserAndSetVisibility()
         {
             _currentUser = _authService.CurrentUser;
 
-            // Ocultar todo por defecto
             IsAdminMenuVisible = false;
             IsDoctorMenuVisible = false;
             IsReceptionMenuVisible = false;
-            IsPrescriptionMenuVisible = false; // *** AÑADIDO ***
+            IsPrescriptionMenuVisible = false;
 
             if (_currentUser != null)
             {
-                // Roles básicos (Recepción, Doctor, Admin)
                 if (_currentUser.Role == UserRole.Recepcionista || _currentUser.Role == UserRole.Doctor || _currentUser.Role == UserRole.Administrador)
                 {
-                    IsReceptionMenuVisible = true; // Pacientes y Presupuestos
+                    IsReceptionMenuVisible = true;
                 }
-
-                // Roles clínicos (Doctor, Admin)
                 if (_currentUser.Role == UserRole.Doctor || _currentUser.Role == UserRole.Administrador)
                 {
-                    IsDoctorMenuVisible = true; // Tratamientos
-                    IsPrescriptionMenuVisible = true; // *** AÑADIDO: Recetas ***
+                    IsDoctorMenuVisible = true;
+                    IsPrescriptionMenuVisible = true;
                 }
-
-                // Rol Admin
                 if (_currentUser.Role == UserRole.Administrador)
                 {
-                    IsAdminMenuVisible = true; // Administración
+                    IsAdminMenuVisible = true;
                 }
             }
         }
 
-        // --- Comandos de Navegación ---
+        // --- CORRECCIÓN: Todos los comandos de navegación deben gestionar el ámbito ---
+
+        [RelayCommand]
+        private void NavigateToHome() // <-- AÑADIDO: Método para volver al inicio
+        {
+            _currentViewScope?.Dispose(); // Destruir el ámbito de la vista anterior
+            _currentViewScope = null;     // No hay ámbito para el Singleton
+            SelectedViewModel = _homeViewModel;
+        }
 
         [RelayCommand]
         private void NavigateToPatients()
         {
-            // Modificamos este comando para que también configure la navegación
-            var patientsVM = _serviceProvider.GetRequiredService<PatientsViewModel>();
+            _currentViewScope?.Dispose();
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            var patientsVM = _currentViewScope.ServiceProvider.GetRequiredService<PatientsViewModel>();
             patientsVM.SetNavigationCommand(NavigateToPatientFileCommand);
             SelectedViewModel = patientsVM;
         }
@@ -139,40 +132,47 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand]
         private void NavigateToBudgets()
         {
-            // Esta navegación (desde el menú principal) debe mostrar un
-            // ViewModel limpio, por eso pedimos uno nuevo.
-            SelectedViewModel = _serviceProvider.GetRequiredService<BudgetsViewModel>();
+            _currentViewScope?.Dispose();
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            SelectedViewModel = _currentViewScope.ServiceProvider.GetRequiredService<BudgetsViewModel>();
         }
 
         [RelayCommand]
         private void NavigateToTreatments()
         {
-            SelectedViewModel = _serviceProvider.GetRequiredService<TreatmentsViewModel>();
+            _currentViewScope?.Dispose();
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            SelectedViewModel = _currentViewScope.ServiceProvider.GetRequiredService<TreatmentsViewModel>();
         }
 
-
-
-        // *** AÑADIDO: Comando para Recetas ***
         [RelayCommand]
         private void NavigateToPrescriptions()
         {
-            // ¡Módulo 'Recetas' ahora conectado!
-            SelectedViewModel = _serviceProvider.GetRequiredService<PrescriptionViewModel>();
+            _currentViewScope?.Dispose();
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            SelectedViewModel = _currentViewScope.ServiceProvider.GetRequiredService<PrescriptionViewModel>();
         }
-        // *** FIN AÑADIDO ***** FIN AÑADIDO ***
 
         [RelayCommand]
         private void NavigateToAdmin()
         {
-            SelectedViewModel = _serviceProvider.GetRequiredService<AdminViewModel>();
+            _currentViewScope?.Dispose();
+            _currentViewScope = _scopeFactory.CreateScope();
+
+            SelectedViewModel = _currentViewScope.ServiceProvider.GetRequiredService<AdminViewModel>();
         }
 
-        // 5. AÑADIMOS EL NUEVO COMANDO DE NAVEGACIÓN
         [RelayCommand]
         private void NavigateToPatientFile()
         {
-            // Simplemente cambia la vista actual al singleton de Ficha de Paciente
-            // El paciente correcto ya habrá sido cargado por PatientsViewModel
+            // Esta vista es un Singleton, por lo que NO gestiona un ámbito.
+            // Destruimos el ámbito anterior (ej. el de la lista de Pacientes).
+            _currentViewScope?.Dispose();
+            _currentViewScope = null;
+
             SelectedViewModel = _patientFileViewModel;
         }
     }

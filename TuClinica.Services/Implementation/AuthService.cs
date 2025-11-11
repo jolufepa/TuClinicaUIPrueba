@@ -1,8 +1,10 @@
-﻿using BCrypt.Net; // ¡Importante para las contraseñas!
+﻿// En: TuClinica.Services/Implementation/AuthService.cs
+
+using BCrypt.Net; // ¡Importante para las contraseñas!
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces.Repositories; // Para IUserRepository
-using TuClinica.Core.Interfaces.Services;   
-using Microsoft.Extensions.DependencyInjection; 
+using TuClinica.Core.Interfaces.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;// Para User
 using TuClinica.Core.Models;
 
@@ -12,21 +14,24 @@ namespace TuClinica.Services.Implementation
 
     {
         private readonly IInactivityService _inactivityService;
-        
-        //private readonly IUserRepository _userRepository;
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         // Guarda el usuario que ha iniciado sesión
         public User? CurrentUser { get; private set; }
 
-        public AuthService(IServiceProvider serviceProvider, IInactivityService inactivityService)
+        // --- CAMBIO 2: Actualizar el constructor ---
+        public AuthService(IServiceScopeFactory scopeFactory, IInactivityService inactivityService)
         {
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _inactivityService = inactivityService; // <-- Esto da error si la línea de arriba no existe
         }
 
         public async Task<bool> LoginAsync(string username, string password)
         {
-            using (var scope = _serviceProvider.CreateScope())
+            // --- CAMBIO 3: Usar la 'Factory' para crear el ámbito ---
+            using (var scope = _scopeFactory.CreateScope())
             {
                 // Obtenemos IUserRepository DENTRO del scope
                 var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
@@ -36,15 +41,15 @@ namespace TuClinica.Services.Implementation
 
                 // 2. Si no existe o la contraseña no coincide, falla el login
                 if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
-            {
-                CurrentUser = null; // Nos aseguramos de limpiar el usuario actual
-                return false;
-            }
+                {
+                    CurrentUser = null; // Nos aseguramos de limpiar el usuario actual
+                    return false;
+                }
 
-            // 3. ¡Éxito! Guardamos el usuario logueado
+                // 3. ¡Éxito! Guardamos el usuario logueado
                 CurrentUser = user;
                 return true;
-        }
+            }
         }
 
         public void Logout()

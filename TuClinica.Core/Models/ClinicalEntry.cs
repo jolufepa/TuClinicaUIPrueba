@@ -1,8 +1,11 @@
-﻿using System;
+﻿// En: TuClinica.Core/Models/ClinicalEntry.cs
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+// --- AÑADIR ESTE USING ---
+using System.Text.Json.Serialization;
 
 namespace TuClinica.Core.Models
 {
@@ -23,6 +26,10 @@ namespace TuClinica.Core.Models
         public int DoctorId { get; set; }
         [ForeignKey("DoctorId")]
         public User? Doctor { get; set; }
+
+        // --- AÑADIR JsonIgnore ---
+        [NotMapped]
+        [JsonIgnore]
         public string DoctorName => Doctor?.Name ?? "Desconocido";
 
         public DateTime VisitDate { get; set; }
@@ -35,11 +42,14 @@ namespace TuClinica.Core.Models
         public ICollection<ToothTreatment> TreatmentsPerformed { get; set; } = new List<ToothTreatment>();
         public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 
+        // --- AÑADIR JsonIgnore ---
         [NotMapped]
+        [JsonIgnore]
         public decimal Balance => TotalCost - (Allocations?.Sum(a => a.AmountAllocated) ?? 0);
 
-        // *** CAMBIO: Nueva propiedad de Display ***
+        // --- AÑADIR JsonIgnore ---
         [NotMapped]
+        [JsonIgnore]
         public string ChargeDisplayInfo => $"{VisitDate:dd/MM/yy} - {Diagnosis} (Pendiente: {Balance:C})";
     }
 }

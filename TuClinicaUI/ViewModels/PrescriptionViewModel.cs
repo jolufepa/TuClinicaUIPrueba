@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/PrescriptionViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -24,7 +25,10 @@ namespace TuClinica.UI.ViewModels
     public partial class PrescriptionViewModel : BaseViewModel
     {
         // Servicios (sin cambios)
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         private readonly IPdfService _pdfService;
         private readonly IMedicationRepository _medicationRepository;
         private readonly IDosageRepository _dosageRepository;
@@ -132,15 +136,16 @@ namespace TuClinica.UI.ViewModels
         public IRelayCommand ClearMedicationFormCommand { get; }
 
 
+        // --- CAMBIO 2: Actualizar el constructor ---
         public PrescriptionViewModel(
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory, // <-- MODIFICADO
             IPdfService pdfService,
             IMedicationRepository medicationRepository,
             IDosageRepository dosageRepository,
             IRepository<Prescription> prescriptionRepository,
             IDialogService dialogService)
         {
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory; // <-- MODIFICADO
             _pdfService = pdfService;
             _medicationRepository = medicationRepository;
             _dosageRepository = dosageRepository;
@@ -179,23 +184,27 @@ namespace TuClinica.UI.ViewModels
         {
             try
             {
-                var dialog = _serviceProvider.GetRequiredService<PatientSelectionDialog>();
-
-                Window? ownerWindow = Application.Current.MainWindow;
-                if (ownerWindow != null && ownerWindow != dialog)
+                // --- CAMBIO 3: Usar 'scopeFactory' para resolver el diálogo 'Transient' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    dialog.Owner = ownerWindow;
-                }
+                    var dialog = scope.ServiceProvider.GetRequiredService<PatientSelectionDialog>();
 
-                var result = dialog.ShowDialog();
+                    Window? ownerWindow = Application.Current.MainWindow;
+                    if (ownerWindow != null && ownerWindow != dialog)
+                    {
+                        dialog.Owner = ownerWindow;
+                    }
 
-                var dialogViewModel = dialog.ViewModel;
-                if (dialogViewModel == null) return;
+                    var result = dialog.ShowDialog();
 
-                if (result == true && dialogViewModel.SelectedPatientFromList != null)
-                {
-                    SelectedPatient = dialogViewModel.SelectedPatientFromList;
-                }
+                    var dialogViewModel = dialog.ViewModel;
+                    if (dialogViewModel == null) return;
+
+                    if (result == true && dialogViewModel.SelectedPatientFromList != null)
+                    {
+                        SelectedPatient = dialogViewModel.SelectedPatientFromList;
+                    }
+                } // El 'scope' y el 'dialog' se destruyen aquí
             }
             catch (Exception ex)
             {
@@ -226,9 +235,18 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage("Debe seleccionar un paciente e introducir un medicamento y una pauta.", "Datos incompletos");
                 return null;
             }
-            var settings = _serviceProvider.GetRequiredService<AppSettings>();
-            var authService = _serviceProvider.GetRequiredService<IAuthService>();
-            var currentUser = authService.CurrentUser;
+
+            // --- CAMBIO 4: Usar 'scopeFactory' para resolver servicios Scoped/Singleton ---
+            // Necesitamos crear un scope para resolver AppSettings y IAuthService
+            AppSettings settings;
+            User? currentUser;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                settings = scope.ServiceProvider.GetRequiredService<AppSettings>();
+                var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+                currentUser = authService.CurrentUser;
+            }
+
             var prescription = new Prescription
             {
                 PatientId = SelectedPatient!.Id,

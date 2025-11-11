@@ -1,8 +1,11 @@
-﻿using System;
+﻿// En: TuClinica.Core/Models/Payment.cs
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+// --- AÑADIR ESTE USING ---
+using System.Text.Json.Serialization;
 
 namespace TuClinica.Core.Models
 {
@@ -27,11 +30,14 @@ namespace TuClinica.Core.Models
 
         public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 
+        // --- AÑADIR JsonIgnore ---
         [NotMapped]
+        [JsonIgnore]
         public decimal UnallocatedAmount => Amount - (Allocations?.Sum(a => a.AmountAllocated) ?? 0);
 
-        // *** CAMBIO: Nueva propiedad de Display ***
+        // --- AÑADIR JsonIgnore ---
         [NotMapped]
+        [JsonIgnore]
         public string PaymentDisplayInfo => $"{PaymentDate:dd/MM/yy} - {Method} ({UnallocatedAmount:C} restantes)";
     }
 }

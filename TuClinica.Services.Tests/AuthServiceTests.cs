@@ -1,11 +1,13 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿// En: TuClinica.Services.Tests/AuthServiceTests.cs
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Models;
 using TuClinica.Services.Implementation;
-using Microsoft.Extensions.DependencyInjection; // Para IServiceProvider
+using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Threading.Tasks; // <-- AÑADIDO PARA TASK
 
 namespace TuClinica.Services.Tests
 {
@@ -13,7 +15,8 @@ namespace TuClinica.Services.Tests
     public class AuthServiceTests
     {
         // --- Dependencias (Mocks) ---
-        private Mock<IServiceProvider> _serviceProviderMock;
+
+        // --- CAMBIO 1: 'serviceProviderMock' se renombra a 'scopeFactoryMock' ---
         private Mock<IServiceScopeFactory> _scopeFactoryMock;
         private Mock<IServiceScope> _scopeMock;
         private Mock<IServiceProvider> _scopedServiceProviderMock;
@@ -42,33 +45,29 @@ namespace TuClinica.Services.Tests
             };
 
             // 2. Inicializamos todos los Mocks
-            _serviceProviderMock = new Mock<IServiceProvider>();
+            // --- CAMBIO 2: Inicializar el mock de la factory ---
             _scopeFactoryMock = new Mock<IServiceScopeFactory>();
             _scopeMock = new Mock<IServiceScope>();
             _scopedServiceProviderMock = new Mock<IServiceProvider>();
             _inactivityServiceMock = new Mock<IInactivityService>();
             _userRepoMock = new Mock<IUserRepository>();
 
-            // 3. Configuramos la cadena de Mocks para simular _serviceProvider.CreateScope()
-            //    que es lo que usa tu AuthService
+            // 3. Configuramos la cadena de Mocks para simular _scopeFactory.CreateScope()
 
-            // 3.1. El IServiceProvider principal debe devolver un IServiceScopeFactory
-            _serviceProviderMock.Setup(sp => sp.GetService(typeof(IServiceScopeFactory)))
-                                .Returns(_scopeFactoryMock.Object);
-
-            // 3.2. El IServiceScopeFactory debe crear un IServiceScope
+            // 3.1. El IServiceScopeFactory debe crear un IServiceScope
             _scopeFactoryMock.Setup(sf => sf.CreateScope()).Returns(_scopeMock.Object);
 
-            // 3.3. El IServiceScope debe devolver un IServiceProvider "con ámbito"
+            // 3.2. El IServiceScope debe devolver un IServiceProvider "con ámbito"
             _scopeMock.Setup(s => s.ServiceProvider).Returns(_scopedServiceProviderMock.Object);
 
-            // 3.4. El IServiceProvider "con ámbito" debe devolver nuestro IUserRepository falso
+            // 3.3. El IServiceProvider "con ámbito" debe devolver nuestro IUserRepository falso
             _scopedServiceProviderMock.Setup(sp => sp.GetService(typeof(IUserRepository)))
                                       .Returns(_userRepoMock.Object);
 
             // 4. Finalmente, creamos la instancia del AuthService
+            // --- CAMBIO 3: Pasar la factory al constructor ---
             _authService = new AuthService(
-                _serviceProviderMock.Object,
+                _scopeFactoryMock.Object,
                 _inactivityServiceMock.Object
             );
         }

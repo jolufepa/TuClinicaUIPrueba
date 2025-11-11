@@ -1,4 +1,6 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/PatientFileViewModel.cs
+
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,7 +30,10 @@ namespace TuClinica.UI.ViewModels
         // --- Servicios ---
         private readonly IAuthService _authService;
         private readonly IDialogService _dialogService;
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         private readonly IFileDialogService _fileDialogService;
         private readonly IValidationService _validationService; // *** AÑADIDO (Corrige error CS0103) ***
 
@@ -76,7 +81,7 @@ namespace TuClinica.UI.ViewModels
 
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
-        // --- DECLARACIÓN MANUAL DE COMANDOS CRÍTICOS ---
+        // --- DECLARACIÓN MANUAL DE COMANDOS CRÍTICOS (Sin cambios, tal como indica el README) ---
         public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
         public IRelayCommand ToggleEditPatientDataCommand { get; }
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
@@ -96,24 +101,24 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _isLoading = false;
 
-        // --- CONSTRUCTOR MODIFICADO ---
+        // --- CAMBIO 2: Actualizar el constructor ---
         public PatientFileViewModel(
           IAuthService authService,
           IDialogService dialogService,
-          IServiceProvider serviceProvider,
+          IServiceScopeFactory scopeFactory, // <-- MODIFICADO
           IFileDialogService fileDialogService,
           IValidationService validationService) // *** AÑADIDO ***
         {
             _authService = authService;
             _dialogService = dialogService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory; // <-- MODIFICADO
             _fileDialogService = fileDialogService;
             _validationService = validationService; // *** AÑADIDO ***
 
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
 
-            // --- INICIALIZACIÓN MANUAL DE COMANDOS ---
+            // --- INICIALIZACIÓN MANUAL DE COMANDOS (Sin cambios) ---
             DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
             SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData); // *** CAMBIO ***
@@ -139,7 +144,8 @@ namespace TuClinica.UI.ViewModels
                 IsPatientDataReadOnly = true;
 
                 // Carga inicial de datos (sin cambios)
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 3: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                     var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
@@ -234,7 +240,8 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 4: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var allocationRepo = scope.ServiceProvider.GetRequiredService<IRepository<PaymentAllocation>>();
                     await allocationRepo.AddAsync(allocation);
@@ -265,7 +272,8 @@ namespace TuClinica.UI.ViewModels
             List<Payment> paymentHistory;
 
             // 1. Recargar datos de la BD
-            using (var scope = _serviceProvider.CreateScope())
+            // --- CAMBIO 5: Usar 'scopeFactory' ---
+            using (var scope = _scopeFactory.CreateScope())
             {
                 var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                 var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
@@ -338,7 +346,8 @@ namespace TuClinica.UI.ViewModels
                 byte[] pdfBytes;
 
                 // 1. Crear un ámbito para resolver el IPdfService
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 6: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
 
@@ -378,7 +387,8 @@ namespace TuClinica.UI.ViewModels
                 string generatedFilePath;
 
                 // 1. Crear ámbito
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 7: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
                     // 2. Generar PDF
@@ -417,7 +427,8 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 8: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
                     await paymentRepo.AddAsync(newPayment);
@@ -507,31 +518,38 @@ namespace TuClinica.UI.ViewModels
             }
             try
             {
-                var vm = _serviceProvider.GetRequiredService<OdontogramViewModel>();
-                var dialog = _serviceProvider.GetRequiredService<OdontogramWindow>();
-
-                vm.LoadState(this.Odontogram, this.CurrentPatient);
-
-                dialog.DataContext = vm;
-
-                Window? owner = Application.Current.MainWindow;
-                if (owner != null && owner != dialog)
+                // --- CAMBIO 9: Resolver servicios 'Transient' dentro de un ámbito ---
+                // Este ámbito se destruirá cuando el método termine, limpiando
+                // la ventana (dialog) y el viewmodel (vm) del odontograma.
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    dialog.Owner = owner;
-                }
+                    var vm = scope.ServiceProvider.GetRequiredService<OdontogramViewModel>();
+                    var dialog = scope.ServiceProvider.GetRequiredService<OdontogramWindow>();
 
-                vm.DialogResult = null;
-                dialog.ShowDialog();
+                    vm.LoadState(this.Odontogram, this.CurrentPatient);
 
-                if (vm.DialogResult == true)
-                {
-                    var newJsonState = vm.GetSerializedState();
-                    if (CurrentPatient.OdontogramStateJson != newJsonState)
+                    dialog.DataContext = vm;
+
+                    Window? owner = Application.Current.MainWindow;
+                    if (owner != null && owner != dialog)
                     {
-                        CurrentPatient.OdontogramStateJson = newJsonState;
-                        await SavePatientOdontogramStateAsync();
+                        dialog.Owner = owner;
                     }
-                }
+
+                    vm.DialogResult = null;
+                    dialog.ShowDialog(); // El código se pausa aquí hasta que se cierra el diálogo
+
+                    // Esta parte se ejecuta DESPUÉS de que el diálogo se cierra
+                    if (vm.DialogResult == true)
+                    {
+                        var newJsonState = vm.GetSerializedState();
+                        if (CurrentPatient.OdontogramStateJson != newJsonState)
+                        {
+                            CurrentPatient.OdontogramStateJson = newJsonState;
+                            await SavePatientOdontogramStateAsync(); // Este método ya crea su propio ámbito
+                        }
+                    }
+                } // El 'scope', 'vm' y 'dialog' se destruyen aquí
 
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
@@ -548,7 +566,8 @@ namespace TuClinica.UI.ViewModels
             if (CurrentPatient == null) return;
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 10: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
                     var patientToUpdate = await patientRepo.GetByIdAsync(CurrentPatient.Id);
@@ -621,64 +640,70 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
-            var dialog = _serviceProvider.GetRequiredService<ManualChargeDialog>();
-
-            Window? owner = Application.Current.MainWindow;
-            if (owner != null && owner != dialog)
+            // --- CAMBIO 11: Resolver el diálogo 'Transient' dentro de un ámbito ---
+            using (var dialogScope = _scopeFactory.CreateScope())
             {
-                dialog.Owner = owner;
-            }
+                var dialog = dialogScope.ServiceProvider.GetRequiredService<ManualChargeDialog>();
 
-            dialog.AvailableTreatments = this.AvailableTreatments;
-
-            if (dialog.ShowDialog() == true)
-            {
-                string concept = dialog.ManualConcept;
-                decimal unitPrice = dialog.UnitPrice;
-                int quantity = dialog.Quantity;
-                int? treatmentId = dialog.SelectedTreatment?.Id;
-
-                decimal totalCost = unitPrice * quantity;
-
-                using (var scope = _serviceProvider.CreateScope())
+                Window? owner = Application.Current.MainWindow;
+                if (owner != null && owner != dialog)
                 {
-                    try
+                    dialog.Owner = owner;
+                }
+
+                dialog.AvailableTreatments = this.AvailableTreatments;
+
+                if (dialog.ShowDialog() == true) // El código se pausa aquí
+                {
+                    // Esta parte se ejecuta DESPUÉS de que el diálogo se cierra
+                    string concept = dialog.ManualConcept;
+                    decimal unitPrice = dialog.UnitPrice;
+                    int quantity = dialog.Quantity;
+                    int? treatmentId = dialog.SelectedTreatment?.Id;
+
+                    decimal totalCost = unitPrice * quantity;
+
+                    // Creamos un ámbito separado para la operación de base de datos
+                    using (var dbScope = _scopeFactory.CreateScope())
                     {
-                        var clinicalRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
-
-                        var clinicalEntry = new ClinicalEntry
+                        try
                         {
-                            PatientId = CurrentPatient.Id,
-                            DoctorId = _authService.CurrentUser.Id,
-                            VisitDate = DateTime.Now,
-                            Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
-                            TotalCost = totalCost,
-                        };
+                            var clinicalRepo = dbScope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
 
-                        if (treatmentId.HasValue)
-                        {
-                            clinicalEntry.TreatmentsPerformed.Add(new ToothTreatment
+                            var clinicalEntry = new ClinicalEntry
                             {
-                                ToothNumber = 0, // 0 = "N/A"
-                                Surfaces = ToothSurface.Completo,
-                                TreatmentId = treatmentId.Value,
-                                TreatmentPerformed = ToothRestoration.Ninguna,
-                                Price = totalCost
-                            });
+                                PatientId = CurrentPatient.Id,
+                                DoctorId = _authService.CurrentUser.Id,
+                                VisitDate = DateTime.Now,
+                                Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
+                                TotalCost = totalCost,
+                            };
+
+                            if (treatmentId.HasValue)
+                            {
+                                clinicalEntry.TreatmentsPerformed.Add(new ToothTreatment
+                                {
+                                    ToothNumber = 0, // 0 = "N/A"
+                                    Surfaces = ToothSurface.Completo,
+                                    TreatmentId = treatmentId.Value,
+                                    TreatmentPerformed = ToothRestoration.Ninguna,
+                                    Price = totalCost
+                                });
+                            }
+
+                            await clinicalRepo.AddAsync(clinicalEntry);
+                            await clinicalRepo.SaveChangesAsync();
+                            await RefreshBillingCollections();
+
+                            _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
                         }
-
-                        await clinicalRepo.AddAsync(clinicalEntry);
-                        await clinicalRepo.SaveChangesAsync();
-                        await RefreshBillingCollections();
-
-                        _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
-                    }
-                    catch (Exception ex)
-                    {
-                        _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
+                        catch (Exception ex)
+                        {
+                            _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
+                        }
                     }
                 }
-            }
+            } // El 'dialogScope' y el 'dialog' se destruyen aquí
         }
 
 
@@ -735,7 +760,8 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 12: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
                     var patientToUpdate = await patientRepo.GetByIdAsync(CurrentPatient.Id);
@@ -780,7 +806,8 @@ namespace TuClinica.UI.ViewModels
             if (result == CoreDialogResult.No) return;
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // --- CAMBIO 13: Usar 'scopeFactory' ---
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                     bool success = await clinicalEntryRepo.DeleteEntryAndAllocationsAsync(SelectedHistoryEntry.Id);

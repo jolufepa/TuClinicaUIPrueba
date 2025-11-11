@@ -25,7 +25,10 @@ namespace TuClinica.UI.ViewModels
     {
         private readonly IPatientRepository _patientRepository;
         private readonly IValidationService _validationService;
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         private readonly PatientFileViewModel _patientFileViewModel;
         private readonly IActivityLogService _activityLogService; // <-- Inyección del Log
         private readonly IDialogService _dialogService; // <-- CAMBIO: Servicio de Diálogo
@@ -60,17 +63,17 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand ViewPatientDetailsCommand { get; }
 
 
-        // *** CONSTRUCTOR MODIFICADO ***
+        // --- CAMBIO 2: Actualizar el constructor ---
         public PatientsViewModel(IPatientRepository patientRepository,
                                  IValidationService validationService,
-                                 IServiceProvider serviceProvider,
+                                 IServiceScopeFactory scopeFactory, // <-- MODIFICADO
                                  PatientFileViewModel patientFileViewModel,
                                  IActivityLogService activityLogService,
                                  IDialogService dialogService) // <-- Inyección
         {
             _patientRepository = patientRepository;
             _validationService = validationService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory; // <-- MODIFICADO
             _patientFileViewModel = patientFileViewModel;
             _activityLogService = activityLogService;
             _dialogService = dialogService; // <-- CAMBIO: Asignación

@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/LoginViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input; // Necesitas este using para RelayCommand y AsyncRelayCommand
 using Microsoft.Extensions.DependencyInjection;
 using System; // Agregado para IServiceProvider
@@ -14,13 +15,16 @@ namespace TuClinica.UI.ViewModels
     public partial class LoginViewModel : BaseViewModel
     {
         private readonly IAuthService _authService;
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         private readonly IInactivityService _inactivityService;
 
         [ObservableProperty]
         private string _username = string.Empty;
 
-        // *** DEFINICIÓN MANUAL DE COMANDOS ***
+        // *** DEFINICIÓN MANUAL DE COMANDOS (Sin cambios) ***
         public IAsyncRelayCommand<object> LoginAsyncCommand { get; }
         public IRelayCommand<Window> CloseWindowCommand { get; }
         // *** FIN DEFINICIÓN MANUAL ***
@@ -31,20 +35,22 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private bool _closeWindowFlag;
 
-        public LoginViewModel(IAuthService authService, IServiceProvider serviceProvider,
+        // --- CAMBIO 2: Actualizar el constructor ---
+        public LoginViewModel(IAuthService authService,
+                              IServiceScopeFactory scopeFactory, // <-- MODIFICADO
                               IInactivityService inactivityService)
         {
             _authService = authService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory; // <-- MODIFICADO
             _inactivityService = inactivityService;
 
-            // *** INICIALIZACIÓN MANUAL DE COMANDOS EN EL CONSTRUCTOR ***
-             LoginAsyncCommand = new AsyncRelayCommand<object?>(LoginAsync); // Asegúrate que el tipo coincida (object?)
-             CloseWindowCommand = new RelayCommand<Window?>(CloseWindow); // Asegúrate que el tipo coincida (Window?)
+            // *** INICIALIZACIÓN MANUAL DE COMANDOS EN EL CONSTRUCTOR (Sin cambios) ***
+            LoginAsyncCommand = new AsyncRelayCommand<object?>(LoginAsync); // Asegúrate que el tipo coincida (object?)
+            CloseWindowCommand = new RelayCommand<Window?>(CloseWindow); // Asegúrate que el tipo coincida (Window?)
             // *** FIN INICIALIZACIÓN MANUAL ***
         }
 
-        
+
         private async Task LoginAsync(object? parameter) // El parámetro debe ser nullable (object?)
         {
             ErrorMessage = null;
@@ -57,8 +63,17 @@ namespace TuClinica.UI.ViewModels
             if (success)
             {
                 _inactivityService.Start();
-                var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-                mainWindow.Show();
+
+                // --- CAMBIO 3: Usar 'scopeFactory' para resolver la ventana 'Singleton' ---
+                // Aunque MainWindow es Singleton, es más limpio resolverlo desde un
+                // ámbito raíz (el propio 'AppHost.Services') o, si estamos en un
+                // servicio 'Transient' como este, crear un scope para resolverlo.
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var mainWindow = scope.ServiceProvider.GetRequiredService<MainWindow>();
+                    mainWindow.Show();
+                }
+
                 CloseWindowFlag = true; // Señal para cerrar esta ventana
             }
             else
@@ -68,7 +83,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-       
+
         private void CloseWindow(Window? window) // El parámetro debe ser nullable (Window?)
         {
             window?.Close();

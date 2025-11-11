@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿// En: TuClinica.Services.Tests/AdminViewModelTests.cs
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,8 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
+// --- CAMBIO 1: Añadir using para IServiceScopeFactory ---
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TuClinica.Services.Tests
 {
@@ -18,7 +21,10 @@ namespace TuClinica.Services.Tests
     {
         // --- Mocks ---
         private Mock<IUserRepository> _userRepoMock;
-        private Mock<IServiceProvider> _serviceProviderMock;
+
+        // --- CAMBIO 2: Renombrar a 'scopeFactoryMock' ---
+        private Mock<IServiceScopeFactory> _scopeFactoryMock;
+
         private Mock<IBackupService> _backupServiceMock;
         private Mock<IRepository<ActivityLog>> _logRepoMock;
         private Mock<IActivityLogService> _activityLogServiceMock;
@@ -32,7 +38,10 @@ namespace TuClinica.Services.Tests
         public void Setup()
         {
             _userRepoMock = new Mock<IUserRepository>();
-            _serviceProviderMock = new Mock<IServiceProvider>();
+
+            // --- CAMBIO 3: Inicializar el mock de la factory ---
+            _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+
             _backupServiceMock = new Mock<IBackupService>();
             _logRepoMock = new Mock<IRepository<ActivityLog>>();
             _activityLogServiceMock = new Mock<IActivityLogService>();
@@ -42,9 +51,10 @@ namespace TuClinica.Services.Tests
             // Configuramos LoadLogsAsync para que no falle
             _logRepoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ActivityLog>());
 
+            // --- CAMBIO 4: Pasar la factory al constructor ---
             _viewModel = new AdminViewModel(
                 _userRepoMock.Object,
-                _serviceProviderMock.Object,
+                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
                 _backupServiceMock.Object,
                 _logRepoMock.Object,
                 _activityLogServiceMock.Object,

@@ -1,20 +1,20 @@
 ﻿// En: TuClinicaUI/ViewModels/AdminViewModel.cs
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-//using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using TuClinica.Core.Interfaces;
-using TuClinica.Core.Interfaces.Repositories; // Para IUserRepository, IRepository
-using TuClinica.Core.Interfaces.Services;   // Para IBackupService
-using TuClinica.Core.Models;                 // Para User, ActivityLog
+using TuClinica.Core.Interfaces.Repositories;
+using TuClinica.Core.Interfaces.Services;
+using TuClinica.Core.Models;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
+// --- AÑADIR ESTE USING ---
+using System.Security.Cryptography;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -22,11 +22,11 @@ namespace TuClinica.UI.ViewModels
     {
         // --- Servicios Inyectados ---
         private readonly IUserRepository _userRepository;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IBackupService _backupService;
         private readonly IRepository<ActivityLog> _logRepository;
         private readonly IActivityLogService _activityLogService;
-        private readonly IDialogService _dialogService; 
+        private readonly IDialogService _dialogService;
         private readonly IFileDialogService _fileDialogService;
 
         // --- Colecciones para la Vista ---
@@ -34,7 +34,7 @@ namespace TuClinica.UI.ViewModels
         private ObservableCollection<User> _users = new();
 
         [ObservableProperty]
-        private ObservableCollection<ActivityLog> _activityLogs = new(); // <--- NUEVO
+        private ObservableCollection<ActivityLog> _activityLogs = new();
 
         // --- Propiedad de Selección ---
         [ObservableProperty]
@@ -47,22 +47,21 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand ExportLogsCommand { get; }
         public IAsyncRelayCommand PurgeOldLogsCommand { get; }
 
-        // --- CONSTRUCTOR MODIFICADO ---
         public AdminViewModel(
             IUserRepository userRepository,
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory,
             IBackupService backupService,
-            IRepository<ActivityLog> logRepository, 
+            IRepository<ActivityLog> logRepository,
             IActivityLogService activityLogService,
-            IDialogService dialogService,             
+            IDialogService dialogService,
             IFileDialogService fileDialogService)
         {
             _userRepository = userRepository;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _backupService = backupService;
             _logRepository = logRepository;
             _activityLogService = activityLogService;
-            _dialogService = dialogService;             
+            _dialogService = dialogService;
             _fileDialogService = fileDialogService;
 
             // Comandos
@@ -72,7 +71,7 @@ namespace TuClinica.UI.ViewModels
 
             // Carga inicial de datos
             _ = LoadUsersAsync();
-            _ = LoadLogsAsync(); 
+            _ = LoadLogsAsync();
         }
 
         // --- Métodos de Carga ---
@@ -95,14 +94,12 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- MÉTODO NUEVO PARA CARGAR LOGS ---
         private async Task LoadLogsAsync()
         {
             try
             {
                 var logs = await _logRepository.GetAllAsync();
                 ActivityLogs.Clear();
-                // Ordenamos por fecha descendente para ver lo más nuevo primero
                 foreach (var log in logs.OrderByDescending(l => l.Timestamp))
                 {
                     ActivityLogs.Add(log);
@@ -113,8 +110,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al cargar el registro de actividad:\n{ex.Message}", "Error de Logs");
             }
         }
-        // --- FIN MÉTODO NUEVO ---
-
 
         // --- Métodos de Gestión de Usuarios (EXISTENTES) ---
 
@@ -123,23 +118,26 @@ namespace TuClinica.UI.ViewModels
         {
             try
             {
-                var dialog = _serviceProvider.GetRequiredService<UserEditDialog>();
-                var viewModel = _serviceProvider.GetRequiredService<UserEditViewModel>();
-
-                viewModel.LoadUserData(null);
-                dialog.DataContext = viewModel;
-
-                Window? owner = Application.Current.MainWindow;
-                if (owner != null && owner != dialog)
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    dialog.Owner = owner;
-                }
+                    var dialog = scope.ServiceProvider.GetRequiredService<UserEditDialog>();
+                    var viewModel = scope.ServiceProvider.GetRequiredService<UserEditViewModel>();
 
-                var result = dialog.ShowDialog();
+                    viewModel.LoadUserData(null);
+                    dialog.DataContext = viewModel;
 
-                if (result == true)
-                {
-                    await LoadUsersAsync();
+                    Window? owner = Application.Current.MainWindow;
+                    if (owner != null && owner != dialog)
+                    {
+                        dialog.Owner = owner;
+                    }
+
+                    var result = dialog.ShowDialog();
+
+                    if (result == true)
+                    {
+                        await LoadUsersAsync();
+                    }
                 }
             }
             catch (Exception ex)
@@ -154,42 +152,43 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand(CanExecute = nameof(CanExecuteOnSelectedUser))]
         private async Task EditUserAsync()
         {
-            // ... (La lógica interna de AddNewUserAsync y EditUserAsync 
-            //      ya usa servicios (GetRequiredService) y no MessageBox,
-            //      por lo que está bien como está) ...
             try
             {
                 if (SelectedUser == null) return;
 
-                var dialog = _serviceProvider.GetRequiredService<UserEditDialog>();
-                var viewModel = _serviceProvider.GetRequiredService<UserEditViewModel>();
-
-                var userCopy = new User
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    Id = SelectedUser.Id,
-                    Username = SelectedUser.Username,
-                    HashedPassword = SelectedUser.HashedPassword,
-                    Role = SelectedUser.Role,
-                    IsActive = SelectedUser.IsActive,
-                    CollegeNumber = SelectedUser.CollegeNumber,
-                    Specialty = SelectedUser.Specialty
-                };
+                    var dialog = scope.ServiceProvider.GetRequiredService<UserEditDialog>();
+                    var viewModel = scope.ServiceProvider.GetRequiredService<UserEditViewModel>();
 
-                viewModel.LoadUserData(userCopy);
-                dialog.DataContext = viewModel;
+                    var userCopy = new User
+                    {
+                        Id = SelectedUser.Id,
+                        Username = SelectedUser.Username,
+                        HashedPassword = SelectedUser.HashedPassword,
+                        Role = SelectedUser.Role,
+                        IsActive = SelectedUser.IsActive,
+                        CollegeNumber = SelectedUser.CollegeNumber,
+                        Specialty = SelectedUser.Specialty,
+                        Name = SelectedUser.Name // <-- CORRECCIÓN: Faltaba copiar el nombre
+                    };
+
+                    viewModel.LoadUserData(userCopy);
+                    dialog.DataContext = viewModel;
 
 
-                Window? owner = Application.Current.MainWindow;
-                if (owner != null && owner != dialog)
-                {
-                    dialog.Owner = owner;
-                }
+                    Window? owner = Application.Current.MainWindow;
+                    if (owner != null && owner != dialog)
+                    {
+                        dialog.Owner = owner;
+                    }
 
-                var result = dialog.ShowDialog();
+                    var result = dialog.ShowDialog();
 
-                if (result == true)
-                {
-                    await LoadUsersAsync();
+                    if (result == true)
+                    {
+                        await LoadUsersAsync();
+                    }
                 }
             }
             catch (Exception ex)
@@ -227,6 +226,7 @@ namespace TuClinica.UI.ViewModels
 
         // --- Métodos de Backup (EXISTENTES) ---
 
+        // --- CAMBIO: Añadido try...catch ---
         [RelayCommand]
         private async Task ExportBackupAsync()
         {
@@ -261,15 +261,17 @@ namespace TuClinica.UI.ViewModels
                 }
                 else
                 {
+                    // Esto ya no debería ocurrir, ya que la excepción se captura abajo
                     _dialogService.ShowMessage("Error al exportar. La operación fue cancelada.", "Error");
                 }
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error inesperado al exportar la copia:\n{ex.Message}", "Error Crítico");
+                // ¡AQUÍ ESTÁ EL CAMBIO! Mostramos el error real.
+                _dialogService.ShowMessage($"Error inesperado al exportar la copia:\n\n{ex.Message}", "Error Crítico");
             }
         }
-        // --- LÓGICA DE EXPORTAR ---
+
         private async Task ExportLogsAsync()
         {
             var (ok, filePath) = _fileDialogService.ShowSaveDialog(
@@ -292,7 +294,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- LÓGICA DE PURGAR ---
         private async Task PurgeOldLogsAsync()
         {
             int yearsToKeep = 2;
@@ -317,6 +318,8 @@ namespace TuClinica.UI.ViewModels
                 }
             }
         }
+
+        // --- CAMBIO: Añadido try...catch ---
         [RelayCommand]
         private async Task ImportBackupAsync()
         {
@@ -364,12 +367,19 @@ namespace TuClinica.UI.ViewModels
                 }
                 else
                 {
-                    _dialogService.ShowMessage("Error al importar.\nContraseña incorrecta o archivo corrupto.", "Error");
+                    // Esto no debería ocurrir si BackupService lanza excepciones
+                    _dialogService.ShowMessage("Error al importar.", "Error");
                 }
+            }
+            catch (CryptographicException)
+            {
+                // Error específico de contraseña o corrupción
+                _dialogService.ShowMessage("Error al importar.\nContraseña incorrecta o archivo corrupto.", "Error de Importación");
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error inesperado al importar la copia:\n{ex.Message}", "Error Crítico");
+                // ¡AQUÍ ESTÁ EL CAMBIO! Mostramos el error real.
+                _dialogService.ShowMessage($"Error inesperado al importar la copia:\n\n{ex.Message}\n\nInnerException:\n{ex.InnerException?.Message}", "Error Crítico");
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/BudgetsViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,10 @@ namespace TuClinica.UI.ViewModels
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IBudgetRepository _budgetRepository;
         private readonly IPdfService _pdfService;
-        private readonly IServiceProvider _serviceProvider;
+
+        // --- CAMBIO 1: Reemplazar IServiceProvider ---
+        private readonly IServiceScopeFactory _scopeFactory;
+
         private readonly IDialogService _dialogService;
 
         public IRelayCommand SelectPatientCommand { get; }
@@ -109,20 +113,20 @@ namespace TuClinica.UI.ViewModels
         public bool CanGenerateBudget => IsPatientSelected && BudgetItems.Any();
 
 
-        // --- Constructor ---
+        // --- CAMBIO 2: Actualizar el constructor ---
         public BudgetsViewModel(
             IPatientRepository patientRepository,
             ITreatmentRepository treatmentRepository,
             IBudgetRepository budgetRepository,
             IPdfService pdfService,
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory, // <-- MODIFICADO
             IDialogService dialogService)
         {
             _patientRepository = patientRepository;
             _treatmentRepository = treatmentRepository;
             _budgetRepository = budgetRepository;
             _pdfService = pdfService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory; // <-- MODIFICADO
             _dialogService = dialogService;
 
             SelectPatientCommand = new RelayCommand(SelectPatient);
@@ -273,37 +277,41 @@ namespace TuClinica.UI.ViewModels
         {
             try
             {
-                var dialog = _serviceProvider.GetRequiredService<PatientSelectionDialog>();
+                // --- CAMBIO 3: Usar 'scopeFactory' para resolver el diálogo 'Transient' ---
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var dialog = scope.ServiceProvider.GetRequiredService<PatientSelectionDialog>();
 
-                // --- ASIGNACIÓN DE PROPIETARIO MÁS SEGURA ---
-                Window? ownerWindow = Application.Current.MainWindow;
-                // Comprobar si MainWindow existe y NO es el propio diálogo
-                if (ownerWindow != null && ownerWindow != dialog)
-                {
-                    dialog.Owner = ownerWindow;
-                }
-                else
-                {
-                    // Si no se puede asignar (ej. MainWindow aún no lista), el diálogo se abrirá centrado en la pantalla.
-                }
-                // --- FIN ASIGNACIÓN SEGURA ---
+                    // --- ASIGNACIÓN DE PROPIETARIO MÁS SEGURA ---
+                    Window? ownerWindow = Application.Current.MainWindow;
+                    // Comprobar si MainWindow existe y NO es el propio diálogo
+                    if (ownerWindow != null && ownerWindow != dialog)
+                    {
+                        dialog.Owner = ownerWindow;
+                    }
+                    else
+                    {
+                        // Si no se puede asignar (ej. MainWindow aún no lista), el diálogo se abrirá centrado en la pantalla.
+                    }
+                    // --- FIN ASIGNACIÓN SEGURA ---
 
-                var result = dialog.ShowDialog(); // Muestra el diálogo modalmente
+                    var result = dialog.ShowDialog(); // Muestra el diálogo modalmente
 
-                var dialogViewModel = dialog.ViewModel;
-                if (dialogViewModel == null)
-                {
-                    MessageBox.Show("Error interno: No se pudo obtener el ViewModel del diálogo de selección.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+                    var dialogViewModel = dialog.ViewModel;
+                    if (dialogViewModel == null)
+                    {
+                        MessageBox.Show("Error interno: No se pudo obtener el ViewModel del diálogo de selección.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
 
-                if (result == true && dialogViewModel.SelectedPatientFromList != null)
-                {
-                    CurrentPatient = dialogViewModel.SelectedPatientFromList;
-                }
-                else
-                {
-                }
+                    if (result == true && dialogViewModel.SelectedPatientFromList != null)
+                    {
+                        CurrentPatient = dialogViewModel.SelectedPatientFromList;
+                    }
+                    else
+                    {
+                    }
+                } // El 'scope' y el 'dialog' se destruyen aquí
             }
             catch (Exception ex)
             {

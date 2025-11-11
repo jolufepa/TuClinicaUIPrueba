@@ -1,12 +1,16 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿// En: TuClinica.Services.Tests/PatientsViewModelTests.cs
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
-using System; // Añadido para IServiceProvider
+using System;
 using System.Linq.Expressions;
-using TuClinica.Core.Interfaces; // Para IRepository
+using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
+// --- CAMBIO 1: Añadir using para IServiceScopeFactory ---
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks; // <-- AÑADIDO PARA TASK
 
 namespace TuClinica.Services.Tests
 {
@@ -16,7 +20,10 @@ namespace TuClinica.Services.Tests
         // --- Dependencias (Mocks) ---
         private Mock<IPatientRepository> _patientRepoMock;
         private Mock<IValidationService> _validationServiceMock;
-        private Mock<IServiceProvider> _serviceProviderMock;
+
+        // --- CAMBIO 2: Renombrar a 'scopeFactoryMock' ---
+        private Mock<IServiceScopeFactory> _scopeFactoryMock;
+
         private PatientFileViewModel _patientFileVM_Instance; // Objeto real, pero con dependencias mockeadas
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
@@ -28,7 +35,7 @@ namespace TuClinica.Services.Tests
         private Mock<IAuthService> _authServiceMock;
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
-        private Mock<IPdfService> _pdfServiceMock; // <-- Este Mock se queda, pero no se usa en el constructor
+        private Mock<IPdfService> _pdfServiceMock;
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -39,7 +46,10 @@ namespace TuClinica.Services.Tests
             // 1. Inicializamos todos los Mocks
             _patientRepoMock = new Mock<IPatientRepository>();
             _validationServiceMock = new Mock<IValidationService>();
-            _serviceProviderMock = new Mock<IServiceProvider>();
+
+            // --- CAMBIO 3: Inicializar el mock de la factory ---
+            _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
 
@@ -55,23 +65,21 @@ namespace TuClinica.Services.Tests
 
 
             // 2. Creamos la instancia de PatientFileViewModel
-            // *** CORRECCIÓN CLAVE AQUÍ (CS1729) ***
-            // El constructor ahora toma 5 argumentos (hemos añadido validationService)
+            // --- CAMBIO 4: Pasar la factory al constructor de PatientFileViewModel ---
             _patientFileVM_Instance = new PatientFileViewModel(
                 _authServiceMock.Object,
                 _dialogServiceMock.Object,
-                _serviceProviderMock.Object,
+                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
                 _fileDialogServiceMock.Object,
-                _validationServiceMock.Object // <-- ARGUMENTO AÑADIDO QUE FALTABA
+                _validationServiceMock.Object
             );
-            // *** FIN DE LA CORRECCIÓN ***
-
 
             // 3. Creamos el ViewModel pasándole los Mocks
+            // --- CAMBIO 5: Pasar la factory al constructor de PatientsViewModel ---
             _viewModel = new PatientsViewModel(
                 _patientRepoMock.Object,
                 _validationServiceMock.Object,
-                _serviceProviderMock.Object,
+                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
                 _patientFileVM_Instance,
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
