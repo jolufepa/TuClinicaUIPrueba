@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿// En: TuClinicaUI/ViewModels/TreatmentsViewModel.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -7,80 +8,51 @@ using TuClinica.Core.Models;
 using System.Windows;
 using System.ComponentModel;
 using System.Windows.Input;
-using TuClinica.Core.Interfaces.Services; 
+using TuClinica.Core.Interfaces.Services;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
-// REMOVE 'partial'
+// --- AÑADIR 'partial' ---
 namespace TuClinica.UI.ViewModels
 {
-    public class TreatmentsViewModel : BaseViewModel
+    public partial class TreatmentsViewModel : BaseViewModel
     {
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IDialogService _dialogService;
 
-        // --- Propiedades Manuales ---
+        // --- Propiedades con Generadores de Código ---
+
+        [ObservableProperty]
         private ObservableCollection<Treatment> _treatments = new ObservableCollection<Treatment>();
-        public ObservableCollection<Treatment> Treatments
-        {
-            get => _treatments;
-            set => SetProperty(ref _treatments, value);
-        }
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsTreatmentSelected))]
+        // Notifica automáticamente a los comandos cuando el seleccionado cambia
+        [NotifyCanExecuteChangedFor(nameof(EditTreatmentCommand))]
+        [NotifyCanExecuteChangedFor(nameof(DeleteTreatmentCommand))]
         private Treatment? _selectedTreatment;
-        public Treatment? SelectedTreatment
-        {
-            get => _selectedTreatment;
-            set
-            {
-                if (SetProperty(ref _selectedTreatment, value))
-                {
-                    OnSelectedTreatmentChanged(value); // Llama al handler manual
-                    OnPropertyChanged(nameof(IsTreatmentSelected));
-                }
-            }
-        }
 
+        [ObservableProperty]
         private Treatment _treatmentFormModel = new Treatment { IsActive = true };
-        public Treatment TreatmentFormModel
-        {
-            get => _treatmentFormModel;
-            set => SetProperty(ref _treatmentFormModel, value);
-        }
 
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(SaveTreatmentCommand))] // Habilitar/Deshabilitar Guardar
         private bool _isFormEnabled = false;
-        public bool IsFormEnabled
-        {
-            get => _isFormEnabled;
-            set => SetProperty(ref _isFormEnabled, value);
-        }
 
         public bool IsTreatmentSelected => SelectedTreatment != null;
 
-        // --- Comandos Manuales ---
-        public IAsyncRelayCommand LoadTreatmentsCommand { get; }
-        public IRelayCommand SetNewTreatmentFormCommand { get; }
-        public IRelayCommand EditTreatmentCommand { get; }
-        public IAsyncRelayCommand SaveTreatmentCommand { get; }
-        public IAsyncRelayCommand DeleteTreatmentCommand { get; }
 
-
+        // --- Constructor (limpiado de inicializaciones de comandos) ---
         public TreatmentsViewModel(ITreatmentRepository treatmentRepository, IDialogService dialogService)
         {
             _treatmentRepository = treatmentRepository;
             _dialogService = dialogService;
 
-            // Inicialización de comandos
-            LoadTreatmentsCommand = new AsyncRelayCommand(LoadTreatmentsAsync);
-            SetNewTreatmentFormCommand = new RelayCommand(SetNewTreatmentForm);
-            EditTreatmentCommand = new RelayCommand(EditTreatment, () => IsTreatmentSelected);
-            SaveTreatmentCommand = new AsyncRelayCommand(SaveTreatmentAsync);
-            DeleteTreatmentCommand = new AsyncRelayCommand(DeleteTreatmentAsync, () => IsTreatmentSelected);
-
             _ = LoadTreatmentsAsync();
         }
 
-        // --- MÉTODOS DE COMANDOS ---
+        // --- MÉTODOS DE COMANDOS (Convertidos a Generadores) ---
 
+        [RelayCommand]
         private async Task LoadTreatmentsAsync()
         {
             var treatmentsFromDb = await _treatmentRepository.GetAllAsync();
@@ -94,6 +66,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
+        [RelayCommand]
         private void SetNewTreatmentForm()
         {
             TreatmentFormModel = new Treatment { IsActive = true };
@@ -101,6 +74,7 @@ namespace TuClinica.UI.ViewModels
             SelectedTreatment = null;
         }
 
+        [RelayCommand(CanExecute = nameof(IsTreatmentSelected))]
         private void EditTreatment()
         {
             if (SelectedTreatment == null) return;
@@ -115,6 +89,7 @@ namespace TuClinica.UI.ViewModels
             IsFormEnabled = true;
         }
 
+        [RelayCommand(CanExecute = nameof(IsFormEnabled))] // <-- CanExecute añadido
         private async Task SaveTreatmentAsync()
         {
             if (string.IsNullOrWhiteSpace(TreatmentFormModel.Name))
@@ -142,6 +117,8 @@ namespace TuClinica.UI.ViewModels
                     existingTreatment.Description = TreatmentFormModel.Description;
                     existingTreatment.DefaultPrice = TreatmentFormModel.DefaultPrice;
                     existingTreatment.IsActive = TreatmentFormModel.IsActive;
+                    // --- CORRECCIÓN: Llamar a Update() síncrono ---
+                    _treatmentRepository.Update(existingTreatment);
                 }
                 else { return; }
             }
@@ -152,6 +129,7 @@ namespace TuClinica.UI.ViewModels
             IsFormEnabled = false;
         }
 
+        [RelayCommand(CanExecute = nameof(IsTreatmentSelected))]
         private async Task DeleteTreatmentAsync()
         {
             if (SelectedTreatment == null) return;
@@ -175,12 +153,7 @@ namespace TuClinica.UI.ViewModels
             SelectedTreatment = null;
         }
 
-        // --- MÉTODO MANUAL DE NOTIFICACIÓN ---
-        private void OnSelectedTreatmentChanged(Treatment? value)
-        {
-            IsFormEnabled = false;
-            EditTreatmentCommand.NotifyCanExecuteChanged();
-            DeleteTreatmentCommand.NotifyCanExecuteChanged();
-        }
+        // --- MÉTODO OnSelectedTreatmentChanged ELIMINADO ---
+        // (Ya no es necesario, [NotifyCanExecuteChangedFor] lo hace automáticamente)
     }
 }
