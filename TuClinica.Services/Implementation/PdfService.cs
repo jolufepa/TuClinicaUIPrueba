@@ -74,7 +74,7 @@ namespace TuClinica.Services.Implementation
             return Path.Combine(appDataFolder, "Data");
         }
 
-        // --- 1. GENERACIÓN DE PRESUPUESTO PDF (MODIFICADO) ---
+        // --- 1. GENERACIÓN DE PRESUPUESTO PDF---
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
             // --- INICIO DE LA MODIFICACIÓN (Nombre de archivo) ---
@@ -104,7 +104,7 @@ namespace TuClinica.Services.Implementation
             string fileName = $"{budget.BudgetNumber}_{patientSurnameClean}_{patientNameClean}.pdf";
             string filePath = Path.Combine(yearFolder, fileName);
 
-            // --- FIN DE LA MODIFICACIÓN ---
+           
 
             // El resto del método continúa igual...
             string maskedDni = MaskDni(patient.DniNie);
@@ -117,7 +117,7 @@ namespace TuClinica.Services.Implementation
                     {
                         page.Size(PageSizes.A4);
                         page.Margin(1.5f, Unit.Centimetre);
-                        page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
+                        page.DefaultTextStyle(ts => ts.FontSize(11).FontFamily(Fonts.Calibri));
 
                         page.Header().Element(c => ComposeHeader(c, budget, maskedDni));
                         page.Content().Element(c => ComposeContent(c, budget));
@@ -1038,12 +1038,17 @@ namespace TuClinica.Services.Implementation
                     columns.RelativeColumn();
                 });
 
-                // --- Filas de Cálculo Base (sin cambios) ---
+                // --- Filas de Cálculo Base ---
                 table.Cell().Element(TotalsLabelCell).Text(text => text.Span("Subtotal:").Bold());
                 table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.Subtotal:N2} €"));
 
-                table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Descuento ({budget.DiscountPercent}%):").Bold());
-                table.Cell().Element(TotalsValueCell).Text(text => text.Span($"-{discountAmount:N2} €"));
+                // --- INICIO DE LA MODIFICACIÓN (Ocultar Descuento si es 0) ---
+                if (discountAmount > 0)
+                {
+                    table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Descuento ({budget.DiscountPercent}%):").Bold());
+                    table.Cell().Element(TotalsValueCell).Text(text => text.Span($"-{discountAmount:N2} €"));
+                }
+                // --- FIN DE LA MODIFICACIÓN ---
 
                 table.Cell().Element(TotalsLabelCell).Text(text => text.Span("Base Imponible:").Bold());
                 table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{baseImponible:N2} €"));
@@ -1101,9 +1106,13 @@ namespace TuClinica.Services.Implementation
                     table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Plazos:").Bold());
                     table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.NumberOfMonths} meses"));
 
-                    // Fila: Interés
+                    // --- INICIO DE LA MODIFICACIÓN (Eliminar Fila Interés) ---
+                    /*
+                    // Fila: Interés (ELIMINADA)
                     table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Interés (TIN):").Bold());
                     table.Cell().Element(TotalsValueCell).Text(text => text.Span($"{budget.InterestRate:N2} %"));
+                    */
+                    // --- FIN DE LA MODIFICACIÓN ---
 
                     // Fila: Cuota Mensual
                     table.Cell().Element(TotalsLabelCell).Text(text => text.Span($"Cuota Mensual:").FontSize(12).Bold().FontColor(Colors.Blue.Darken2));

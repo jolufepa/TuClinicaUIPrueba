@@ -110,7 +110,7 @@ namespace TuClinica.UI.ViewModels
 
                 await _patientFileViewModel.LoadPatient(SelectedPatient);
 
-                
+
                 _navigateToPatientFileCommand.Execute(null);
             }
             catch (Exception ex)
@@ -155,13 +155,13 @@ namespace TuClinica.UI.ViewModels
         private void SetNewPatientForm()
         {
             PatientFormModel = new Patient();
-            SelectedPatient = null; 
+            SelectedPatient = null;
             IsFormEnabled = true;
         }
 
         private void EditPatient()
         {
-            // ... (Sin cambios)
+            // ... (CAMBIO AQUÍ)
             if (SelectedPatient == null) return;
             PatientFormModel = new Patient
             {
@@ -169,6 +169,7 @@ namespace TuClinica.UI.ViewModels
                 Name = SelectedPatient.Name,
                 Surname = SelectedPatient.Surname,
                 DniNie = SelectedPatient.DniNie,
+                DateOfBirth = SelectedPatient.DateOfBirth, // <-- CORRECCIÓN
                 Phone = SelectedPatient.Phone,
                 Address = SelectedPatient.Address,
                 Email = SelectedPatient.Email,
@@ -225,10 +226,11 @@ namespace TuClinica.UI.ViewModels
                                 return;
                             }
                         }
-                        // Actualizar
+                        // Actualizar (CAMBIO AQUÍ)
                         existingPatient.Name = PatientFormModel.Name;
                         existingPatient.Surname = PatientFormModel.Surname;
                         existingPatient.DniNie = PatientFormModel.DniNie;
+                        existingPatient.DateOfBirth = PatientFormModel.DateOfBirth; // <-- CORRECCIÓN
                         existingPatient.Phone = PatientFormModel.Phone;
                         existingPatient.Address = PatientFormModel.Address;
                         existingPatient.Email = PatientFormModel.Email;

@@ -56,13 +56,13 @@ namespace TuClinica.Services.Tests
 
             // 2. Creamos la instancia de PatientFileViewModel
             // *** CORRECCIÓN CLAVE AQUÍ (CS1729) ***
-            // El constructor ahora solo toma 4 argumentos.
+            // El constructor ahora toma 5 argumentos (hemos añadido validationService)
             _patientFileVM_Instance = new PatientFileViewModel(
                 _authServiceMock.Object,
                 _dialogServiceMock.Object,
                 _serviceProviderMock.Object,
-                _fileDialogServiceMock.Object
-            // _pdfServiceMock.Object // <-- ESTE ES EL ARGUMENTO QUE SE ELIMINA
+                _fileDialogServiceMock.Object,
+                _validationServiceMock.Object // <-- ARGUMENTO AÑADIDO QUE FALTABA
             );
             // *** FIN DE LA CORRECCIÓN ***
 

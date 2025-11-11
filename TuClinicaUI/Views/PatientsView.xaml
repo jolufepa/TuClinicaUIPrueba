@@ -6,6 +6,7 @@
              
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              
+      
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:PatientsViewModel}"
              
@@ -15,78 +16,89 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Fila 0: Búsqueda -->
         <TextBox Grid.Row="0" 
                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                  mah:TextBoxHelper.Watermark="Buscar por nombre o DNI..." 
-                 Margin="0,0,0,20" />
+               
+   Margin="0,0,0,20" />
 
-        <!-- Fila 1: Lista de Pacientes (Izquierda) y Formulario (Derecha) -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Columna 0: Lista de Pacientes -->
+
             <ListView Grid.Column="0" 
                       ItemsSource="{Binding Patients}" 
                       SelectedItem="{Binding SelectedPatient}"
                       SelectionMode="Single"
-                      BorderThickness="1"
+           
+             BorderThickness="1"
                       BorderBrush="#D6D6D6">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Apellidos" DisplayMemberBinding="{Binding Surname}" Width="200"/>
+
                         <GridViewColumn Header="Nombre" DisplayMemberBinding="{Binding Name}" Width="150"/>
                         <GridViewColumn Header="DNI/NIE" DisplayMemberBinding="{Binding DniNie}" Width="100"/>
                         <GridViewColumn Header="Teléfono" DisplayMemberBinding="{Binding Phone}" Width="120"/>
+
                     </GridView>
                 </ListView.View>
             </ListView>
 
-            <!-- Columna 1: Formulario de Paciente -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="20,0,0,0">
                 <Grid IsEnabled="{Binding IsFormEnabled}">
+
                     <StackPanel>
                         <Label Content="Nombre:"/>
                         <TextBox Text="{Binding PatientFormModel.Name}"/>
 
                         <Label Content="Apellidos:"/>
+
                         <TextBox Text="{Binding PatientFormModel.Surname}"/>
 
                         <Label Content="DNI/NIE:"/>
                         <TextBox Text="{Binding PatientFormModel.DniNie}"/>
 
+                        <Label Content="Fecha de Nacimiento:"/>
+                        <DatePicker SelectedDate="{Binding PatientFormModel.DateOfBirth}" Margin="0,0,0,10"/>
+
                         <Label Content="Teléfono:"/>
+
                         <TextBox Text="{Binding PatientFormModel.Phone}"/>
 
                         <Label Content="Email:"/>
                         <TextBox Text="{Binding PatientFormModel.Email}"/>
 
                         <Label Content="Dirección:"/>
+
                         <TextBox Text="{Binding PatientFormModel.Address}"/>
 
                         <Label Content="Notas:"/>
                         <TextBox Text="{Binding PatientFormModel.Notes}" 
                                  TextWrapping="Wrap" 
-                                 MinHeight="100" 
+        
+                          MinHeight="100" 
                                  AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto"/>
+
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
         </Grid>
 
-        <!-- Fila 2: Botones -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
 
             <Button Content="Eliminar"
-                    Command="{Binding DeletePatientAsyncCommand}" 
+               
+     Command="{Binding DeletePatientAsyncCommand}" 
                     Margin="0,0,10,0"/>
 
             <Button Content="Nuevo"
@@ -94,12 +106,14 @@
                     Margin="0,0,10,0"/>
 
             <Button Content="Ver Ficha"
-                    Command="{Binding ViewPatientDetailsCommand}"
+     
+                 Command="{Binding ViewPatientDetailsCommand}"
                     Margin="0,0,10,0"/>
 
             <Button Content="Editar"
                     Command="{Binding EditPatientCommand}"
                     Margin="0,0,10,0"/>
+
 
             <Button Content="Guardar"
                     Command="{Binding SavePatientCommand}"

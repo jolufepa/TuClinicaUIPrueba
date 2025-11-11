@@ -1,46 +1,100 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using CommunityToolkit.Mvvm.ComponentModel; // <-- Necesario
+using System;
+using System.ComponentModel.DataAnnotations; // <-- Necesario
 using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel; // VITAL
-using System.Diagnostics;    // VITAL
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 
 namespace TuClinica.Core.Models
 {
-    public class Patient
+    // CAMBIO CLAVE: ObservableObject -> ObservableValidator
+    public partial class Patient : ObservableValidator
     {
         [Key]
-        public int Id { get; set; }
+        [ObservableProperty]
+        private int _id;
 
-        [Required]
-        public string Name { get; set; } = string.Empty;
+        [Required] // <-- Atributo de validación
+        [ObservableProperty]
+        private string _name = string.Empty;
 
-        [Required]
-        public string Surname { get; set; } = string.Empty;
+        [Required] // <-- Atributo de validación
+        [ObservableProperty]
+        private string _surname = string.Empty;
 
-        [Required]
-        public string DniNie { get; set; } = string.Empty;
+        [Required] // <-- Atributo de validación
+        [ObservableProperty]
+        private string _dniNie = string.Empty;
 
-        // Propiedades opcionales
-        public string? Phone { get; set; }
-        public string? Address { get; set; }
-        public string? Email { get; set; }
-        public string? Notes { get; set; }
+        [ObservableProperty]
+        private DateTime? _dateOfBirth;
 
-        public bool IsActive { get; set; } = true;
+        [ObservableProperty]
+        private string? _phone;
+
+        [ObservableProperty]
+        private string? _address;
+
+        [ObservableProperty]
+        private string? _email;
+
+        [ObservableProperty]
+        private string? _notes;
+
+        [ObservableProperty]
+        private bool _isActive = true;
+
+        [ObservableProperty]
+        private string? _odontogramStateJson;
 
         [NotMapped]
         [ReadOnly(true)]
         [Browsable(false)]
         [JsonIgnore]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        // <--- ¡CAMBIO CLAVE! ELIMINAMOS EL NOMBRE CONFLICTIVO
         public string PatientDisplayInfo => $"{Name} {Surname} ({DniNie})";
 
-        // *** NUEVA PROPIEDAD AÑADIDA ***
+
+        // --- MÉTODOS AÑADIDOS (Usados por el ViewModel) ---
+
         /// <summary>
-        /// Almacena el estado visual del odontograma (Condición/Restauración)
-        /// como un string JSON serializado.
+        /// Crea una copia exacta de este paciente.
         /// </summary>
-        public string? OdontogramStateJson { get; set; }
+        public Patient DeepCopy()
+        {
+            return new Patient
+            {
+                Id = this.Id,
+                Name = this.Name,
+                Surname = this.Surname,
+                DniNie = this.DniNie,
+                DateOfBirth = this.DateOfBirth,
+                Phone = this.Phone,
+                Address = this.Address,
+                Email = this.Email,
+                Notes = this.Notes,
+                IsActive = this.IsActive,
+                OdontogramStateJson = this.OdontogramStateJson
+            };
+        }
+
+        /// <summary>
+        /// Copia los valores de otro paciente a este.
+        /// </summary>
+        public void CopyFrom(Patient source)
+        {
+            // No cambiamos el Id
+            this.Name = source.Name;
+            this.Surname = source.Surname;
+            this.DniNie = source.DniNie;
+            this.DateOfBirth = source.DateOfBirth;
+            this.Phone = source.Phone;
+            this.Address = source.Address;
+            this.Email = source.Email;
+            this.Notes = source.Notes;
+            this.IsActive = source.IsActive;
+            this.OdontogramStateJson = source.OdontogramStateJson;
+        }
     }
 }

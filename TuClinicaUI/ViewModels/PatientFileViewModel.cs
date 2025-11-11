@@ -30,9 +30,10 @@ namespace TuClinica.UI.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IFileDialogService _fileDialogService;
-        // 1. ELIMINAMOS IPdfService de aquí
-        // private readonly IPdfService _pdfService;
+        private readonly IValidationService _validationService; // *** AÑADIDO (Corrige error CS0103) ***
 
+        // *** NUEVO: Para guardar el estado original del paciente al iniciar la edición ***
+        private Patient? _originalPatientState;
 
         // --- Estado Maestro ---
         [ObservableProperty]
@@ -88,26 +89,26 @@ namespace TuClinica.UI.ViewModels
 
         // --- Comandos que SÍ se pueden generar automáticamente ---
         [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))] // Notifica al comando si cambia
         private bool _isPatientDataReadOnly = true;
         [ObservableProperty]
         private OdontogramPreviewViewModel _odontogramPreviewVM = new();
         [ObservableProperty]
         private bool _isLoading = false;
 
-        // --- 2. CONSTRUCTOR MODIFICADO ---
+        // --- CONSTRUCTOR MODIFICADO ---
         public PatientFileViewModel(
           IAuthService authService,
           IDialogService dialogService,
           IServiceProvider serviceProvider,
-          IFileDialogService fileDialogService)
-        // 3. IPdfService ELIMINADO de los parámetros
+          IFileDialogService fileDialogService,
+          IValidationService validationService) // *** AÑADIDO ***
         {
             _authService = authService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _fileDialogService = fileDialogService;
-            // 4. ELIMINAMOS la asignación de _pdfService
-            // _pdfService = pdfService;
+            _validationService = validationService; // *** AÑADIDO ***
 
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
@@ -115,7 +116,7 @@ namespace TuClinica.UI.ViewModels
             // --- INICIALIZACIÓN MANUAL DE COMANDOS ---
             DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
-            SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync);
+            SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData); // *** CAMBIO ***
             AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate);
             RegisterNewPaymentCommand = new AsyncRelayCommand(RegisterNewPayment);
             PrintOdontogramCommand = new AsyncRelayCommand(PrintOdontogramAsync);
@@ -134,7 +135,7 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 _isLoading = true;
-                CurrentPatient = patient;
+                CurrentPatient = patient; // Esto dispara OnCurrentPatientChanged
                 IsPatientDataReadOnly = true;
 
                 // Carga inicial de datos (sin cambios)
@@ -172,7 +173,41 @@ namespace TuClinica.UI.ViewModels
             finally
             {
                 _isLoading = false;
+                SavePatientDataAsyncCommand.NotifyCanExecuteChanged(); // Refrescar el estado del botón al cargar
             }
+        }
+
+        // *** MÉTODO PARCIAL AÑADIDO: Se activa cuando CurrentPatient cambia ***
+        partial void OnCurrentPatientChanged(Patient? oldValue, Patient? newValue)
+        {
+            // Desuscribirse del paciente anterior
+            if (oldValue != null)
+            {
+                oldValue.PropertyChanged -= CurrentPatient_PropertyChanged;
+            }
+
+            // Suscribirse al nuevo paciente
+            if (newValue != null)
+            {
+                newValue.PropertyChanged += CurrentPatient_PropertyChanged;
+                _originalPatientState = newValue.DeepCopy(); // Guardar copia original
+            }
+            else
+            {
+                _originalPatientState = null;
+            }
+
+            SavePatientDataAsyncCommand.NotifyCanExecuteChanged(); // Reevaluar al cambiar de paciente
+        }
+
+        // *** MÉTODO AÑADIDO: Escucha los cambios en las propiedades del paciente ***
+        private void CurrentPatient_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Si no estamos en modo edición, ignorar
+            if (IsPatientDataReadOnly) return;
+
+            // Si una propiedad cambia, reevaluar si el botón Guardar debe estar activo
+            SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
         private async Task AllocatePayment()
@@ -560,11 +595,26 @@ namespace TuClinica.UI.ViewModels
         private void ToggleEditPatientData()
         {
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
-            if (IsPatientDataReadOnly && CurrentPatient != null)
+
+            if (!IsPatientDataReadOnly)
             {
-                // Recarga los datos originales si se cancela la edición
-                _ = LoadPatient(CurrentPatient);
+                // ACABAMOS DE ENTRAR EN MODO EDICIÓN
+                if (CurrentPatient != null)
+                {
+                    _originalPatientState = CurrentPatient.DeepCopy();
+                }
             }
+            else
+            {
+                // ACABAMOS DE SALIR DE MODO EDICIÓN (Cancelando)
+                if (CurrentPatient != null && _originalPatientState != null)
+                {
+                    CurrentPatient.CopyFrom(_originalPatientState); // Restaurar datos
+                }
+                _originalPatientState = null;
+            }
+            // Notificar al comando de guardar para que se active/desactive
+            SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
         private async Task OpenRegisterChargeDialog()
@@ -642,9 +692,47 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
+        // *** NUEVO: Método CanExecute para SavePatientDataAsyncCommand ***
+        private bool CanSavePatientData()
+        {
+            // Solo activo si estamos en modo edición (IsPatientDataReadOnly es false)
+            // Y si realmente ha habido cambios
+            return !IsPatientDataReadOnly && HasPatientDataChanged();
+        }
+
+        // *** NUEVO: Método para detectar si el paciente ha cambiado ***
+        private bool HasPatientDataChanged()
+        {
+            if (_originalPatientState == null || CurrentPatient == null) return false;
+
+            // Comparar todas las propiedades relevantes
+            return _originalPatientState.Name != CurrentPatient.Name ||
+                   _originalPatientState.Surname != CurrentPatient.Surname ||
+                   _originalPatientState.DniNie != CurrentPatient.DniNie ||
+                   _originalPatientState.DateOfBirth != CurrentPatient.DateOfBirth ||
+                   _originalPatientState.Phone != CurrentPatient.Phone ||
+                   _originalPatientState.Address != CurrentPatient.Address ||
+                   _originalPatientState.Email != CurrentPatient.Email ||
+                   _originalPatientState.Notes != CurrentPatient.Notes;
+        }
+
         private async Task SavePatientDataAsync()
         {
             if (CurrentPatient == null) return;
+
+            // Normalización
+            CurrentPatient.Name = ToTitleCase(CurrentPatient.Name);
+            CurrentPatient.Surname = ToTitleCase(CurrentPatient.Surname);
+            CurrentPatient.DniNie = CurrentPatient.DniNie?.ToUpper().Trim() ?? string.Empty;
+            CurrentPatient.Email = CurrentPatient.Email?.ToLower().Trim() ?? string.Empty;
+
+            // Validación Formato
+            if (!_validationService.IsValidDniNie(CurrentPatient.DniNie))
+            {
+                _dialogService.ShowMessage("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE Inválido");
+                return;
+            }
+
             try
             {
                 using (var scope = _serviceProvider.CreateScope())
@@ -653,23 +741,29 @@ namespace TuClinica.UI.ViewModels
                     var patientToUpdate = await patientRepo.GetByIdAsync(CurrentPatient.Id);
                     if (patientToUpdate != null)
                     {
-                        patientToUpdate.Name = CurrentPatient.Name;
-                        patientToUpdate.Surname = CurrentPatient.Surname;
-                        patientToUpdate.DniNie = CurrentPatient.DniNie;
-                        patientToUpdate.Phone = CurrentPatient.Phone;
-                        patientToUpdate.Address = CurrentPatient.Address;
-                        patientToUpdate.Email = CurrentPatient.Email;
-                        patientToUpdate.Notes = CurrentPatient.Notes;
+                        // Aplicar los cambios
+                        patientToUpdate.CopyFrom(CurrentPatient);
 
                         await patientRepo.SaveChangesAsync();
                         _dialogService.ShowMessage("Datos del paciente actualizados.", "Éxito");
+                        _originalPatientState = CurrentPatient.DeepCopy(); // Actualizar el estado original
                         IsPatientDataReadOnly = true;
+                    }
+                    else
+                    {
+                        _dialogService.ShowMessage("Error: No se encontró el paciente para actualizar.", "Error");
+                        return;
                     }
                 }
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error al guardar los datos del paciente:\n{ex.Message}", "Error Base de Datos");
+            }
+            finally
+            {
+                // Esto deshabilitará el botón Guardar
+                SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
             }
         }
 
@@ -705,6 +799,13 @@ namespace TuClinica.UI.ViewModels
             {
                 _dialogService.ShowMessage($"Error al eliminar el cargo: {ex.Message}", "Error de Base de Datos");
             }
+        }
+
+        // Método de Ayuda
+        private string ToTitleCase(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text.ToLower());
         }
     }
 }
