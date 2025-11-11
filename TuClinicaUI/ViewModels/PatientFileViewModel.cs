@@ -1,5 +1,4 @@
 ﻿// En: TuClinicaUI/ViewModels/PatientFileViewModel.cs
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -19,9 +18,11 @@ using TuClinica.Core.Models;
 using TuClinica.UI.Messages;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-using System.Diagnostics; // Para Process.Start
+using System.Diagnostics;
 using System.IO;
 using TuClinica.UI.ViewModels.Events;
+// --- AÑADIR ESTE USING ---
+using TuClinica.Core.Extensions;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -30,32 +31,24 @@ namespace TuClinica.UI.ViewModels
         // --- Servicios ---
         private readonly IAuthService _authService;
         private readonly IDialogService _dialogService;
-
-        // --- CAMBIO 1: Reemplazar IServiceProvider ---
         private readonly IServiceScopeFactory _scopeFactory;
-
         private readonly IFileDialogService _fileDialogService;
-        private readonly IValidationService _validationService; // *** AÑADIDO (Corrige error CS0103) ***
+        private readonly IValidationService _validationService;
 
-        // *** NUEVO: Para guardar el estado original del paciente al iniciar la edición ***
         private Patient? _originalPatientState;
 
-        // --- Estado Maestro ---
         [ObservableProperty]
         private Patient? _currentPatient;
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
 
-        // --- Colecciones de Historial (MAESTRAS) ---
         [ObservableProperty]
         private ObservableCollection<ClinicalEntry> _visitHistory = new();
         [ObservableProperty]
         private ObservableCollection<Payment> _paymentHistory = new();
 
-        // --- NUEVA COLECCIÓN PARA LA BITÁCORA (UI) ---
         [ObservableProperty]
         private ObservableCollection<HistorialEventBase> _historialCombinado = new();
 
-        // --- Resumen de Saldo ---
         [ObservableProperty]
         private decimal _totalCharged;
         [ObservableProperty]
@@ -63,13 +56,11 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private decimal _currentBalance;
 
-        // --- Colecciones Facturación (Asignación de Pagos) ---
         [ObservableProperty]
         private ObservableCollection<ClinicalEntry> _pendingCharges = new();
         [ObservableProperty]
         private ObservableCollection<Payment> _unallocatedPayments = new();
 
-        // --- Estado de Asignación (Panel de Facturación) ---
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(AllocatePaymentCommand))]
         private ClinicalEntry? _selectedCharge;
@@ -81,7 +72,6 @@ namespace TuClinica.UI.ViewModels
 
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
-        // --- DECLARACIÓN MANUAL DE COMANDOS CRÍTICOS (Sin cambios, tal como indica el README) ---
         public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
         public IRelayCommand ToggleEditPatientDataCommand { get; }
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
@@ -92,43 +82,39 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
 
-        // --- Comandos que SÍ se pueden generar automáticamente ---
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))] // Notifica al comando si cambia
+        [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))]
         private bool _isPatientDataReadOnly = true;
         [ObservableProperty]
         private OdontogramPreviewViewModel _odontogramPreviewVM = new();
         [ObservableProperty]
         private bool _isLoading = false;
 
-        // --- CAMBIO 2: Actualizar el constructor ---
         public PatientFileViewModel(
           IAuthService authService,
           IDialogService dialogService,
-          IServiceScopeFactory scopeFactory, // <-- MODIFICADO
+          IServiceScopeFactory scopeFactory,
           IFileDialogService fileDialogService,
-          IValidationService validationService) // *** AÑADIDO ***
+          IValidationService validationService)
         {
             _authService = authService;
             _dialogService = dialogService;
-            _scopeFactory = scopeFactory; // <-- MODIFICADO
+            _scopeFactory = scopeFactory;
             _fileDialogService = fileDialogService;
-            _validationService = validationService; // *** AÑADIDO ***
+            _validationService = validationService;
 
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
 
-            // --- INICIALIZACIÓN MANUAL DE COMANDOS (Sin cambios) ---
             DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
-            SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData); // *** CAMBIO ***
+            SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData);
             AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate);
             RegisterNewPaymentCommand = new AsyncRelayCommand(RegisterNewPayment);
             PrintOdontogramCommand = new AsyncRelayCommand(PrintOdontogramAsync);
             NewBudgetCommand = new RelayCommand(NewBudget);
             PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync);
             OpenRegisterChargeDialogCommand = new AsyncRelayCommand(OpenRegisterChargeDialog);
-            // --- FIN INICIALIZACIÓN MANUAL ---
 
             _unallocatedPayments.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
             _pendingCharges.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
@@ -140,11 +126,9 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 _isLoading = true;
-                CurrentPatient = patient; // Esto dispara OnCurrentPatientChanged
+                CurrentPatient = patient;
                 IsPatientDataReadOnly = true;
 
-                // Carga inicial de datos (sin cambios)
-                // --- CAMBIO 3: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -160,7 +144,6 @@ namespace TuClinica.UI.ViewModels
                     var clinicalHistory = (await clinicalHistoryTask).ToList();
                     var paymentHistory = (await paymentHistoryTask).ToList();
 
-                    // Sigue poblando las listas maestras
                     VisitHistory.Clear();
                     PaymentHistory.Clear();
                     clinicalHistory.ForEach(VisitHistory.Add);
@@ -179,40 +162,33 @@ namespace TuClinica.UI.ViewModels
             finally
             {
                 _isLoading = false;
-                SavePatientDataAsyncCommand.NotifyCanExecuteChanged(); // Refrescar el estado del botón al cargar
+                SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
             }
         }
 
-        // *** MÉTODO PARCIAL AÑADIDO: Se activa cuando CurrentPatient cambia ***
         partial void OnCurrentPatientChanged(Patient? oldValue, Patient? newValue)
         {
-            // Desuscribirse del paciente anterior
             if (oldValue != null)
             {
                 oldValue.PropertyChanged -= CurrentPatient_PropertyChanged;
             }
 
-            // Suscribirse al nuevo paciente
             if (newValue != null)
             {
                 newValue.PropertyChanged += CurrentPatient_PropertyChanged;
-                _originalPatientState = newValue.DeepCopy(); // Guardar copia original
+                _originalPatientState = newValue.DeepCopy();
             }
             else
             {
                 _originalPatientState = null;
             }
 
-            SavePatientDataAsyncCommand.NotifyCanExecuteChanged(); // Reevaluar al cambiar de paciente
+            SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
-        // *** MÉTODO AÑADIDO: Escucha los cambios en las propiedades del paciente ***
         private void CurrentPatient_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            // Si no estamos en modo edición, ignorar
             if (IsPatientDataReadOnly) return;
-
-            // Si una propiedad cambia, reevaluar si el botón Guardar debe estar activo
             SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
@@ -240,7 +216,6 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // --- CAMBIO 4: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var allocationRepo = scope.ServiceProvider.GetRequiredService<IRepository<PaymentAllocation>>();
@@ -271,8 +246,6 @@ namespace TuClinica.UI.ViewModels
             List<ClinicalEntry> clinicalHistory;
             List<Payment> paymentHistory;
 
-            // 1. Recargar datos de la BD
-            // --- CAMBIO 5: Usar 'scopeFactory' ---
             using (var scope = _scopeFactory.CreateScope())
             {
                 var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -285,25 +258,21 @@ namespace TuClinica.UI.ViewModels
                 clinicalHistory = (await clinicalHistoryTask).ToList();
                 paymentHistory = (await paymentHistoryTask).ToList();
 
-                // 2. Actualizar colecciones maestras
                 VisitHistory.Clear();
                 PaymentHistory.Clear();
                 clinicalHistory.ForEach(VisitHistory.Add);
                 paymentHistory.ForEach(PaymentHistory.Add);
             }
 
-            // 3. Calcular totales
             TotalCharged = VisitHistory.Sum(c => c.TotalCost);
             TotalPaid = PaymentHistory.Sum(p => p.Amount);
             CurrentBalance = TotalCharged - TotalPaid;
 
-            // 4. Actualizar pestaña "Facturación" (aunque esté oculta, la lógica puede ser útil)
             PendingCharges.Clear();
             VisitHistory.Where(c => c.Balance > 0).OrderBy(c => c.VisitDate).ToList().ForEach(PendingCharges.Add);
             UnallocatedPayments.Clear();
             PaymentHistory.Where(p => p.UnallocatedAmount > 0).OrderBy(p => p.PaymentDate).ToList().ForEach(UnallocatedPayments.Add);
 
-            // --- 5. Poblar la Bitácora ---
             HistorialCombinado.Clear();
 
             foreach (var cargo in clinicalHistory)
@@ -330,7 +299,6 @@ namespace TuClinica.UI.ViewModels
             WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(CurrentPatient));
         }
 
-        // --- 5. MÉTODO MODIFICADO (PrintHistoryAsync) ---
         private async Task PrintHistoryAsync()
         {
             if (CurrentPatient == null)
@@ -345,29 +313,23 @@ namespace TuClinica.UI.ViewModels
             {
                 byte[] pdfBytes;
 
-                // 1. Crear un ámbito para resolver el IPdfService
-                // --- CAMBIO 6: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
 
-                    // 2. Llamar al servicio para generar el PDF en memoria
                     pdfBytes = await pdfService.GenerateHistoryPdfAsync(
                         CurrentPatient,
-                        VisitHistory.ToList(),      // Pasa la lista de cargos
-                        PaymentHistory.ToList(),    // Pasa la lista de pagos
-                        CurrentBalance              // Pasa el saldo actual
+                        VisitHistory.ToList(),
+                        PaymentHistory.ToList(),
+                        CurrentBalance
                     );
-                } // El ámbito y el pdfService se destruyen aquí
+                }
 
-                // 3. Crear un nombre de archivo temporal único
                 string tempFileName = $"Historial_{CurrentPatient.Surname}_{CurrentPatient.Name}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
                 string tempFilePath = Path.Combine(Path.GetTempPath(), tempFileName);
 
-                // 4. Guardar los bytes en ese archivo temporal
                 await File.WriteAllBytesAsync(tempFilePath, pdfBytes);
 
-                // 5. Abrir el archivo con el visor de PDF predeterminado
                 Process.Start(new ProcessStartInfo(tempFilePath) { UseShellExecute = true });
             }
             catch (Exception ex)
@@ -376,7 +338,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- 6. MÉTODO MODIFICADO (PrintOdontogramAsync) ---
         private async Task PrintOdontogramAsync()
         {
             if (CurrentPatient == null) return;
@@ -386,14 +347,11 @@ namespace TuClinica.UI.ViewModels
                 string jsonState = JsonSerializer.Serialize(this.Odontogram);
                 string generatedFilePath;
 
-                // 1. Crear ámbito
-                // --- CAMBIO 7: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var pdfService = scope.ServiceProvider.GetRequiredService<IPdfService>();
-                    // 2. Generar PDF
                     generatedFilePath = await pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
-                } // Ámbito destruido
+                }
 
                 var result = _dialogService.ShowConfirmation(
                     $"PDF del odontograma generado con éxito en:\n{generatedFilePath}\n\n¿Desea abrir el archivo ahora?",
@@ -427,7 +385,6 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // --- CAMBIO 8: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
@@ -518,9 +475,6 @@ namespace TuClinica.UI.ViewModels
             }
             try
             {
-                // --- CAMBIO 9: Resolver servicios 'Transient' dentro de un ámbito ---
-                // Este ámbito se destruirá cuando el método termine, limpiando
-                // la ventana (dialog) y el viewmodel (vm) del odontograma.
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var vm = scope.ServiceProvider.GetRequiredService<OdontogramViewModel>();
@@ -537,19 +491,19 @@ namespace TuClinica.UI.ViewModels
                     }
 
                     vm.DialogResult = null;
-                    dialog.ShowDialog(); // El código se pausa aquí hasta que se cierra el diálogo
+                    dialog.ShowDialog();
 
-                    // Esta parte se ejecuta DESPUÉS de que el diálogo se cierra
+
                     if (vm.DialogResult == true)
                     {
                         var newJsonState = vm.GetSerializedState();
                         if (CurrentPatient.OdontogramStateJson != newJsonState)
                         {
                             CurrentPatient.OdontogramStateJson = newJsonState;
-                            await SavePatientOdontogramStateAsync(); // Este método ya crea su propio ámbito
+                            await SavePatientOdontogramStateAsync();
                         }
                     }
-                } // El 'scope', 'vm' y 'dialog' se destruyen aquí
+                }
 
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
@@ -566,7 +520,6 @@ namespace TuClinica.UI.ViewModels
             if (CurrentPatient == null) return;
             try
             {
-                // --- CAMBIO 10: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
@@ -617,7 +570,6 @@ namespace TuClinica.UI.ViewModels
 
             if (!IsPatientDataReadOnly)
             {
-                // ACABAMOS DE ENTRAR EN MODO EDICIÓN
                 if (CurrentPatient != null)
                 {
                     _originalPatientState = CurrentPatient.DeepCopy();
@@ -625,14 +577,12 @@ namespace TuClinica.UI.ViewModels
             }
             else
             {
-                // ACABAMOS DE SALIR DE MODO EDICIÓN (Cancelando)
                 if (CurrentPatient != null && _originalPatientState != null)
                 {
-                    CurrentPatient.CopyFrom(_originalPatientState); // Restaurar datos
+                    CurrentPatient.CopyFrom(_originalPatientState);
                 }
                 _originalPatientState = null;
             }
-            // Notificar al comando de guardar para que se active/desactive
             SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
@@ -640,7 +590,6 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
-            // --- CAMBIO 11: Resolver el diálogo 'Transient' dentro de un ámbito ---
             using (var dialogScope = _scopeFactory.CreateScope())
             {
                 var dialog = dialogScope.ServiceProvider.GetRequiredService<ManualChargeDialog>();
@@ -653,9 +602,8 @@ namespace TuClinica.UI.ViewModels
 
                 dialog.AvailableTreatments = this.AvailableTreatments;
 
-                if (dialog.ShowDialog() == true) // El código se pausa aquí
+                if (dialog.ShowDialog() == true)
                 {
-                    // Esta parte se ejecuta DESPUÉS de que el diálogo se cierra
                     string concept = dialog.ManualConcept;
                     decimal unitPrice = dialog.UnitPrice;
                     int quantity = dialog.Quantity;
@@ -663,7 +611,6 @@ namespace TuClinica.UI.ViewModels
 
                     decimal totalCost = unitPrice * quantity;
 
-                    // Creamos un ámbito separado para la operación de base de datos
                     using (var dbScope = _scopeFactory.CreateScope())
                     {
                         try
@@ -703,7 +650,7 @@ namespace TuClinica.UI.ViewModels
                         }
                     }
                 }
-            } // El 'dialogScope' y el 'dialog' se destruyen aquí
+            }
         }
 
 
@@ -717,20 +664,15 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // *** NUEVO: Método CanExecute para SavePatientDataAsyncCommand ***
         private bool CanSavePatientData()
         {
-            // Solo activo si estamos en modo edición (IsPatientDataReadOnly es false)
-            // Y si realmente ha habido cambios
             return !IsPatientDataReadOnly && HasPatientDataChanged();
         }
 
-        // *** NUEVO: Método para detectar si el paciente ha cambiado ***
         private bool HasPatientDataChanged()
         {
             if (_originalPatientState == null || CurrentPatient == null) return false;
 
-            // Comparar todas las propiedades relevantes
             return _originalPatientState.Name != CurrentPatient.Name ||
                    _originalPatientState.Surname != CurrentPatient.Surname ||
                    _originalPatientState.DniNie != CurrentPatient.DniNie ||
@@ -745,13 +687,14 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null) return;
 
-            // Normalización
-            CurrentPatient.Name = ToTitleCase(CurrentPatient.Name);
-            CurrentPatient.Surname = ToTitleCase(CurrentPatient.Surname);
+            // --- INICIO DE LA MODIFICACIÓN ---
+            CurrentPatient.Name = CurrentPatient.Name.ToTitleCase();
+            CurrentPatient.Surname = CurrentPatient.Surname.ToTitleCase();
+            // --- FIN DE LA MODIFICACIÓN ---
+
             CurrentPatient.DniNie = CurrentPatient.DniNie?.ToUpper().Trim() ?? string.Empty;
             CurrentPatient.Email = CurrentPatient.Email?.ToLower().Trim() ?? string.Empty;
 
-            // Validación Formato
             if (!_validationService.IsValidDniNie(CurrentPatient.DniNie))
             {
                 _dialogService.ShowMessage("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE Inválido");
@@ -760,19 +703,17 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // --- CAMBIO 12: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
                     var patientToUpdate = await patientRepo.GetByIdAsync(CurrentPatient.Id);
                     if (patientToUpdate != null)
                     {
-                        // Aplicar los cambios
                         patientToUpdate.CopyFrom(CurrentPatient);
 
                         await patientRepo.SaveChangesAsync();
                         _dialogService.ShowMessage("Datos del paciente actualizados.", "Éxito");
-                        _originalPatientState = CurrentPatient.DeepCopy(); // Actualizar el estado original
+                        _originalPatientState = CurrentPatient.DeepCopy();
                         IsPatientDataReadOnly = true;
                     }
                     else
@@ -788,7 +729,6 @@ namespace TuClinica.UI.ViewModels
             }
             finally
             {
-                // Esto deshabilitará el botón Guardar
                 SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
             }
         }
@@ -806,7 +746,6 @@ namespace TuClinica.UI.ViewModels
             if (result == CoreDialogResult.No) return;
             try
             {
-                // --- CAMBIO 13: Usar 'scopeFactory' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -828,11 +767,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Método de Ayuda
-        private string ToTitleCase(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return text;
-            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text.ToLower());
-        }
+        
     }
 }

@@ -7,7 +7,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input; // Para ICommand
+using System.Windows.Input;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
@@ -15,27 +15,22 @@ using TuClinica.Core.Models;
 using TuClinica.DataAccess;
 using TuClinica.UI.Views;
 using TuClinica.Core.Interfaces;
-// Añadido para el diálogo de confirmación
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
+// --- AÑADIR ESTE USING ---
+using TuClinica.Core.Extensions;
 
 
 namespace TuClinica.UI.ViewModels
 {
-    // Asegúrate de que la clase sigue siendo 'public partial class'
     public partial class PrescriptionViewModel : BaseViewModel
     {
-        // Servicios (sin cambios)
-
-        // --- CAMBIO 1: Reemplazar IServiceProvider ---
         private readonly IServiceScopeFactory _scopeFactory;
-
         private readonly IPdfService _pdfService;
         private readonly IMedicationRepository _medicationRepository;
         private readonly IDosageRepository _dosageRepository;
         private readonly IRepository<Prescription> _prescriptionRepository;
         private readonly IDialogService _dialogService;
 
-        // --- Pestaña "Crear Receta" (sin cambios) ---
         private Patient? _selectedPatient;
         public Patient? SelectedPatient
         {
@@ -90,11 +85,8 @@ namespace TuClinica.UI.ViewModels
         public string TreatmentDuration { get; set; } = "10 días";
         public string Instructions { get; set; } = string.Empty;
 
-
-        // --- Pestaña "Gestionar Medicamentos" (MODIFICADA) ---
         public ObservableCollection<Medication> Medications { get; set; } = new();
 
-        // Propiedad MODIFICADA para notificar a los comandos
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(EditMedicationCommand))]
         [NotifyCanExecuteChangedFor(nameof(DeleteMedicationAsyncCommand))]
@@ -106,65 +98,54 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private string _newMedicationPresentation = string.Empty;
 
-        // NUEVA propiedad para controlar el estado del formulario (Nuevo vs Editar)
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(FormTitle))]
         private bool _isEditingMedication = false;
 
-        // NUEVA propiedad para el título del formulario
         public string FormTitle => IsEditingMedication ? "Editar Medicamento" : "Añadir Nuevo Medicamento";
 
-
-        // --- Pestaña "Gestionar Pautas" (sin cambios) ---
         public ObservableCollection<Dosage> Dosages { get; set; } = new();
         public Dosage? SelectedDosage { get; set; }
         public string NewDosagePauta { get; set; } = string.Empty;
 
-        // --- COMANDOS MANUALES (IRelayCommand) ---
         public IRelayCommand SelectPatientCommand { get; }
         public IAsyncRelayCommand GeneratePrescriptionPdfCommand { get; }
         public IAsyncRelayCommand GenerateBasicPrescriptionPdfCommand { get; }
         public IAsyncRelayCommand LoadMedicationsCommand { get; }
-        // MODIFICADO: Cambiado el nombre para reflejar que es Async
         public IAsyncRelayCommand SaveMedicationAsyncCommand { get; }
         public IAsyncRelayCommand LoadDosagesCommand { get; }
         public IAsyncRelayCommand SaveDosageCommand { get; }
 
-        // --- NUEVOS COMANDOS ---
         public IRelayCommand EditMedicationCommand { get; }
         public IAsyncRelayCommand DeleteMedicationAsyncCommand { get; }
         public IRelayCommand ClearMedicationFormCommand { get; }
 
 
-        // --- CAMBIO 2: Actualizar el constructor ---
         public PrescriptionViewModel(
-            IServiceScopeFactory scopeFactory, // <-- MODIFICADO
+            IServiceScopeFactory scopeFactory,
             IPdfService pdfService,
             IMedicationRepository medicationRepository,
             IDosageRepository dosageRepository,
             IRepository<Prescription> prescriptionRepository,
             IDialogService dialogService)
         {
-            _scopeFactory = scopeFactory; // <-- MODIFICADO
+            _scopeFactory = scopeFactory;
             _pdfService = pdfService;
             _medicationRepository = medicationRepository;
             _dosageRepository = dosageRepository;
             _prescriptionRepository = prescriptionRepository;
             _dialogService = dialogService;
 
-            // Inicialización de comandos (Crear Receta)
             SelectPatientCommand = new RelayCommand(SelectPatient);
             GeneratePrescriptionPdfCommand = new AsyncRelayCommand(GeneratePrescriptionPdfAsync, CanGeneratePrescription);
             GenerateBasicPrescriptionPdfCommand = new AsyncRelayCommand(GenerateBasicPrescriptionPdfAsync, CanGeneratePrescription);
 
-            // Inicialización de comandos (Gestionar Medicamentos) - MODIFICADO
             LoadMedicationsCommand = new AsyncRelayCommand(LoadMedicationsAsync);
-            SaveMedicationAsyncCommand = new AsyncRelayCommand(SaveMedicationAsync); // Nombre cambiado aquí
-            ClearMedicationFormCommand = new RelayCommand(ClearMedicationForm); // NUEVO
-            EditMedicationCommand = new RelayCommand(EditMedication, CanEditOrDelete); // NUEVO
-            DeleteMedicationAsyncCommand = new AsyncRelayCommand(DeleteMedicationAsync, CanEditOrDelete); // NUEVO
+            SaveMedicationAsyncCommand = new AsyncRelayCommand(SaveMedicationAsync);
+            ClearMedicationFormCommand = new RelayCommand(ClearMedicationForm);
+            EditMedicationCommand = new RelayCommand(EditMedication, CanEditOrDelete);
+            DeleteMedicationAsyncCommand = new AsyncRelayCommand(DeleteMedicationAsync, CanEditOrDelete);
 
-            // Inicialización de comandos (Gestionar Pautas)
             LoadDosagesCommand = new AsyncRelayCommand(LoadDosagesAsync);
             SaveDosageCommand = new AsyncRelayCommand(SaveDosageAsync);
 
@@ -178,13 +159,10 @@ namespace TuClinica.UI.ViewModels
             await LoadDosagesAsync();
         }
 
-        // --- Lógica Pestaña "Crear Receta" (sin cambios) ---
-
         private void SelectPatient()
         {
             try
             {
-                // --- CAMBIO 3: Usar 'scopeFactory' para resolver el diálogo 'Transient' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var dialog = scope.ServiceProvider.GetRequiredService<PatientSelectionDialog>();
@@ -204,7 +182,7 @@ namespace TuClinica.UI.ViewModels
                     {
                         SelectedPatient = dialogViewModel.SelectedPatientFromList;
                     }
-                } // El 'scope' y el 'dialog' se destruyen aquí
+                }
             }
             catch (Exception ex)
             {
@@ -236,8 +214,6 @@ namespace TuClinica.UI.ViewModels
                 return null;
             }
 
-            // --- CAMBIO 4: Usar 'scopeFactory' para resolver servicios Scoped/Singleton ---
-            // Necesitamos crear un scope para resolver AppSettings y IAuthService
             AppSettings settings;
             User? currentUser;
             using (var scope = _scopeFactory.CreateScope())
@@ -341,15 +317,13 @@ namespace TuClinica.UI.ViewModels
             SelectedPatientFullNameDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
         }
 
-        // --- Lógica Pestaña "Gestionar Medicamentos" (MODIFICADA) ---
-
-        // Método auxiliar para capitalización
+        // --- ELIMINAR EL MÉTODO ToTitleCase DE AQUÍ ---
+        /*
         private string ToTitleCase(string text)
         {
-            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-            // Convierte todo a minúsculas y luego a "Title Case" (primera letra mayúscula)
-            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text.ToLower().Trim());
+            ...
         }
+        */
 
         private async Task LoadMedicationsAsync()
         {
@@ -358,22 +332,19 @@ namespace TuClinica.UI.ViewModels
             foreach (var m in meds) Medications.Add(m);
         }
 
-        // NUEVO: Método CanExecute para los botones Editar/Eliminar
         private bool CanEditOrDelete()
         {
             return SelectedMedication != null;
         }
 
-        // NUEVO: Comando para limpiar el formulario y salir del modo edición
         private void ClearMedicationForm()
         {
             NewMedicationName = string.Empty;
             NewMedicationPresentation = string.Empty;
-            SelectedMedication = null; // Deselecciona la lista
+            SelectedMedication = null;
             IsEditingMedication = false;
         }
 
-        // NUEVO: Comando para poblar el formulario para editar
         private void EditMedication()
         {
             if (SelectedMedication == null) return;
@@ -383,7 +354,6 @@ namespace TuClinica.UI.ViewModels
             IsEditingMedication = true;
         }
 
-        // NUEVO: Comando para eliminar un medicamento
         private async Task DeleteMedicationAsync()
         {
             if (SelectedMedication == null) return;
@@ -398,8 +368,8 @@ namespace TuClinica.UI.ViewModels
             {
                 _medicationRepository.Remove(SelectedMedication);
                 await _medicationRepository.SaveChangesAsync();
-                await LoadMedicationsAsync(); // Recargar la lista
-                ClearMedicationForm(); // Limpiar el formulario
+                await LoadMedicationsAsync();
+                ClearMedicationForm();
             }
             catch (Exception ex)
             {
@@ -407,12 +377,12 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // MODIFICADO: Comando de guardar para manejar Nuevo y Editar
         private async Task SaveMedicationAsync()
         {
-            // Aplicamos la capitalización
-            string nameToSave = ToTitleCase(NewMedicationName);
-            string presentationToSave = ToTitleCase(NewMedicationPresentation); // También capitalizamos la presentación
+            // --- INICIO DE LA MODIFICACIÓN ---
+            string nameToSave = NewMedicationName.ToTitleCase();
+            string presentationToSave = NewMedicationPresentation.ToTitleCase();
+            // --- FIN DE LA MODIFICACIÓN ---
 
             if (string.IsNullOrWhiteSpace(nameToSave))
             {
@@ -424,14 +394,12 @@ namespace TuClinica.UI.ViewModels
             {
                 if (IsEditingMedication)
                 {
-                    // --- Lógica de ACTUALIZACIÓN ---
                     if (SelectedMedication == null)
                     {
                         _dialogService.ShowMessage("No hay ningún medicamento seleccionado para editar.", "Error");
                         return;
                     }
 
-                    // Obtenemos la entidad rastreada por EF Core
                     var medToUpdate = await _medicationRepository.GetByIdAsync(SelectedMedication.Id);
                     if (medToUpdate == null)
                     {
@@ -445,7 +413,6 @@ namespace TuClinica.UI.ViewModels
                 }
                 else
                 {
-                    // --- Lógica de CREACIÓN (la que ya tenías) ---
                     var newMed = new Medication
                     {
                         Name = nameToSave,
@@ -454,10 +421,8 @@ namespace TuClinica.UI.ViewModels
                     await _medicationRepository.AddAsync(newMed);
                 }
 
-                // Guardamos los cambios (ya sea Add o Update)
                 await _medicationRepository.SaveChangesAsync();
 
-                // Limpiamos y recargamos
                 ClearMedicationForm();
                 await LoadMedicationsAsync();
             }
@@ -466,8 +431,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al guardar el medicamento: {ex.Message}", "Error BD");
             }
         }
-
-        // --- Lógica Pestaña "Gestionar Pautas" (sin cambios) ---
 
         private async Task LoadDosagesAsync()
         {
