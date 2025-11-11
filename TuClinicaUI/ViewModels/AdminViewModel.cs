@@ -13,7 +13,6 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-// --- AÑADIR ESTE USING ---
 using System.Security.Cryptography;
 
 namespace TuClinica.UI.ViewModels
@@ -36,16 +35,20 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private ObservableCollection<ActivityLog> _activityLogs = new();
 
-        // --- Propiedad de Selección ---
+        // --- Propiedad de Selección (MODIFICADA) ---
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(EditUserCommand))]
         [NotifyCanExecuteChangedFor(nameof(ToggleUserActivationCommand))]
+        [NotifyCanExecuteChangedFor(nameof(DeleteUserAsyncCommand))] // <-- AÑADIDO
         private User? _selectedUser;
 
         // --- Comandos ---
         public IAsyncRelayCommand LoadLogsCommand { get; }
         public IAsyncRelayCommand ExportLogsCommand { get; }
         public IAsyncRelayCommand PurgeOldLogsCommand { get; }
+        // --- COMANDO AÑADIDO ---
+        public IAsyncRelayCommand DeleteUserAsyncCommand { get; }
+
 
         public AdminViewModel(
             IUserRepository userRepository,
@@ -68,6 +71,9 @@ namespace TuClinica.UI.ViewModels
             LoadLogsCommand = new AsyncRelayCommand(LoadLogsAsync);
             ExportLogsCommand = new AsyncRelayCommand(ExportLogsAsync);
             PurgeOldLogsCommand = new AsyncRelayCommand(PurgeOldLogsAsync);
+            // --- COMANDO AÑADIDO ---
+            DeleteUserAsyncCommand = new AsyncRelayCommand(DeleteUserAsync, CanExecuteOnSelectedUser);
+
 
             // Carga inicial de datos
             _ = LoadUsersAsync();
@@ -170,7 +176,7 @@ namespace TuClinica.UI.ViewModels
                         IsActive = SelectedUser.IsActive,
                         CollegeNumber = SelectedUser.CollegeNumber,
                         Specialty = SelectedUser.Specialty,
-                        Name = SelectedUser.Name // <-- CORRECCIÓN: Faltaba copiar el nombre
+                        Name = SelectedUser.Name
                     };
 
                     viewModel.LoadUserData(userCopy);
@@ -199,47 +205,129 @@ namespace TuClinica.UI.ViewModels
         }
 
 
+        // --- MÉTODO CORREGIDO ---
         [RelayCommand(CanExecute = nameof(CanExecuteOnSelectedUser))]
         private async Task ToggleUserActivation()
         {
             if (SelectedUser == null) return;
 
-            string action = SelectedUser.IsActive ? "desactivar" : "activar";
+            if (SelectedUser.Username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                _dialogService.ShowMessage("No se puede desactivar al usuario administrador principal 'admin'.", "Acción no permitida");
+                await LoadUsersAsync(); // Recarga para revertir el clic visual
+                return;
+            }
+
+            // Leemos el estado ANTES de preguntar, porque 'SelectedUser' es de la UI
+            // y el DataGrid puede haberlo cambiado visualmente antes de que confirmemos.
+            bool wasActive = SelectedUser.IsActive;
+            string action = wasActive ? "desactivar" : "activar";
+
             var result = _dialogService.ShowConfirmation($"¿Estás seguro de que quieres {action} al usuario '{SelectedUser.Username}'?", "Confirmar");
 
             if (result == CoreDialogResult.Yes)
             {
                 try
                 {
-                    SelectedUser.IsActive = !SelectedUser.IsActive;
-                    _userRepository.Update(SelectedUser);
-                    await _userRepository.SaveChangesAsync();
-                    await LoadUsersAsync();
+                    // --- INICIO DE LA LÓGICA CORREGIDA ---
+                    // 1. Obtener la entidad rastreada desde la BD
+                    var userToUpdate = await _userRepository.GetByIdAsync(SelectedUser.Id);
+
+                    if (userToUpdate != null)
+                    {
+                        // 2. Modificar la entidad rastreada
+                        // Usamos el estado que leímos (wasActive)
+                        userToUpdate.IsActive = !wasActive;
+
+                        // 3. Guardar cambios (Update() NO es necesario)
+                        await _userRepository.SaveChangesAsync();
+
+                        _dialogService.ShowMessage($"Usuario '{userToUpdate.Username}' {action}do con éxito.", "Éxito");
+
+                        // 4. Recargar la lista
+                        await LoadUsersAsync();
+                    }
+                    else
+                    {
+                        _dialogService.ShowMessage("Error: No se encontró el usuario a modificar.", "Error");
+                        await LoadUsersAsync();
+                    }
+                    // --- FIN DE LA LÓGICA CORREGIDA ---
                 }
                 catch (Exception ex)
                 {
                     _dialogService.ShowMessage($"Error al {action} al usuario:\n{ex.Message}", "Error");
-                    if (SelectedUser != null) SelectedUser.IsActive = !SelectedUser.IsActive;
+                    // Recargar la lista para revertir visualmente
+                    await LoadUsersAsync();
                 }
+            }
+            else
+            {
+                // Si el usuario presiona "No", recargamos para revertir el clic en el CheckBox
+                await LoadUsersAsync();
             }
         }
 
-        // --- Métodos de Backup (EXISTENTES) ---
+        // --- NUEVO MÉTODO AÑADIDO (Lógica de borrado) ---
+        [RelayCommand(CanExecute = nameof(CanExecuteOnSelectedUser))]
+        private async Task DeleteUserAsync()
+        {
+            if (SelectedUser == null) return;
 
-        // --- CAMBIO: Añadido try...catch ---
+            // 1. Comprobar si es 'admin'
+            if (SelectedUser.Username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                _dialogService.ShowMessage("No se puede eliminar al usuario administrador principal 'admin'.", "Acción no permitida");
+                return;
+            }
+
+            // 2. Confirmación
+            var result = _dialogService.ShowConfirmation(
+                $"¿Estás seguro de que quieres eliminar PERMANENTEMENTE al usuario '{SelectedUser.Username}'?\n\nEsta acción no se puede deshacer.",
+                "Confirmar Eliminación Permanente");
+
+            if (result == CoreDialogResult.No) return;
+
+            // 3. Lógica de borrado
+            try
+            {
+                // Usamos GetByIdAsync para asegurarnos de que tenemos la entidad rastreada
+                var userToDelete = await _userRepository.GetByIdAsync(SelectedUser.Id);
+                if (userToDelete != null)
+                {
+                    _userRepository.Remove(userToDelete);
+                    await _userRepository.SaveChangesAsync();
+                    _dialogService.ShowMessage($"Usuario '{userToDelete.Username}' eliminado con éxito.", "Eliminado");
+                    await LoadUsersAsync(); // Recargar la lista
+                    SelectedUser = null; // Limpiar selección
+                }
+                else
+                {
+                    _dialogService.ShowMessage("El usuario seleccionado no se encontró en la base de datos (quizás ya fue eliminado).", "Error");
+                    await LoadUsersAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Capturar errores (ej. si el usuario tiene claves foráneas en otras tablas)
+                _dialogService.ShowMessage($"Error al eliminar al usuario:\n{ex.Message}\n\nEs posible que este usuario tenga historial clínico (cargos) y no pueda ser borrado.", "Error de Base de Datos");
+            }
+        }
+
+
+        // --- Métodos de Backup (Sin cambios) ---
+
         [RelayCommand]
         private async Task ExportBackupAsync()
         {
             try
             {
-                // 1. Pedir Password
                 var (passOk, password) = _dialogService.ShowPasswordPrompt();
                 if (!passOk || string.IsNullOrWhiteSpace(password))
                 {
-                    return; // Usuario canceló o dejó vacío
+                    return;
                 }
 
-                // 2. Pedir Ruta para Guardar
                 var (fileOk, filePath) = _fileDialogService.ShowSaveDialog(
                     filter: "Backup Files (*.bak)|*.bak",
                     title: "Guardar Copia de Seguridad",
@@ -248,26 +336,22 @@ namespace TuClinica.UI.ViewModels
 
                 if (!fileOk)
                 {
-                    return; // Usuario canceló
+                    return;
                 }
 
-                // 3. Ejecutar Lógica
                 bool success = await _backupService.ExportBackupAsync(filePath, password);
 
-                // 4. Mostrar Resultado
                 if (success)
                 {
                     _dialogService.ShowMessage($"Copia guardada:\n{filePath}", "Éxito");
                 }
                 else
                 {
-                    // Esto ya no debería ocurrir, ya que la excepción se captura abajo
                     _dialogService.ShowMessage("Error al exportar. La operación fue cancelada.", "Error");
                 }
             }
             catch (Exception ex)
             {
-                // ¡AQUÍ ESTÁ EL CAMBIO! Mostramos el error real.
                 _dialogService.ShowMessage($"Error inesperado al exportar la copia:\n\n{ex.Message}", "Error Crítico");
             }
         }
@@ -319,13 +403,11 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- CAMBIO: Añadido try...catch ---
         [RelayCommand]
         private async Task ImportBackupAsync()
         {
             try
             {
-                // 1. Pedir Archivo
                 var (fileOk, filePath) = _fileDialogService.ShowOpenDialog(
                     filter: "Backup Files (*.bak)|*.bak",
                     title: "Abrir Copia de Seguridad"
@@ -333,10 +415,9 @@ namespace TuClinica.UI.ViewModels
 
                 if (!fileOk)
                 {
-                    return; // Usuario canceló
+                    return;
                 }
 
-                // 2. Confirmación de borrado
                 var confirmation = _dialogService.ShowConfirmation(
                     "ADVERTENCIA: Esto BORRARÁ TODOS LOS DATOS ACTUALES.\n\n¿Continuar?",
                     "Confirmar Importación"
@@ -347,7 +428,6 @@ namespace TuClinica.UI.ViewModels
                     return;
                 }
 
-                // 3. Pedir Password
                 var (passOk, password) = _dialogService.ShowPasswordPrompt();
                 if (!passOk || string.IsNullOrWhiteSpace(password))
                 {
@@ -355,10 +435,8 @@ namespace TuClinica.UI.ViewModels
                     return;
                 }
 
-                // 4. Ejecutar Lógica
                 bool success = await _backupService.ImportBackupAsync(filePath, password);
 
-                // 5. Mostrar Resultado
                 if (success)
                 {
                     _dialogService.ShowMessage("Importación completada.\nRecargando datos.", "Éxito");
@@ -367,18 +445,15 @@ namespace TuClinica.UI.ViewModels
                 }
                 else
                 {
-                    // Esto no debería ocurrir si BackupService lanza excepciones
                     _dialogService.ShowMessage("Error al importar.", "Error");
                 }
             }
             catch (CryptographicException)
             {
-                // Error específico de contraseña o corrupción
                 _dialogService.ShowMessage("Error al importar.\nContraseña incorrecta o archivo corrupto.", "Error de Importación");
             }
             catch (Exception ex)
             {
-                // ¡AQUÍ ESTÁ EL CAMBIO! Mostramos el error real.
                 _dialogService.ShowMessage($"Error inesperado al importar la copia:\n\n{ex.Message}\n\nInnerException:\n{ex.InnerException?.Message}", "Error Crítico");
             }
         }

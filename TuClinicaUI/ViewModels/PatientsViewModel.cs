@@ -8,7 +8,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
+using System.Threading.Tasks; // <-- AÑADIR
 using System.Windows;
 using System.Windows.Input;
 using TuClinica.Core.Interfaces.Repositories;
@@ -18,6 +18,7 @@ using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 // --- AÑADIR ESTE USING ---
 using TuClinica.Core.Extensions;
+using System.Threading; // <-- AÑADIR
 
 namespace TuClinica.UI.ViewModels
 {
@@ -30,6 +31,9 @@ namespace TuClinica.UI.ViewModels
         private readonly IActivityLogService _activityLogService;
         private readonly IDialogService _dialogService;
         private ICommand? _navigateToPatientFileCommand;
+
+        // --- AÑADIDO: CancellationTokenSource para Debouncing ---
+        private CancellationTokenSource? _searchCts;
 
         [ObservableProperty]
         private ObservableCollection<Patient> _patients = new ObservableCollection<Patient>();
@@ -304,17 +308,34 @@ namespace TuClinica.UI.ViewModels
             ViewPatientDetailsCommand.NotifyCanExecuteChanged();
         }
 
+        // --- MÉTODO MODIFICADO PARA DEBOUNCING ---
         partial void OnSearchTextChanged(string value)
         {
-            _ = LoggedSearchAsync();
+            // Cancela la búsqueda anterior
+            _searchCts?.Cancel();
+            // Crea un nuevo token de cancelación
+            _searchCts = new CancellationTokenSource();
+            // Inicia la tarea de búsqueda con retraso
+            _ = DebouncedSearchAsync(_searchCts.Token);
         }
 
-        // --- ELIMINAR EL MÉTODO ToTitleCase DE AQUÍ ---
-        /*
-        private string ToTitleCase(string text)
+        // --- NUEVO MÉTODO AÑADIDO ---
+        private async Task DebouncedSearchAsync(CancellationToken token)
         {
-            ...
+            try
+            {
+                // Espera 300ms. Si OnSearchTextChanged se llama de nuevo
+                // (porque el usuario sigue escribiendo), el token se
+                // cancelará y esto lanzará una TaskCanceledException.
+                await Task.Delay(300, token);
+
+                // Si la espera se completó sin cancelación, ejecuta la búsqueda.
+                await LoggedSearchAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                // La búsqueda fue cancelada (el usuario sigue escribiendo). No hacer nada.
+            }
         }
-        */
     }
 }

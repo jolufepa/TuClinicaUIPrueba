@@ -69,19 +69,18 @@ namespace TuClinica.UI.ViewModels
         {
             // Forzamos manualmente la reevaluación del comando Save
             SaveCommand.NotifyCanExecuteChanged();
-            // Añadimos Debug para ver si se llama y el resultado de CanSave
         }
 
 
-        // *** MÉTODO CanSave con DEBUG ***
+        // *** MÉTODO CanSave ***
         private bool CanSave()
         {
             bool canSaveResult = !string.IsNullOrWhiteSpace(Username);
             return canSaveResult;
         }
 
-       
-        
+
+
         [RelayCommand(CanExecute = nameof(CanSave))]
         private async Task SaveAsync(object? parameter)
         {
@@ -91,28 +90,30 @@ namespace TuClinica.UI.ViewModels
 
             // 1. Validaciones básicas
             if (string.IsNullOrWhiteSpace(Username))
-            { /*...*/ return; }
+            {
+                _dialogService.ShowMessage("El nombre de usuario no puede estar vacío.", "Error");
+                return;
+            }
             if (_isNewUser && string.IsNullOrWhiteSpace(password))
-            { /*...*/ return; }
+            {
+                _dialogService.ShowMessage("Un usuario nuevo debe tener una contraseña.", "Error");
+                return;
+            }
 
-            // *** VALIDACIÓN COMENTADA TEMPORALMENTE ***
-            /*
+            // --- INICIO DE LA VALIDACIÓN REACTIVADA ---
             bool usernameTaken = await _userRepository.IsUsernameTakenAsync(Username, _isNewUser ? 0 : _userToEdit.Id);
             if (usernameTaken)
             {
-                MessageBox.Show($"El nombre de usuario '{Username}' ya está en uso por otro usuario.", "Nombre Duplicado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogService.ShowMessage($"El nombre de usuario '{Username}' ya está en uso por otro usuario.", "Nombre Duplicado");
                 return; // Detener el guardado
             }
-            */
-            // *** FIN VALIDACIÓN COMENTADA ***
+            // --- FIN DE LA VALIDACIÓN REACTIVADA ---
 
-            System.Diagnostics.Debug.WriteLine("DEBUG (UserEditVM): Transferring data to model..."); // <-- NUEVO DEBUG
             _userToEdit.Username = Username;
             _userToEdit.Role = SelectedRole;
             _userToEdit.IsActive = IsActive;
             _userToEdit.CollegeNumber = this.CollegeNumber;
             _userToEdit.Specialty = this.Specialty;
-            System.Diagnostics.Debug.WriteLine("DEBUG (UserEditVM): Data transferred."); // <-- NUEVO DEBUG
 
             if (!string.IsNullOrWhiteSpace(password))
             {

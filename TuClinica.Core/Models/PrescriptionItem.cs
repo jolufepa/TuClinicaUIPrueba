@@ -24,7 +24,12 @@ namespace TuClinica.Core.Models
         [MaxLength(100)]
         public string? DosagePauta { get; set; } // Ej: "1 cada 8 horas"
 
-        [MaxLength(50)]
-        public string? Duration { get; set; } // Ej: "10 días"
+        // --- CAMPO MODIFICADO ---
+        // Se elimina: public string? Duration { get; set; }
+
+        /// <summary>
+        /// Duración del tratamiento en número de días.
+        /// </summary>
+        public int? DurationInDays { get; set; }
     }
 }

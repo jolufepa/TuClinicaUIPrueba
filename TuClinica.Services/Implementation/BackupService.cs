@@ -61,7 +61,7 @@ namespace TuClinica.Services.Implementation
             _cryptoService = cryptoService;
         }
 
-        // --- EXPORT (REFACTORIZADO SIN AsNoTracking()) ---
+        // --- EXPORT (REFACTORIZADO PARA STREAMING REAL) ---
         public async Task<bool> ExportBackupAsync(string filePath, string password)
         {
             if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(password))
@@ -70,57 +70,81 @@ namespace TuClinica.Services.Implementation
             }
 
             // 1. Recolectar TODOS los datos
-            // --- ¡CAMBIO CRÍTICO! Eliminados todos los .AsNoTracking() ---
-            // Esto es OBLIGATORIO para que EF Core resuelva las identidades
-            // y el Serializador JSON cree las referencias ($ref) correctas.
+            // (Esta parte sigue necesitando cargar todo en RAM para que
+            // ReferenceHandler.Preserve funcione. La descripción en el README
+            // es idealista pero difícil de implementar con EF Core y referencias).
+            // Mantenemos la lógica de carga en RAM, pero eliminamos el MemoryStream
+            // intermedio para reducir el pico de uso de memoria a la mitad.
+
+            // La debilidad real no es el streaming (CryptoService lo hace),
+            // es la serialización a MemoryStream.
+
             var data = new BackupData
             {
-                // Tablas Raíz
                 Patients = await _context.Patients.ToListAsync(),
                 Treatments = await _context.Treatments.ToListAsync(),
                 Users = await _context.Users.ToListAsync(),
                 Dosages = await _context.Dosages.ToListAsync(),
                 Medications = await _context.Medications.ToListAsync(),
-
-                // Tablas Dependientes (Nivel 1)
                 Budgets = await _context.Budgets
                     .Include(b => b.Items)
                     .Include(b => b.Patient)
                     .ToListAsync(),
-
                 Prescriptions = await _context.Prescriptions
                     .Include(p => p.Items)
                     .Include(p => p.Patient)
                     .ToListAsync(),
-
                 Payments = await _context.Payments
                     .Include(p => p.Patient)
                     .ToListAsync(),
-
                 ClinicalEntries = await _context.ClinicalEntries
                     .Include(c => c.TreatmentsPerformed)
                         .ThenInclude(t => t.Treatment)
                     .Include(c => c.Patient)
                     .Include(c => c.Doctor)
                     .ToListAsync(),
-
-                // Tablas Dependientes (Nivel 2)
                 PaymentAllocations = await _context.PaymentAllocations
                     .Include(pa => pa.Payment)
                     .Include(pa => pa.ClinicalEntry)
                     .ToListAsync()
             };
 
-            await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-            await using var jsonStream = new MemoryStream();
+            // --- INICIO DE LA MODIFICACIÓN (Eliminar MemoryStream) ---
 
-            await JsonSerializer.SerializeAsync(jsonStream, data, _jsonOptions);
-            jsonStream.Seek(0, SeekOrigin.Begin);
+            // 1. Creamos un stream temporal en disco. Es más lento que la RAM
+            //    pero evita el OutOfMemoryException.
+            string tempJsonPath = Path.GetTempFileName();
 
-            await _cryptoService.EncryptAsync(jsonStream, fileStream, password);
+            try
+            {
+                // 2. Serializa el objeto 'data' (grande) directamente al archivo temporal en disco.
+                await using (var tempJsonStream = new FileStream(tempJsonPath, FileMode.Create, FileAccess.Write))
+                {
+                    await JsonSerializer.SerializeAsync(tempJsonStream, data, _jsonOptions);
+                } // El archivo temporal ahora contiene el JSON gigante.
 
-            return true;
+                // 3. Hacemos streaming desde el archivo temporal (Disco) al archivo final (Disco),
+                //    aplicando la encriptación en el proceso.
+                await using (var tempJsonStream = new FileStream(tempJsonPath, FileMode.Open, FileAccess.Read))
+                await using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                {
+                    // CryptoService SÍ hace streaming correctamente (lee de tempJsonStream, escribe en fileStream)
+                    await _cryptoService.EncryptAsync(tempJsonStream, fileStream, password);
+                }
+
+                return true;
+            }
+            finally
+            {
+                // 4. Nos aseguramos de borrar el archivo JSON temporal
+                if (File.Exists(tempJsonPath))
+                {
+                    File.Delete(tempJsonPath);
+                }
+            }
+            // --- FIN DE LA MODIFICACIÓN ---
         }
+
 
         // --- IMPORT (REFACTORIZADO PARA MANEJAR REFERENCIAS) ---
         public async Task<bool> ImportBackupAsync(string filePath, string password)
@@ -182,11 +206,6 @@ namespace TuClinica.Services.Implementation
                 data.Payments.ForEach(p => p.Id = 0);
                 data.PaymentAllocations.ForEach(pa => pa.Id = 0);
 
-                // --- CAMBIO CRÍTICO: Añadir TODO al DbContext ANTES de SaveChanges ---
-                // Gracias a que la exportación fue correcta, EF Core entenderá
-                // que el 'Patient' en 'data.Patients' y el 'Patient' en 'data.Budgets'
-                // son el mismo objeto (Instancia A) y no dará el error "already tracked".
-
                 await _context.Users.AddRangeAsync(data.Users);
                 await _context.Patients.AddRangeAsync(data.Patients);
                 await _context.Treatments.AddRangeAsync(data.Treatments);
@@ -198,10 +217,6 @@ namespace TuClinica.Services.Implementation
                 await _context.ClinicalEntries.AddRangeAsync(data.ClinicalEntries);
                 await _context.PaymentAllocations.AddRangeAsync(data.PaymentAllocations);
 
-                // --- LLAMAR A SaveChanges UNA SOLA VEZ AL FINAL ---
-                // EF Core es lo suficientemente inteligente para insertar todo
-                // en el orden correcto (primero Pacientes, luego Presupuestos, etc.)
-                // para satisfacer las constraints de clave foránea.
                 await _context.SaveChangesAsync();
 
                 // 8. Commit
@@ -220,9 +235,7 @@ namespace TuClinica.Services.Implementation
             }
             catch (Exception ex)
             {
-                // Este es el error que estás viendo (DbUpdateException)
                 await transaction.RollbackAsync();
-                // Lo relanzamos para que AdminViewModel lo muestre
                 throw;
             }
         }

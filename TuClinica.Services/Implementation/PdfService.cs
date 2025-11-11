@@ -104,7 +104,7 @@ namespace TuClinica.Services.Implementation
             string fileName = $"{budget.BudgetNumber}_{patientSurnameClean}_{patientNameClean}.pdf";
             string filePath = Path.Combine(yearFolder, fileName);
 
-           
+
 
             // El resto del método continúa igual...
             string maskedDni = MaskDni(patient.DniNie);
@@ -170,21 +170,23 @@ namespace TuClinica.Services.Implementation
                 throw new FileNotFoundException("No se encontró la plantilla PDF en la ruta esperada.", templatePath);
             }
 
-            int diasTratamiento = 1;
+            // --- LÓGICA REFACTORIZADA ---
+
+            // 1. Usar la nueva propiedad 'DurationInDays'
+            int diasTratamiento = firstItem.DurationInDays ?? 1;
+
             int unidadesPorToma = 1;
             int tomasAlDia = 1;
-            int unidadesPorEnvase = 30;
+            int unidadesPorEnvase = 30; // Valor por defecto
 
-            if (!string.IsNullOrWhiteSpace(firstItem.Duration))
-            {
-                var matchDias = System.Text.RegularExpressions.Regex.Match(firstItem.Duration, @"\d+");
-                if (matchDias.Success) int.TryParse(matchDias.Groups[0].Value, out diasTratamiento);
-            }
+            // 2. Extraer 'unidadesPorToma' desde 'Quantity' (Ej: "1 comprimido")
             if (!string.IsNullOrWhiteSpace(firstItem.Quantity))
             {
                 var matchUnidades = System.Text.RegularExpressions.Regex.Match(firstItem.Quantity, @"\d+");
                 if (matchUnidades.Success) int.TryParse(matchUnidades.Groups[0].Value, out unidadesPorToma);
             }
+
+            // 3. Extraer 'tomasAlDia' desde 'DosagePauta' (Ej: "cada 8 horas")
             if (!string.IsNullOrWhiteSpace(firstItem.DosagePauta))
             {
                 var pautaLower = firstItem.DosagePauta.ToLower();
@@ -197,6 +199,8 @@ namespace TuClinica.Services.Implementation
                     }
                 }
             }
+            // --- FIN LÓGICA REFACTORIZADA ---
+
 
             int unidadesTotales = diasTratamiento * unidadesPorToma * tomasAlDia;
             int numEnvasesCalculado = (unidadesPorEnvase > 0) ? (int)Math.Ceiling((double)unidadesTotales / unidadesPorEnvase) : 1;
@@ -329,21 +333,23 @@ namespace TuClinica.Services.Implementation
                 throw new FileNotFoundException("No se encontró la plantilla PDF básica en la ruta esperada.", templatePath);
             }
 
-            int diasTratamiento = 1;
+            // --- LÓGICA REFACTORIZADA ---
+
+            // 1. Usar la nueva propiedad 'DurationInDays'
+            int diasTratamiento = firstItem.DurationInDays ?? 1;
+
             int unidadesPorToma = 1;
             int tomasAlDia = 1;
-            int unidadesPorEnvase = 30;
+            int unidadesPorEnvase = 30; // Valor por defecto
 
-            if (!string.IsNullOrWhiteSpace(firstItem.Duration))
-            {
-                var matchDias = System.Text.RegularExpressions.Regex.Match(firstItem.Duration, @"\d+");
-                if (matchDias.Success) int.TryParse(matchDias.Groups[0].Value, out diasTratamiento);
-            }
+            // 2. Extraer 'unidadesPorToma' desde 'Quantity' (Ej: "1 comprimido")
             if (!string.IsNullOrWhiteSpace(firstItem.Quantity))
             {
                 var matchUnidades = System.Text.RegularExpressions.Regex.Match(firstItem.Quantity, @"\d+");
                 if (matchUnidades.Success) int.TryParse(matchUnidades.Groups[0].Value, out unidadesPorToma);
             }
+
+            // 3. Extraer 'tomasAlDia' desde 'DosagePauta' (Ej: "cada 8 horas")
             if (!string.IsNullOrWhiteSpace(firstItem.DosagePauta))
             {
                 var pautaLower = firstItem.DosagePauta.ToLower();
@@ -356,6 +362,8 @@ namespace TuClinica.Services.Implementation
                     }
                 }
             }
+            // --- FIN LÓGICA REFACTORIZADA ---
+
 
             int unidadesTotales = diasTratamiento * unidadesPorToma * tomasAlDia;
             int numEnvasesCalculado = (unidadesPorEnvase > 0) ? (int)Math.Ceiling((double)unidadesTotales / unidadesPorEnvase) : 1;

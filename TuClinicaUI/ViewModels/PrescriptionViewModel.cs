@@ -81,9 +81,17 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        public string MedicationQuantity { get; set; } = "1";
-        public string TreatmentDuration { get; set; } = "10 días";
-        public string Instructions { get; set; } = string.Empty;
+        // --- CAMPOS MODIFICADOS ---
+        [ObservableProperty]
+        private string _medicationQuantity = "1"; // Sigue siendo string (ej: "1 envase")
+
+        [ObservableProperty]
+        private int _durationInDays = 10; // Nuevo campo (reemplaza TreatmentDuration)
+
+        [ObservableProperty]
+        private string _instructions = string.Empty;
+        // --- FIN CAMPOS MODIFICADOS ---
+
 
         public ObservableCollection<Medication> Medications { get; set; } = new();
 
@@ -206,6 +214,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
+        // --- MÉTODO MODIFICADO ---
         private async Task<Prescription?> CreateAndSavePrescriptionAsync()
         {
             if (!CanGeneratePrescription())
@@ -233,14 +242,18 @@ namespace TuClinica.UI.ViewModels
                 PrescriptorCollegeNum = currentUser?.CollegeNumber ?? string.Empty,
                 PrescriptorSpecialty = currentUser?.Specialty ?? "General",
             };
+
+            // --- Lógica de mapeo actualizada ---
             var item = new PrescriptionItem
             {
                 MedicationName = this.MedicationSearchText,
                 DosagePauta = this.DosageSearchText,
-                Duration = this.TreatmentDuration,
-                Quantity = this.MedicationQuantity,
+                DurationInDays = this.DurationInDays, // <-- Campo nuevo
+                Quantity = this.MedicationQuantity, // <-- Campo existente
                 Prescription = prescription
             };
+            // --- Fin lógica actualizada ---
+
             prescription.Items.Add(item);
             try
             {
@@ -294,6 +307,7 @@ namespace TuClinica.UI.ViewModels
             ClearForm();
         }
 
+        // --- MÉTODO MODIFICADO ---
         private void ClearForm()
         {
             SelectedPatient = null;
@@ -301,7 +315,7 @@ namespace TuClinica.UI.ViewModels
             DosageSearchText = string.Empty;
             Instructions = string.Empty;
             MedicationQuantity = "1";
-            TreatmentDuration = "10 días";
+            DurationInDays = 10; // <-- Campo nuevo
             SelectedMedicationForPrescription = null;
         }
 
@@ -316,14 +330,6 @@ namespace TuClinica.UI.ViewModels
         {
             SelectedPatientFullNameDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
         }
-
-        // --- ELIMINAR EL MÉTODO ToTitleCase DE AQUÍ ---
-        /*
-        private string ToTitleCase(string text)
-        {
-            ...
-        }
-        */
 
         private async Task LoadMedicationsAsync()
         {
@@ -379,10 +385,8 @@ namespace TuClinica.UI.ViewModels
 
         private async Task SaveMedicationAsync()
         {
-            // --- INICIO DE LA MODIFICACIÓN ---
             string nameToSave = NewMedicationName.ToTitleCase();
             string presentationToSave = NewMedicationPresentation.ToTitleCase();
-            // --- FIN DE LA MODIFICACIÓN ---
 
             if (string.IsNullOrWhiteSpace(nameToSave))
             {

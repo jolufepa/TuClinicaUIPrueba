@@ -41,14 +41,15 @@
                                     Command="{Binding SelectPatientCommand}"/>
                         </Grid>
                     </StackPanel>
-                    <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
+
                     <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
                     <ComboBox Grid.Row="2" Margin="0,5,0,15"
-                            ItemsSource="{Binding Medications}"
-                           FontSize="21"
-                           SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
-                           DisplayMemberPath="FullDisplay"  IsEditable="True"
-                           Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                              ItemsSource="{Binding Medications}"
+                              FontSize="21"
+                              SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
+                              DisplayMemberPath="FullDisplay"  IsEditable="True"
+                              Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="2*"/>
@@ -59,14 +60,16 @@
                         <StackPanel Grid.Column="0" Margin="0,0,10,0">
                             <Label Content="Pauta (Ej: 1 cada 8 horas):" FontWeight="SemiBold"/>
                             <ComboBox ItemsSource="{Binding Dosages}"
-                                       DisplayMemberPath="Pauta"
+                                      DisplayMemberPath="Pauta"
                                       IsEditable="True"
                                       Text="{Binding DosageSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                            <Label Content="Duración (Ej: 10 días):" FontWeight="SemiBold"/>
-                            <TextBox Text="{Binding TreatmentDuration, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Label Content="Duración (días):" FontWeight="SemiBold"/>
+                            <mah:NumericUpDown Value="{Binding DurationInDays, UpdateSourceTrigger=PropertyChanged}"
+                                               Minimum="1"
+                                               Interval="1"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="2" Margin="10,0,0,0">
@@ -84,11 +87,11 @@
 
                     <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                         <Button Content="Impresión Básica"
-                                 Command="{Binding GenerateBasicPrescriptionPdfCommand}"
+                                Command="{Binding GenerateBasicPrescriptionPdfCommand}"
                                 Margin="0,0,10,0"/>
 
                         <Button Content="Generar Receta PDF"
-                                 Command="{Binding GeneratePrescriptionPdfCommand}" 
+                                Command="{Binding GeneratePrescriptionPdfCommand}" 
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
                     </StackPanel>
                 </Grid>

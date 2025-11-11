@@ -29,6 +29,13 @@
                     <Button Content="Activar/Desactivar"
                             Command="{Binding ToggleUserActivationCommand}"
                             Margin="10,0,0,0"/>
+
+                    <Button Content="Eliminar Usuario"
+                            Command="{Binding DeleteUserAsyncCommand}"
+                            Margin="10,0,0,0"
+                            Background="IndianRed"
+                            Foreground="White"/>
+
                     <Button Content="Refrescar Lista"
                             Command="{Binding LoadUsersCommand}"
                             Margin="20,0,0,0"/>
@@ -64,19 +71,20 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
 
                     <Button Content="Refrescar Logs" 
-                    Command="{Binding LoadLogsCommand}" 
-                    Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
+                            Command="{Binding LoadLogsCommand}" 
+                            Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
 
                     <Button Content="Exportar Logs (CSV)" 
-                    Command="{Binding ExportLogsCommand}" 
-                    Margin="10,0,0,0"/>
+                            Command="{Binding ExportLogsCommand}" 
+                            Margin="10,0,0,0"/>
 
                     <Button Content="Purgar Logs Antiguos" 
-                    Command="{Binding PurgeOldLogsCommand}" 
-                    Margin="10,0,0,0"
-                    Background="IndianRed" 
-                    Foreground="White"/>
+                            Command="{Binding PurgeOldLogsCommand}" 
+                            Margin="10,0,0,0"
+                            Background="IndianRed" 
+                            Foreground="White"/>
                 </StackPanel>
+
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding ActivityLogs}"
                           AutoGenerateColumns="False"
