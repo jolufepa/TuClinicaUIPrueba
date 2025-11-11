@@ -44,11 +44,11 @@
                     <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
                     <Label Grid.Row="1" Content="Medicamento y Presentación (Ej: Amoxicilina 750mg):" FontWeight="SemiBold"/>
                     <ComboBox Grid.Row="2" Margin="0,5,0,15"
-                           ItemsSource="{Binding Medications}"
+                            ItemsSource="{Binding Medications}"
                            FontSize="21"
                            SelectedItem="{Binding SelectedMedicationForPrescription, Mode=TwoWay}"
                            DisplayMemberPath="FullDisplay"  IsEditable="True"
-                          Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                           Text="{Binding MedicationSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="2*"/>
@@ -59,7 +59,7 @@
                         <StackPanel Grid.Column="0" Margin="0,0,10,0">
                             <Label Content="Pauta (Ej: 1 cada 8 horas):" FontWeight="SemiBold"/>
                             <ComboBox ItemsSource="{Binding Dosages}"
-                                      DisplayMemberPath="Pauta"
+                                       DisplayMemberPath="Pauta"
                                       IsEditable="True"
                                       Text="{Binding DosageSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
@@ -84,11 +84,11 @@
 
                     <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                         <Button Content="Impresión Básica"
-                                Command="{Binding GenerateBasicPrescriptionPdfCommand}"
+                                 Command="{Binding GenerateBasicPrescriptionPdfCommand}"
                                 Margin="0,0,10,0"/>
 
                         <Button Content="Generar Receta PDF"
-                                Command="{Binding GeneratePrescriptionPdfCommand}" 
+                                 Command="{Binding GeneratePrescriptionPdfCommand}" 
                                 Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
                     </StackPanel>
                 </Grid>
@@ -101,8 +101,10 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <DataGrid Grid.Column="0" ItemsSource="{Binding Medications}" SelectedItem="{Binding SelectedMedication}"
-                           AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
+                    <DataGrid Grid.Column="0" ItemsSource="{Binding Medications}" 
+                              SelectedItem="{Binding SelectedMedication}"
+                              AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0"
+                              SelectionMode="Single" CanUserAddRows="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="*"/>
                             <DataGridTextColumn Header="Presentación" Binding="{Binding Presentation}" Width="*"/>
@@ -110,12 +112,31 @@
                     </DataGrid>
 
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Añadir Nuevo Medicamento" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <TextBlock Text="{Binding FormTitle}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
                         <Label Content="Nombre (Ej: Amoxicilina):"/>
                         <TextBox Text="{Binding NewMedicationName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+
                         <Label Content="Presentación (Ej: 750mg Comp.):"/>
                         <TextBox Text="{Binding NewMedicationPresentation, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
-                        <Button Content="Guardar Medicamento" Command="{Binding SaveMedicationCommand}"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                            <Button Content="Eliminar"
+                                    Command="{Binding DeleteMedicationAsyncCommand}"
+                                    Margin="0,0,10,0"
+                                    Background="IndianRed" 
+                                    Foreground="White"/>
+                            <Button Content="Nuevo"
+                                    Command="{Binding ClearMedicationFormCommand}"
+                                    Margin="0,0,10,0"/>
+                            <Button Content="Editar"
+                                    Command="{Binding EditMedicationCommand}"
+                                    Margin="0,0,10,0"/>
+                            <Button Content="Guardar"
+                                    Command="{Binding SaveMedicationAsyncCommand}"
+                                    IsDefault="True"
+                                    Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </mah:MetroTabItem>
@@ -128,7 +149,7 @@
                     </Grid.ColumnDefinitions>
 
                     <DataGrid Grid.Column="0" ItemsSource="{Binding Dosages}" SelectedItem="{Binding SelectedDosage}"
-                              AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
+                               AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,20,0">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Pauta" Binding="{Binding Pauta}" Width="*"/>
                         </DataGrid.Columns>

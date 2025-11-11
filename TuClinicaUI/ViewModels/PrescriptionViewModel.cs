@@ -14,13 +14,16 @@ using TuClinica.Core.Models;
 using TuClinica.DataAccess;
 using TuClinica.UI.Views;
 using TuClinica.Core.Interfaces;
+// Añadido para el diálogo de confirmación
+using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
 
 namespace TuClinica.UI.ViewModels
 {
-    public class PrescriptionViewModel : BaseViewModel
+    // Asegúrate de que la clase sigue siendo 'public partial class'
+    public partial class PrescriptionViewModel : BaseViewModel
     {
-        // Servicios
+        // Servicios (sin cambios)
         private readonly IServiceProvider _serviceProvider;
         private readonly IPdfService _pdfService;
         private readonly IMedicationRepository _medicationRepository;
@@ -28,7 +31,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IRepository<Prescription> _prescriptionRepository;
         private readonly IDialogService _dialogService;
 
-        // --- Pestaña "Crear Receta" ---
+        // --- Pestaña "Crear Receta" (sin cambios) ---
         private Patient? _selectedPatient;
         public Patient? SelectedPatient
         {
@@ -39,7 +42,7 @@ namespace TuClinica.UI.ViewModels
                 {
                     OnSelectedPatientChanged(value);
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
-                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -60,7 +63,7 @@ namespace TuClinica.UI.ViewModels
                 if (SetProperty(ref _medicationSearchText, value))
                 {
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
-                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -74,7 +77,7 @@ namespace TuClinica.UI.ViewModels
                 if (SetProperty(ref _dosageSearchText, value))
                 {
                     GeneratePrescriptionPdfCommand.NotifyCanExecuteChanged();
-                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged(); // <-- AÑADIDO
+                    GenerateBasicPrescriptionPdfCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -84,13 +87,31 @@ namespace TuClinica.UI.ViewModels
         public string Instructions { get; set; } = string.Empty;
 
 
-        // --- Pestaña "Gestionar Medicamentos" ---
+        // --- Pestaña "Gestionar Medicamentos" (MODIFICADA) ---
         public ObservableCollection<Medication> Medications { get; set; } = new();
-        public Medication? SelectedMedication { get; set; }
-        public string NewMedicationName { get; set; } = string.Empty;
-        public string NewMedicationPresentation { get; set; } = string.Empty;
 
-        // --- Pestaña "Gestionar Pautas" ---
+        // Propiedad MODIFICADA para notificar a los comandos
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(EditMedicationCommand))]
+        [NotifyCanExecuteChangedFor(nameof(DeleteMedicationAsyncCommand))]
+        private Medication? _selectedMedication;
+
+        [ObservableProperty]
+        private string _newMedicationName = string.Empty;
+
+        [ObservableProperty]
+        private string _newMedicationPresentation = string.Empty;
+
+        // NUEVA propiedad para controlar el estado del formulario (Nuevo vs Editar)
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FormTitle))]
+        private bool _isEditingMedication = false;
+
+        // NUEVA propiedad para el título del formulario
+        public string FormTitle => IsEditingMedication ? "Editar Medicamento" : "Añadir Nuevo Medicamento";
+
+
+        // --- Pestaña "Gestionar Pautas" (sin cambios) ---
         public ObservableCollection<Dosage> Dosages { get; set; } = new();
         public Dosage? SelectedDosage { get; set; }
         public string NewDosagePauta { get; set; } = string.Empty;
@@ -98,11 +119,18 @@ namespace TuClinica.UI.ViewModels
         // --- COMANDOS MANUALES (IRelayCommand) ---
         public IRelayCommand SelectPatientCommand { get; }
         public IAsyncRelayCommand GeneratePrescriptionPdfCommand { get; }
-        public IAsyncRelayCommand GenerateBasicPrescriptionPdfCommand { get; } // <-- AÑADIDO
+        public IAsyncRelayCommand GenerateBasicPrescriptionPdfCommand { get; }
         public IAsyncRelayCommand LoadMedicationsCommand { get; }
-        public IAsyncRelayCommand SaveMedicationCommand { get; }
+        // MODIFICADO: Cambiado el nombre para reflejar que es Async
+        public IAsyncRelayCommand SaveMedicationAsyncCommand { get; }
         public IAsyncRelayCommand LoadDosagesCommand { get; }
         public IAsyncRelayCommand SaveDosageCommand { get; }
+
+        // --- NUEVOS COMANDOS ---
+        public IRelayCommand EditMedicationCommand { get; }
+        public IAsyncRelayCommand DeleteMedicationAsyncCommand { get; }
+        public IRelayCommand ClearMedicationFormCommand { get; }
+
 
         public PrescriptionViewModel(
             IServiceProvider serviceProvider,
@@ -119,12 +147,19 @@ namespace TuClinica.UI.ViewModels
             _prescriptionRepository = prescriptionRepository;
             _dialogService = dialogService;
 
-            // Inicialización de comandos
+            // Inicialización de comandos (Crear Receta)
             SelectPatientCommand = new RelayCommand(SelectPatient);
             GeneratePrescriptionPdfCommand = new AsyncRelayCommand(GeneratePrescriptionPdfAsync, CanGeneratePrescription);
-            GenerateBasicPrescriptionPdfCommand = new AsyncRelayCommand(GenerateBasicPrescriptionPdfAsync, CanGeneratePrescription); // <-- AÑADIDO
+            GenerateBasicPrescriptionPdfCommand = new AsyncRelayCommand(GenerateBasicPrescriptionPdfAsync, CanGeneratePrescription);
+
+            // Inicialización de comandos (Gestionar Medicamentos) - MODIFICADO
             LoadMedicationsCommand = new AsyncRelayCommand(LoadMedicationsAsync);
-            SaveMedicationCommand = new AsyncRelayCommand(SaveMedicationAsync);
+            SaveMedicationAsyncCommand = new AsyncRelayCommand(SaveMedicationAsync); // Nombre cambiado aquí
+            ClearMedicationFormCommand = new RelayCommand(ClearMedicationForm); // NUEVO
+            EditMedicationCommand = new RelayCommand(EditMedication, CanEditOrDelete); // NUEVO
+            DeleteMedicationAsyncCommand = new AsyncRelayCommand(DeleteMedicationAsync, CanEditOrDelete); // NUEVO
+
+            // Inicialización de comandos (Gestionar Pautas)
             LoadDosagesCommand = new AsyncRelayCommand(LoadDosagesAsync);
             SaveDosageCommand = new AsyncRelayCommand(SaveDosageAsync);
 
@@ -138,7 +173,7 @@ namespace TuClinica.UI.ViewModels
             await LoadDosagesAsync();
         }
 
-        // --- Lógica Pestaña "Crear Receta" ---
+        // --- Lógica Pestaña "Crear Receta" (sin cambios) ---
 
         private void SelectPatient()
         {
@@ -184,27 +219,16 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- INICIO DE LA REFACTORIZACIÓN ---
-
-        /// <summary>
-        /// Lógica centralizada para validar, crear y guardar la receta en la BD.
-        /// </summary>
-        /// <returns>La prescripción guardada, o null si falla la validación o el guardado.</returns>
         private async Task<Prescription?> CreateAndSavePrescriptionAsync()
         {
-            // 1. Validar datos
             if (!CanGeneratePrescription())
             {
                 _dialogService.ShowMessage("Debe seleccionar un paciente e introducir un medicamento y una pauta.", "Datos incompletos");
                 return null;
             }
-
-            // 2. Obtener datos del prescriptor (desde AppSettings)
             var settings = _serviceProvider.GetRequiredService<AppSettings>();
             var authService = _serviceProvider.GetRequiredService<IAuthService>();
             var currentUser = authService.CurrentUser;
-
-            // 3. Crear el objeto Prescription
             var prescription = new Prescription
             {
                 PatientId = SelectedPatient!.Id,
@@ -215,8 +239,6 @@ namespace TuClinica.UI.ViewModels
                 PrescriptorCollegeNum = currentUser?.CollegeNumber ?? string.Empty,
                 PrescriptorSpecialty = currentUser?.Specialty ?? "General",
             };
-
-            // 4. Crear la línea de la receta
             var item = new PrescriptionItem
             {
                 MedicationName = this.MedicationSearchText,
@@ -226,84 +248,58 @@ namespace TuClinica.UI.ViewModels
                 Prescription = prescription
             };
             prescription.Items.Add(item);
-
-            // 5. Guardar la receta en la BD
             try
             {
-                prescription.Patient = null; // Evitar que EF intente guardar el paciente
+                prescription.Patient = null;
                 await _prescriptionRepository.AddAsync(prescription);
                 await _prescriptionRepository.SaveChangesAsync();
-                return prescription; // Devolver la prescripción guardada (con su ID)
+                return prescription;
             }
             catch (Exception ex)
             {
                 string innerExMessage = ex.InnerException?.Message ?? ex.Message;
                 _dialogService.ShowMessage($"Error al guardar la receta en la BD: {innerExMessage}", "Error BD");
-                return null; // Falló el guardado
+                return null;
             }
         }
 
-        /// <summary>
-        /// Método del comando para la receta OFICIAL.
-        /// </summary>
         private async Task GeneratePrescriptionPdfAsync()
         {
-            // 1. Crear y guardar la prescripción
             var prescription = await CreateAndSavePrescriptionAsync();
-            if (prescription == null) return; // Falló la validación o el guardado
+            if (prescription == null) return;
 
-            // 2. Generar el PDF específico
             string pdfPath = string.Empty;
             try
             {
                 pdfPath = await _pdfService.GeneratePrescriptionPdfAsync(prescription);
-
                 _dialogService.ShowMessage($"PDF de Receta Oficial generado para: {SelectedPatient!.Name}\nGuardado en: {pdfPath}", "Receta Generada");
-
-                // 3. Abrir el PDF
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
             catch (Exception pdfEx)
             {
                 _dialogService.ShowMessage($"Error al generar el PDF de la receta:\n{pdfEx.Message}", "Error PDF");
             }
-
-            // 4. Limpiar formulario
             ClearForm();
         }
 
-        /// <summary>
-        /// ¡NUEVO! Método del comando para la receta BÁSICA.
-        /// </summary>
         private async Task GenerateBasicPrescriptionPdfAsync()
         {
-            // 1. Crear y guardar la prescripción (lógica idéntica)
             var prescription = await CreateAndSavePrescriptionAsync();
-            if (prescription == null) return; // Falló la validación o el guardado
-
-            // 2. Generar el PDF específico (¡llamando al nuevo método del servicio!)
+            if (prescription == null) return;
             string pdfPath = string.Empty;
             try
             {
                 pdfPath = await _pdfService.GenerateBasicPrescriptionPdfAsync(prescription);
-
                 _dialogService.ShowMessage($"PDF de Receta Básica generado para: {SelectedPatient!.Name}\nGuardado en: {pdfPath}", "Receta Generada");
-
-                // 3. Abrir el PDF
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
             catch (Exception pdfEx)
             {
                 _dialogService.ShowMessage($"Error al generar el PDF de la receta básica:\n{pdfEx.Message}", "Error PDF");
             }
-
-            // 4. Limpiar formulario
             ClearForm();
         }
 
-        /// <summary>
-        /// Método helper para limpiar el formulario.
-        /// </summary>
         private void ClearForm()
         {
             SelectedPatient = null;
@@ -312,11 +308,8 @@ namespace TuClinica.UI.ViewModels
             Instructions = string.Empty;
             MedicationQuantity = "1";
             TreatmentDuration = "10 días";
-            SelectedMedicationForPrescription = null; // Limpiar el ComboBox
+            SelectedMedicationForPrescription = null;
         }
-
-        // --- FIN DE LA REFACTORIZACIÓN ---
-
 
         private bool CanGeneratePrescription()
         {
@@ -330,7 +323,15 @@ namespace TuClinica.UI.ViewModels
             SelectedPatientFullNameDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
         }
 
-        // --- Lógica Pestaña "Gestionar Medicamentos" ---
+        // --- Lógica Pestaña "Gestionar Medicamentos" (MODIFICADA) ---
+
+        // Método auxiliar para capitalización
+        private string ToTitleCase(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+            // Convierte todo a minúsculas y luego a "Title Case" (primera letra mayúscula)
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text.ToLower().Trim());
+        }
 
         private async Task LoadMedicationsAsync()
         {
@@ -339,24 +340,116 @@ namespace TuClinica.UI.ViewModels
             foreach (var m in meds) Medications.Add(m);
         }
 
-        private async Task SaveMedicationAsync()
+        // NUEVO: Método CanExecute para los botones Editar/Eliminar
+        private bool CanEditOrDelete()
         {
-            if (string.IsNullOrWhiteSpace(NewMedicationName)) return;
-
-            var newMed = new Medication
-            {
-                Name = NewMedicationName,
-                Presentation = NewMedicationPresentation
-            };
-            await _medicationRepository.AddAsync(newMed);
-            await _medicationRepository.SaveChangesAsync();
-
-            NewMedicationName = string.Empty;
-            NewMedicationPresentation = string.Empty;
-            await LoadMedicationsAsync();
+            return SelectedMedication != null;
         }
 
-        // --- Lógica Pestaña "Gestionar Pautas" ---
+        // NUEVO: Comando para limpiar el formulario y salir del modo edición
+        private void ClearMedicationForm()
+        {
+            NewMedicationName = string.Empty;
+            NewMedicationPresentation = string.Empty;
+            SelectedMedication = null; // Deselecciona la lista
+            IsEditingMedication = false;
+        }
+
+        // NUEVO: Comando para poblar el formulario para editar
+        private void EditMedication()
+        {
+            if (SelectedMedication == null) return;
+
+            NewMedicationName = SelectedMedication.Name;
+            NewMedicationPresentation = SelectedMedication.Presentation ?? string.Empty;
+            IsEditingMedication = true;
+        }
+
+        // NUEVO: Comando para eliminar un medicamento
+        private async Task DeleteMedicationAsync()
+        {
+            if (SelectedMedication == null) return;
+
+            var result = _dialogService.ShowConfirmation(
+                $"¿Está seguro de que desea eliminar permanentemente '{SelectedMedication.FullDisplay}'?\n\nEsta acción no se puede deshacer.",
+                "Confirmar Eliminación");
+
+            if (result == CoreDialogResult.No) return;
+
+            try
+            {
+                _medicationRepository.Remove(SelectedMedication);
+                await _medicationRepository.SaveChangesAsync();
+                await LoadMedicationsAsync(); // Recargar la lista
+                ClearMedicationForm(); // Limpiar el formulario
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al eliminar el medicamento: {ex.Message}", "Error BD");
+            }
+        }
+
+        // MODIFICADO: Comando de guardar para manejar Nuevo y Editar
+        private async Task SaveMedicationAsync()
+        {
+            // Aplicamos la capitalización
+            string nameToSave = ToTitleCase(NewMedicationName);
+            string presentationToSave = ToTitleCase(NewMedicationPresentation); // También capitalizamos la presentación
+
+            if (string.IsNullOrWhiteSpace(nameToSave))
+            {
+                _dialogService.ShowMessage("El nombre del medicamento no puede estar vacío.", "Dato Requerido");
+                return;
+            }
+
+            try
+            {
+                if (IsEditingMedication)
+                {
+                    // --- Lógica de ACTUALIZACIÓN ---
+                    if (SelectedMedication == null)
+                    {
+                        _dialogService.ShowMessage("No hay ningún medicamento seleccionado para editar.", "Error");
+                        return;
+                    }
+
+                    // Obtenemos la entidad rastreada por EF Core
+                    var medToUpdate = await _medicationRepository.GetByIdAsync(SelectedMedication.Id);
+                    if (medToUpdate == null)
+                    {
+                        _dialogService.ShowMessage("El medicamento que intenta editar ya no existe.", "Error");
+                        return;
+                    }
+
+                    medToUpdate.Name = nameToSave;
+                    medToUpdate.Presentation = presentationToSave;
+                    _medicationRepository.Update(medToUpdate);
+                }
+                else
+                {
+                    // --- Lógica de CREACIÓN (la que ya tenías) ---
+                    var newMed = new Medication
+                    {
+                        Name = nameToSave,
+                        Presentation = presentationToSave
+                    };
+                    await _medicationRepository.AddAsync(newMed);
+                }
+
+                // Guardamos los cambios (ya sea Add o Update)
+                await _medicationRepository.SaveChangesAsync();
+
+                // Limpiamos y recargamos
+                ClearMedicationForm();
+                await LoadMedicationsAsync();
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al guardar el medicamento: {ex.Message}", "Error BD");
+            }
+        }
+
+        // --- Lógica Pestaña "Gestionar Pautas" (sin cambios) ---
 
         private async Task LoadDosagesAsync()
         {
