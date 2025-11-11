@@ -120,12 +120,22 @@ namespace TuClinica.UI.ViewModels
             _pendingCharges.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
         }
 
+        // --- MÉTODO MODIFICADO ---
         public async Task LoadPatient(Patient patient)
         {
             if (_isLoading) return;
             try
             {
                 _isLoading = true;
+
+                // --- INICIO DE LA CORRECCIÓN (Reseteo de estado) ---
+                // Limpiamos los campos de asignación de la pestaña Facturación
+                // para evitar que se muestren datos del paciente anterior.
+                SelectedCharge = null;
+                SelectedPayment = null;
+                AmountToAllocate = 0;
+                // --- FIN DE LA CORRECCIÓN ---
+
                 CurrentPatient = patient;
                 IsPatientDataReadOnly = true;
 
@@ -767,6 +777,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        
+
     }
 }

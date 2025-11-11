@@ -9,12 +9,12 @@ namespace TuClinica.Core.Interfaces.Repositories
     // y que hereda de IRepository<Patient>
     public interface IPatientRepository : IRepository<Patient>
     {
-        // Este es el nombre correcto que SÍ tienes en tu clase
-        Task<IEnumerable<Patient>> SearchByNameOrDniAsync(string query);
+        // --- MÉTODO MODIFICADO ---
+        // Añadimos 'includeInactive' para poder buscar también en archivados
+        Task<IEnumerable<Patient>> SearchByNameOrDniAsync(string query, bool includeInactive = false);
 
-        // Este método SÍ lo tienes en la clase (Repository.cs)
-        // pero debe estar aquí para que GetAllAsync() funcione
-       
+        // --- MÉTODO AÑADIDO (Sobrecarga de GetAllAsync) ---
+        Task<IEnumerable<Patient>> GetAllAsync(bool includeInactive = false);
 
         // Este es para nuestra lógica de borrado (Hard/Soft)
         Task<bool> HasHistoryAsync(int patientId);

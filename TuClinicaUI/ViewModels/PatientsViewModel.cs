@@ -8,7 +8,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Threading.Tasks; // <-- AÑADIR
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using TuClinica.Core.Interfaces.Repositories;
@@ -16,9 +16,8 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-// --- AÑADIR ESTE USING ---
 using TuClinica.Core.Extensions;
-using System.Threading; // <-- AÑADIR
+using System.Threading;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -32,7 +31,6 @@ namespace TuClinica.UI.ViewModels
         private readonly IDialogService _dialogService;
         private ICommand? _navigateToPatientFileCommand;
 
-        // --- AÑADIDO: CancellationTokenSource para Debouncing ---
         private CancellationTokenSource? _searchCts;
 
         [ObservableProperty]
@@ -40,6 +38,10 @@ namespace TuClinica.UI.ViewModels
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsPatientSelected))]
+        [NotifyPropertyChangedFor(nameof(IsPatientSelectedAndActive))]
+        [NotifyPropertyChangedFor(nameof(IsPatientSelectedAndInactive))]
+        // --- AÑADIR NOTIFICACIÓN PARA EL NUEVO COMANDO ---
+        [NotifyCanExecuteChangedFor(nameof(DeletePatientPermanentlyAsyncCommand))]
         private Patient? _selectedPatient;
 
         [ObservableProperty]
@@ -51,7 +53,13 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private string _searchText = string.Empty;
 
+        [ObservableProperty]
+        private bool _showInactivePatients = false;
+
         public bool IsPatientSelected => SelectedPatient != null;
+        public bool IsPatientSelectedAndActive => SelectedPatient != null && SelectedPatient.IsActive;
+        public bool IsPatientSelectedAndInactive => SelectedPatient != null && !SelectedPatient.IsActive;
+
 
         // --- Comandos Manuales ---
         public IAsyncRelayCommand SearchPatientsCommand { get; }
@@ -61,6 +69,10 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand DeletePatientAsyncCommand { get; }
         public IRelayCommand CreatePrescriptionCommand { get; }
         public IAsyncRelayCommand ViewPatientDetailsCommand { get; }
+        public IAsyncRelayCommand ReactivatePatientAsyncCommand { get; }
+        // --- NUEVO COMANDO AÑADIDO ---
+        public IAsyncRelayCommand DeletePatientPermanentlyAsyncCommand { get; }
+
 
         public PatientsViewModel(IPatientRepository patientRepository,
                                  IValidationService validationService,
@@ -81,9 +93,13 @@ namespace TuClinica.UI.ViewModels
             SetNewPatientFormCommand = new RelayCommand(SetNewPatientForm);
             EditPatientCommand = new RelayCommand(EditPatient, () => IsPatientSelected);
             SavePatientCommand = new AsyncRelayCommand(SavePatientAsync);
-            DeletePatientAsyncCommand = new AsyncRelayCommand(DeletePatientAsync, () => IsPatientSelected);
+            DeletePatientAsyncCommand = new AsyncRelayCommand(DeletePatientAsync, () => IsPatientSelectedAndActive);
+            ReactivatePatientAsyncCommand = new AsyncRelayCommand(ReactivatePatientAsync, () => IsPatientSelectedAndInactive);
             CreatePrescriptionCommand = new RelayCommand(CreatePrescription, () => IsPatientSelected);
             ViewPatientDetailsCommand = new AsyncRelayCommand(ViewPatientDetailsAsync, () => IsPatientSelected);
+
+            // --- NUEVO COMANDO AÑADIDO ---
+            DeletePatientPermanentlyAsyncCommand = new AsyncRelayCommand(DeletePatientPermanentlyAsync, () => IsPatientSelectedAndInactive);
 
             _ = SearchPatientsAsync();
         }
@@ -135,11 +151,11 @@ namespace TuClinica.UI.ViewModels
             IEnumerable<Patient>? patientsFromDb;
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                patientsFromDb = await _patientRepository.SearchByNameOrDniAsync(SearchText);
+                patientsFromDb = await _patientRepository.SearchByNameOrDniAsync(SearchText, ShowInactivePatients);
             }
             else
             {
-                patientsFromDb = await _patientRepository.GetAllAsync();
+                patientsFromDb = await _patientRepository.GetAllAsync(ShowInactivePatients);
             }
             if (patientsFromDb != null)
             {
@@ -178,12 +194,8 @@ namespace TuClinica.UI.ViewModels
 
         private async Task SavePatientAsync()
         {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Normalización (ahora usa el método de extensión)
             PatientFormModel.Name = PatientFormModel.Name.ToTitleCase();
             PatientFormModel.Surname = PatientFormModel.Surname.ToTitleCase();
-            // --- FIN DE LA MODIFICACIÓN ---
-
             PatientFormModel.DniNie = PatientFormModel.DniNie?.ToUpper().Trim() ?? string.Empty;
             PatientFormModel.Email = PatientFormModel.Email?.ToLower().Trim() ?? string.Empty;
 
@@ -229,6 +241,8 @@ namespace TuClinica.UI.ViewModels
                         existingPatient.Address = PatientFormModel.Address;
                         existingPatient.Email = PatientFormModel.Email;
                         existingPatient.Notes = PatientFormModel.Notes;
+                        existingPatient.IsActive = PatientFormModel.IsActive;
+
                         _patientRepository.Update(existingPatient);
                         _dialogService.ShowMessage("Paciente actualizado con éxito.", "Éxito");
                     }
@@ -254,31 +268,41 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedPatient == null) return;
 
-            var result = _dialogService.ShowConfirmation($"¿Eliminar/archivar '{SelectedPatient.Name} {SelectedPatient.Surname}'?", "Confirmar");
+            var result = _dialogService.ShowConfirmation($"¿Está seguro de archivar al paciente '{SelectedPatient.Name} {SelectedPatient.Surname}'?\n\nEl paciente se ocultará de la lista principal.", "Confirmar Archivación");
             if (result == CoreDialogResult.No) return;
 
             bool hasHistory = await _patientRepository.HasHistoryAsync(SelectedPatient.Id);
+
             if (hasHistory)
             {
                 var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
                 if (p != null)
                 {
                     p.IsActive = false;
+                    _patientRepository.Update(p);
                     await _patientRepository.SaveChangesAsync();
                     _dialogService.ShowMessage("Paciente archivado (tenía historial).", "Archivado");
                 }
             }
             else
             {
-                var conf = _dialogService.ShowConfirmation("ELIMINACIÓN PERMANENTE. ¿Seguro?", "¡ADVERTENCIA!");
-                if (conf == CoreDialogResult.No) return;
+                var conf = _dialogService.ShowConfirmation("Este paciente no tiene historial. ¿Desea ELIMINARLO PERMANENTEMENTE?\n\n'No' = Solo archivar.", "Eliminación Permanente");
 
                 var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
-                if (p != null)
+                if (p == null) return;
+
+                if (conf == CoreDialogResult.Yes) // BORRADO PERMANENTE
                 {
                     _patientRepository.Remove(p);
                     await _patientRepository.SaveChangesAsync();
                     _dialogService.ShowMessage("Paciente eliminado permanentemente.", "Eliminado");
+                }
+                else // SOLO ARCHIVAR
+                {
+                    p.IsActive = false;
+                    _patientRepository.Update(p);
+                    await _patientRepository.SaveChangesAsync();
+                    _dialogService.ShowMessage("Paciente archivado.", "Archivado");
                 }
             }
             await SearchPatientsAsync();
@@ -286,6 +310,69 @@ namespace TuClinica.UI.ViewModels
             IsFormEnabled = false;
             SelectedPatient = null;
         }
+
+        private async Task ReactivatePatientAsync()
+        {
+            if (SelectedPatient == null) return;
+
+            var result = _dialogService.ShowConfirmation($"¿Está seguro de reactivar al paciente '{SelectedPatient.Name} {SelectedPatient.Surname}'?\n\nVolverá a aparecer en la lista principal.", "Confirmar Reactivación");
+            if (result == CoreDialogResult.No) return;
+
+            try
+            {
+                var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
+                if (p != null)
+                {
+                    p.IsActive = true;
+                    _patientRepository.Update(p);
+                    await _patientRepository.SaveChangesAsync();
+                    _dialogService.ShowMessage("Paciente reactivado con éxito.", "Éxito");
+
+                    await LoggedSearchAsync();
+                    SelectedPatient = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al reactivar el paciente:\n{ex.Message}", "Error Base de Datos");
+            }
+        }
+
+        // --- NUEVO MÉTODO AÑADIDO ---
+        private async Task DeletePatientPermanentlyAsync()
+        {
+            if (SelectedPatient == null) return;
+
+            // Doble confirmación muy explícita
+            var result = _dialogService.ShowConfirmation(
+                $"¡ADVERTENCIA! Está a punto de ELIMINAR PERMANENTEMENTE a '{SelectedPatient.Name} {SelectedPatient.Surname}'.\n\n" +
+                $"Esta acción NO SE PUEDE DESHACER y borrará toda la información del paciente.\n\n" +
+                $"¿ESTÁ COMPLETAMENTE SEGURO?",
+                "Confirmar Eliminación Permanente");
+
+            if (result == CoreDialogResult.No) return;
+
+            try
+            {
+                var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
+                if (p != null)
+                {
+                    _patientRepository.Remove(p);
+                    await _patientRepository.SaveChangesAsync();
+                    _dialogService.ShowMessage("Paciente eliminado permanentemente.", "Eliminado");
+
+                    await LoggedSearchAsync();
+                    SelectedPatient = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Este error es común si el paciente todavía tiene historial (Claves Foráneas)
+                _dialogService.ShowMessage($"Error al eliminar permanentemente al paciente:\n{ex.Message}\n\n" +
+                    $"Esto puede ocurrir si el paciente tiene historial clínico, presupuestos o pagos que deben ser eliminados primero.", "Error Base de Datos");
+            }
+        }
+
 
         private void CreatePrescription()
         {
@@ -303,38 +390,39 @@ namespace TuClinica.UI.ViewModels
         {
             IsFormEnabled = false;
             EditPatientCommand.NotifyCanExecuteChanged();
-            DeletePatientAsyncCommand.NotifyCanExecuteChanged();
             CreatePrescriptionCommand.NotifyCanExecuteChanged();
             ViewPatientDetailsCommand.NotifyCanExecuteChanged();
+
+            OnPropertyChanged(nameof(IsPatientSelectedAndActive));
+            OnPropertyChanged(nameof(IsPatientSelectedAndInactive));
+            DeletePatientAsyncCommand.NotifyCanExecuteChanged();
+            ReactivatePatientAsyncCommand.NotifyCanExecuteChanged();
+            // --- AÑADIDO ---
+            DeletePatientPermanentlyAsyncCommand.NotifyCanExecuteChanged();
         }
 
-        // --- MÉTODO MODIFICADO PARA DEBOUNCING ---
         partial void OnSearchTextChanged(string value)
         {
-            // Cancela la búsqueda anterior
             _searchCts?.Cancel();
-            // Crea un nuevo token de cancelación
             _searchCts = new CancellationTokenSource();
-            // Inicia la tarea de búsqueda con retraso
             _ = DebouncedSearchAsync(_searchCts.Token);
         }
 
-        // --- NUEVO MÉTODO AÑADIDO ---
+        partial void OnShowInactivePatientsChanged(bool value)
+        {
+            _ = LoggedSearchAsync();
+        }
+
         private async Task DebouncedSearchAsync(CancellationToken token)
         {
             try
             {
-                // Espera 300ms. Si OnSearchTextChanged se llama de nuevo
-                // (porque el usuario sigue escribiendo), el token se
-                // cancelará y esto lanzará una TaskCanceledException.
                 await Task.Delay(300, token);
-
-                // Si la espera se completó sin cancelación, ejecuta la búsqueda.
                 await LoggedSearchAsync();
             }
             catch (TaskCanceledException)
             {
-                // La búsqueda fue cancelada (el usuario sigue escribiendo). No hacer nada.
+                // No hacer nada
             }
         }
     }

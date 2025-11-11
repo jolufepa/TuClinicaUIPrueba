@@ -6,26 +6,44 @@
              
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              
-      
+             xmlns:converters="clr-namespace:TuClinica.UI.Converters"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:PatientsViewModel}"
              
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="1000">
 
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBox Grid.Row="0" 
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                 mah:TextBoxHelper.Watermark="Buscar por nombre o DNI..." 
-               
-   Margin="0,0,0,20" />
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0" 
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     mah:TextBoxHelper.Watermark="Buscar por nombre o DNI..." 
+                     VerticalAlignment="Center"/>
+
+            <CheckBox Grid.Column="1"
+                      Content="Mostrar pacientes archivados"
+                      IsChecked="{Binding ShowInactivePatients}"
+                      Margin="15,0,0,0"
+                      VerticalAlignment="Center"/>
+        </Grid>
+
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -38,16 +56,22 @@
                       ItemsSource="{Binding Patients}" 
                       SelectedItem="{Binding SelectedPatient}"
                       SelectionMode="Single"
-           
-             BorderThickness="1"
+                      BorderThickness="1"
                       BorderBrush="#D6D6D6">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Apellidos" DisplayMemberBinding="{Binding Surname}" Width="200"/>
-
                         <GridViewColumn Header="Nombre" DisplayMemberBinding="{Binding Name}" Width="150"/>
                         <GridViewColumn Header="DNI/NIE" DisplayMemberBinding="{Binding DniNie}" Width="100"/>
                         <GridViewColumn Header="Teléfono" DisplayMemberBinding="{Binding Phone}" Width="120"/>
+
+                        <GridViewColumn Header="Activo" Width="60">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsActive}" IsEnabled="False" HorizontalAlignment="Center" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
 
                     </GridView>
                 </ListView.View>
@@ -61,7 +85,6 @@
                         <TextBox Text="{Binding PatientFormModel.Name}"/>
 
                         <Label Content="Apellidos:"/>
-
                         <TextBox Text="{Binding PatientFormModel.Surname}"/>
 
                         <Label Content="DNI/NIE:"/>
@@ -71,23 +94,25 @@
                         <DatePicker SelectedDate="{Binding PatientFormModel.DateOfBirth}" Margin="0,0,0,10"/>
 
                         <Label Content="Teléfono:"/>
-
                         <TextBox Text="{Binding PatientFormModel.Phone}"/>
 
                         <Label Content="Email:"/>
                         <TextBox Text="{Binding PatientFormModel.Email}"/>
 
                         <Label Content="Dirección:"/>
-
                         <TextBox Text="{Binding PatientFormModel.Address}"/>
 
                         <Label Content="Notas:"/>
                         <TextBox Text="{Binding PatientFormModel.Notes}" 
                                  TextWrapping="Wrap" 
-        
-                          MinHeight="100" 
+                                 MinHeight="100" 
                                  AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto"/>
+
+                        <CheckBox Content="Paciente Activo"
+                                  IsChecked="{Binding PatientFormModel.IsActive}"
+                                  Margin="0,15,0,0"
+                                  Visibility="{Binding IsFormEnabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                     </StackPanel>
                 </Grid>
@@ -96,24 +121,39 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
 
-            <Button Content="Eliminar"
-               
-     Command="{Binding DeletePatientAsyncCommand}" 
-                    Margin="0,0,10,0"/>
+            <Button Content="Eliminar/Archivar"
+                    Command="{Binding DeletePatientAsyncCommand}" 
+                    Margin="0,0,10,0"
+                    Background="IndianRed"
+                    Foreground="White"
+                    Visibility="{Binding IsPatientSelectedAndActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <Button Content="Reactivar"
+                    Command="{Binding ReactivatePatientAsyncCommand}"
+                    Margin="0,0,10,0"
+                    Background="SeaGreen"
+                    Foreground="White"
+                    Visibility="{Binding IsPatientSelectedAndInactive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <Button Content="Eliminar Permanente"
+                    Command="{Binding DeletePatientPermanentlyAsyncCommand}"
+                    Margin="0,0,10,0"
+                    Background="DarkRed"
+                    Foreground="White"
+                    Visibility="{Binding IsPatientSelectedAndInactive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
 
             <Button Content="Nuevo"
                     Command="{Binding SetNewPatientFormCommand}"
                     Margin="0,0,10,0"/>
 
             <Button Content="Ver Ficha"
-     
-                 Command="{Binding ViewPatientDetailsCommand}"
+                    Command="{Binding ViewPatientDetailsCommand}"
                     Margin="0,0,10,0"/>
 
             <Button Content="Editar"
                     Command="{Binding EditPatientCommand}"
                     Margin="0,0,10,0"/>
-
 
             <Button Content="Guardar"
                     Command="{Binding SavePatientCommand}"
