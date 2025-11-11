@@ -1,11 +1,3 @@
-Aquí tienes el archivo `README.txt` actualizado.
-
-He conservado toda tu información original e integrado las mejoras de arquitectura que hemos implementado (el refactor de `IServiceScopeFactory`, el streaming de backups con `AES-CBC+HMAC`, y la corrección del bug de `AsNoTracking` en la exportación).
-
-Puedes copiar y pegar este contenido directamente en un archivo `README.txt`.
-
------
-
 ```
 🦷 TuClínica.UI - Sistema de Gestión Dental
 
