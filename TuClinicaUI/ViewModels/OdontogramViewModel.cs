@@ -66,6 +66,10 @@ namespace TuClinica.UI.ViewModels
             TeethQuadrant3.Clear();
             TeethQuadrant4.Clear();
 
+            // --- INICIO DE LA CORRECCIÓN DE ORDENACIÓN ---
+
+            // Creamos copias locales primero para poder ordenarlas
+            var copies = new List<ToothViewModel>();
             foreach (var tooth in masterOdontogram)
             {
                 var copy = new ToothViewModel(tooth.ToothNumber)
@@ -83,12 +87,37 @@ namespace TuClinica.UI.ViewModels
                     VestibularRestoration = tooth.VestibularRestoration,
                     LingualRestoration = tooth.LingualRestoration
                 };
-                Odontogram.Add(copy);
-                if (copy.ToothNumber >= 11 && copy.ToothNumber <= 18) TeethQuadrant1.Add(copy);
-                else if (copy.ToothNumber >= 21 && copy.ToothNumber <= 28) TeethQuadrant2.Add(copy);
-                else if (copy.ToothNumber >= 31 && copy.ToothNumber <= 38) TeethQuadrant3.Add(copy);
-                else if (copy.ToothNumber >= 41 && copy.ToothNumber <= 48) TeethQuadrant4.Add(copy);
+                Odontogram.Add(copy); // El odontograma maestro (para guardar) mantiene el orden original
+                copies.Add(copy); // La lista de copias se usará para la UI
             }
+
+            // Ahora llenamos los cuadrantes para la UI con el orden visual correcto
+
+            // Cuadrante 1 (18 -> 11)
+            foreach (var tooth in copies.Where(t => t.ToothNumber >= 11 && t.ToothNumber <= 18).OrderByDescending(t => t.ToothNumber))
+            {
+                TeethQuadrant1.Add(tooth);
+            }
+
+            // Cuadrante 2 (21 -> 28)
+            foreach (var tooth in copies.Where(t => t.ToothNumber >= 21 && t.ToothNumber <= 28).OrderBy(t => t.ToothNumber))
+            {
+                TeethQuadrant2.Add(tooth);
+            }
+
+            // Cuadrante 4 (48 -> 41)
+            foreach (var tooth in copies.Where(t => t.ToothNumber >= 41 && t.ToothNumber <= 48).OrderByDescending(t => t.ToothNumber))
+            {
+                TeethQuadrant4.Add(tooth);
+            }
+
+            // Cuadrante 3 (31 -> 38)
+            foreach (var tooth in copies.Where(t => t.ToothNumber >= 31 && t.ToothNumber <= 38).OrderBy(t => t.ToothNumber))
+            {
+                TeethQuadrant3.Add(tooth);
+            }
+
+            // --- FIN DE LA CORRECCIÓN DE ORDENACIÓN ---
         }
 
         public void Receive(SurfaceClickedMessage message)
@@ -157,7 +186,11 @@ namespace TuClinica.UI.ViewModels
                 {
                     // Limpia cualquier estado completo (Ausente o Implante)
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
+
+                    // --- ¡AQUÍ ESTÁ EL ERROR DE TIPEO! ---
+                    // Cambiado 'Ningna' a 'Ninguna'
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
+                    // --- FIN DE LA CORRECCIÓN ---
 
                     // Y aplica a la superficie que se hizo clic
                     UpdateToothSurfaceCondition(tooth, surface, newCond);

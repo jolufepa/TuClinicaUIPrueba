@@ -1,5 +1,4 @@
-﻿
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System;
@@ -17,36 +16,7 @@ namespace TuClinica.UI.Views.Controls
     }
 
     /*
-    /// <summary>
-    /// LÍNEA CONFLICTIVA: Esta clase ya no se usa y tiene errores de tipado (CS0117).
-    /// Fue reemplazada por ConditionToColorConverter y RestorationToColorConverter.
-    /// </summary>
-    public class ToothStatusToBrushConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is ToothRestoration status)
-            {
-                return status switch
-                {
-                    ToothRestoration.Sano => Brushes.White,
-                    ToothRestoration.Caries => Brushes.Red,
-                    ToothRestoration.Obturacion => Brushes.Blue,
-                    ToothRestoration.ExtraccionIndicada => Brushes.Black,
-                    ToothRestoration.Ausente => Brushes.LightGray,
-                    ToothRestoration.Corona => Brushes.Gold,
-                    ToothRestoration.Implante => Brushes.Purple,
-                    ToothRestoration.Endodoncia => Brushes.Orange,
-                    _ => Brushes.Transparent
-                };
-            }
-            return Brushes.Transparent;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-    */
+     * EL CÓDIGO CON ERRORES QUE ESTABA AQUÍ HA SIDO ELIMINADO.
+     * El archivo ahora está limpio y solo contiene la clase 'ToothControl'.
+     */
 }
