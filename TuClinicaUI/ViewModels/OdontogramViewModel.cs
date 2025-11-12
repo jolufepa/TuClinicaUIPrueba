@@ -187,7 +187,7 @@ namespace TuClinica.UI.ViewModels
                     // Limpia cualquier estado completo (Ausente o Implante)
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
 
-                    // --- ¡AQUÍ ESTÁ EL ERROR DE TIPEO! ---
+                    // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
                     // Cambiado 'Ningna' a 'Ninguna'
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
                     // --- FIN DE LA CORRECCIÓN ---
