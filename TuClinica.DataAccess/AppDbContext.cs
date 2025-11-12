@@ -94,7 +94,7 @@ namespace TuClinica.DataAccess
                 // --- ¡FILTRO DE ENTIDADES! ---
                 // Aquí decides qué entidades auditar. Empezamos con Patient.
                 // Puedes añadir: || entry.Entity is Budget || entry.Entity is Prescription
-                if (!(entry.Entity is Patient))
+                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry))
                     continue;
 
                 var logEntry = new LogEntryTemp(entry)

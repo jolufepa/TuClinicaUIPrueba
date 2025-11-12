@@ -118,7 +118,13 @@ namespace TuClinica.UI.ViewModels
 
             if (!string.IsNullOrWhiteSpace(SearchText) && SearchText.Length > 1)
             {
-                var results = await _patientRepository.SearchByNameOrDniAsync(SearchText);
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // La ventana de selección no necesita paginación, pero sí necesita
+                // pasar todos los argumentos.
+                // (query, includeInactive: false, page: 1, pageSize: MaxValue)
+                var results = await _patientRepository.SearchByNameOrDniAsync(SearchText, false, 1, int.MaxValue);
+                // --- FIN DE LA MODIFICACIÓN ---
+
                 if (results != null)
                 {
                     // No necesitas usar AddRangeAsync aquí, solo añadir a la ObservableCollection
