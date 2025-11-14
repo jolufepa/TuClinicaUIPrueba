@@ -127,14 +127,12 @@ namespace TuClinica.UI.ViewModels
             OpenStateDialog(tooth, message.Value);
         }
 
-        // **** LÓGICA DE ESTADO REESCRITA ****
         private void OpenStateDialog(ToothViewModel tooth, ToothSurface surface)
         {
             var dialog = new OdontogramStateDialog();
 
             (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
 
-            // Si el diente tiene un estado COMPLETO (Ausente o Implante), mostramos ese.
             if (tooth.FullCondition != ToothCondition.Sano)
             {
                 currentCond = tooth.FullCondition;
@@ -157,42 +155,28 @@ namespace TuClinica.UI.ViewModels
                 var newCond = dialog.NewCondition;
                 var newRest = dialog.NewRestoration;
 
-                // Regla 1: "Ausente" tiene prioridad máxima y limpia todo lo demás.
                 if (newCond == ToothCondition.Ausente)
                 {
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Ausente);
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
                 }
-                // Regla 2: Restauraciones de diente completo (Implante, Corona, etc.)
-                // (ProtesisFija y Removible también son estados completos)
                 else if (newRest == ToothRestoration.Implante ||
                          newRest == ToothRestoration.Corona ||
                          newRest == ToothRestoration.ProtesisFija ||
                          newRest == ToothRestoration.ProtesisRemovible)
                 {
-                    // Limpia la condición de "Ausente" (si la tuviera)
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
-                    // Aplica la restauración completa
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, newRest);
                 }
-                // Regla 3: Si se pone "Sano" y "Ninguna" (para limpiar un estado completo)
                 else if (newCond == ToothCondition.Sano && newRest == ToothRestoration.Ninguna)
                 {
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
                 }
-                // Regla 4: Es una restauración/condición de superficie (caries, empaste)
                 else
                 {
-                    // Limpia cualquier estado completo (Ausente o Implante)
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
-
-                    // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
-                    // Cambiado 'Ningna' a 'Ninguna'
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
-                    // --- FIN DE LA CORRECCIÓN ---
-
-                    // Y aplica a la superficie que se hizo clic
                     UpdateToothSurfaceCondition(tooth, surface, newCond);
                     UpdateToothSurfaceRestoration(tooth, surface, newRest);
                 }

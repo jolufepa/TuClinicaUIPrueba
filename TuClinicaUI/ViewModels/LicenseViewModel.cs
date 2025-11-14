@@ -81,18 +81,26 @@ namespace TuClinica.UI.ViewModels
                     if (_licenseService.IsLicenseValid())
                     {
                         _dialogService.ShowMessage("¡Licencia importada y activada correctamente!\n\nLa aplicación se reiniciará.", "Activación Exitosa");
-                        // --- Reiniciar la aplicación ---
-                        // (La forma más simple de asegurar que todo se recargue con la licencia)
-                        Process.Start(Application.ResourceAssembly.Location); // Inicia una nueva instancia
-                        Application.Current.Shutdown(); // Cierra la instancia actual
+
+                        // --- CORRECCIÓN ---
+                        // Usamos Environment.ProcessPath, que es 100% fiable
+                        // para obtener la ruta al .exe actual, incluso en ClickOnce.
+                        string? exePath = Environment.ProcessPath;
+
+                        if (!string.IsNullOrEmpty(exePath))
+                        {
+                            Process.Start(exePath); // Inicia una nueva instancia
+                            Application.Current.Shutdown(); // Cierra esta instancia
+                        }
+                        else
+                        {
+                            // Fallback por si algo muy raro pasa
+                            ErrorMessage = "Error al reiniciar. Por favor, cierre y abra la aplicación manualmente.";
+                        }
                     }
                     else
                     {
-                        // La copia tuvo éxito, PERO la licencia sigue siendo inválida
-                        // (Machine ID incorrecto, firma inválida, etc.)
-                        ErrorMessage = "La licencia importada no es válida para esta máquina o está corrupta.";
-                        // Opcional: Borrar el archivo copiado si falló la validación
-                        // File.Delete(_targetLicensePath);
+                        ErrorMessage = "La licencia importada no es válida para este equipo.";
                     }
                 }
                 catch (IOException ioEx) // Error al copiar (ej. permisos)

@@ -80,5 +80,9 @@
     
     </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Views\Styles\" />
+  </ItemGroup>
+
 
 </Project>

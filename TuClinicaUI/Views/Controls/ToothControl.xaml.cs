@@ -16,7 +16,8 @@ namespace TuClinica.UI.Views.Controls
     }
 
     /*
-     * EL CÓDIGO CON ERRORES QUE ESTABA AQUÍ HA SIDO ELIMINADO.
+     * EL BLOQUE DE CÓDIGO COMENTADO QUE DABA ERRORES
+     * (ToothStatusToBrushConverter) HA SIDO ELIMINADO.
      * El archivo ahora está limpio y solo contiene la clase 'ToothControl'.
      */
 }
