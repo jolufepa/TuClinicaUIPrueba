@@ -8,54 +8,58 @@
              xmlns:selectors="clr-namespace:TuClinica.UI.Selectors"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              xmlns:events="clr-namespace:TuClinica.UI.ViewModels.Events" 
-             
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:models="clr-namespace:TuClinica.Core.Models;assembly=TuClinica.Core"
-             
              Height="Auto" Width="Auto">
 
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary>
-                    <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-                    <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-                    <converters:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
-                </ResourceDictionary>
             </ResourceDictionary.MergedDictionaries>
+
+            <converters:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
+
+            <Style TargetType="{x:Type mah:MetroTabItem}" BasedOn="{StaticResource {x:Type mah:MetroTabItem}}">
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="#DCEAF7"/>
+                        <Setter Property="FontWeight" Value="Bold" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
             <DataTemplate x:Key="CargoTemplate" DataType="{x:Type events:CargoEvent}">
                 <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
                         </Grid.ColumnDefinitions>
 
-                        <iconPacks:PackIconModern Kind="CurrencyDollar" VerticalAlignment="Center" Margin="5,0,15,0" 
+                        <iconPacks:PackIconModern Kind="Clipboard" VerticalAlignment="Center" Margin="5,0,15,0" 
                                                   Foreground="#D32F2F" Width="20" Height="20" />
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Cargo.Diagnosis, TargetNullValue='Cargo Manual'}" />
-
                             <TextBlock FontSize="12" Foreground="#D32F2F" FontStyle="Italic"
                                        Text="{Binding Cargo.Notes}"
                                        Visibility="{Binding Cargo.Notes, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
-
                             <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Cargo.VisitDate, StringFormat='dd/MM/yyyy'}" />
                         </StackPanel>
 
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="#D32F2F" Margin="20,0"
-                                   Text="{Binding Cargo.TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#D32F2F" Padding="5"
+                                   Text="{Binding Cargo.TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
+                                   HorizontalAlignment="Right" />
 
-                        <Button Grid.Column="3" 
+                        <Button Grid.Column="4" 
                                  Command="{Binding DeleteCommand}"
-                                CommandParameter="{Binding Cargo}"
+                                 CommandParameter="{Binding Cargo}"
                                 ToolTip="Eliminar este cargo"
                                  Style="{StaticResource MahApps.Styles.Button.Chromeless}"
-                                Margin="5,0,0,0">
+                                 Margin="5,0,0,0">
                             <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
                         </Button>
                     </Grid>
@@ -66,25 +70,26 @@
                 <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
                         </Grid.ColumnDefinitions>
 
                         <iconPacks:PackIconModern Kind="CurrencyEuro" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#388E3C" Width="20" Height="20" />
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Abono.Method, TargetNullValue='Abono'}" />
-
                             <TextBlock FontSize="12" Foreground="#388E3C" FontStyle="Italic"
                                         Text="{Binding Abono.Observaciones}"
-                                       Visibility="{Binding Abono.Observaciones, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
-
+                                        Visibility="{Binding Abono.Observaciones, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
                             <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Abono.PaymentDate, StringFormat='dd/MM/yyyy'}" />
                         </StackPanel>
 
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="#388E3C" Margin="20,0"
-                                   Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" />
+                        <TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#388E3C" Padding="5"
+                                   Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
+                                   HorizontalAlignment="Right" />
                     </Grid>
                 </Border>
             </DataTemplate>
@@ -92,7 +97,6 @@
             <selectors:HistorialTemplateSelector x:Key="HistorialSelector"
                                                  CargoTemplate="{StaticResource CargoTemplate}"
                                                  AbonoTemplate="{StaticResource AbonoTemplate}" />
-
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -106,14 +110,13 @@
                                   Foreground="White"/>
                 <TextBlock 
                     Text="Cargando ficha del paciente..." 
-                    Foreground="White" 
+                   Foreground="White" 
                     Margin="0,10,0,0" 
                      HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
         <Grid>
-
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -121,7 +124,6 @@
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Background="#007ACC" Margin="0,0,0,10">
-
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -137,19 +139,18 @@
                            Margin="15,10"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20,0,0,0">
-
                     <Button Content="Registrar Cargo/Visita" 
                             Command="{Binding OpenRegisterChargeDialogCommand}"
                             Style="{StaticResource MahApps.Styles.Button.Flat}"
                              Foreground="White"
-                            mah:ControlsHelper.FocusBorderBrush="White"
+                             mah:ControlsHelper.FocusBorderBrush="White"
                             mah:ControlsHelper.MouseOverBorderBrush="White"
                              Margin="0,0,10,0"/>
                     <Button Content="Registrar Nuevo Pago (Abono)"
                             Command="{Binding RegisterNewPaymentCommand}"
                             Style="{StaticResource MahApps.Styles.Button.Flat}"
                              Foreground="#90EE90"
-                            mah:ControlsHelper.FocusBorderBrush="White"
+                             mah:ControlsHelper.FocusBorderBrush="White"
                             mah:ControlsHelper.MouseOverBorderBrush="White"/>
                 </StackPanel>
 
@@ -158,15 +159,13 @@
                     <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}', ConverterCulture='es-ES'}"
                                Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
                                 FontSize="20" 
-                               FontWeight="Bold"/>
+                                FontWeight="Bold"/>
                 </StackPanel>
             </Grid>
 
-            <mah:MetroTabControl 
- Grid.Row="1" Margin="5,0">
+            <mah:MetroTabControl Grid.Row="1" Margin="5,0">
 
                 <mah:MetroTabItem Padding="20">
-
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="PageText" VerticalAlignment="Center" Margin="0,0,5,0" />
@@ -181,7 +180,6 @@
                         </Grid.ColumnDefinitions>
 
                         <Grid Grid.Column="0">
-
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
@@ -189,13 +187,13 @@
 
                             <Border Grid.Row="0"
                                      Background="White"
-                                    CornerRadius="3"
+                                     CornerRadius="3"
                                     BorderBrush="#DDDDDD"
                                      BorderThickness="1"
-                                    VerticalAlignment="Top"
+                                     VerticalAlignment="Top"
                                     HorizontalAlignment="Stretch"
                                      Effect="{StaticResource ShadowZ2}"
-                                    Margin="0,0,10,0">
+                                     Margin="0,0,10,0">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -229,7 +227,7 @@
                                                        Style="{StaticResource FichaTextBlockStyle}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             <DatePicker SelectedDate="{Binding CurrentPatient.DateOfBirth, UpdateSourceTrigger=PropertyChanged}"
                                                         Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
-                                                         VerticalAlignment="Center"
+                                                        VerticalAlignment="Center"
                                                          Margin="0,0,0,10"/>
                                         </Grid>
 
@@ -255,17 +253,16 @@
                             <Border Grid.Row="1" Background="{DynamicResource MahApps.Brushes.Gray9}" Padding="10" Margin="0,10,10,0">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Editar Datos" 
-                                              Command="{Binding ToggleEditPatientDataCommand}"
+                                            Command="{Binding ToggleEditPatientDataCommand}"
                                             Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
                                              Margin="0,0,10,0"/>
                                     <Button Content="Guardar Cambios" 
                                              Command="{Binding SavePatientDataAsyncCommand}"
-                                            IsDefault="True"
+                                             IsDefault="True"
                                              Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                                            Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
-
+                                             Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
                                     <Button Content="Cancelar Edición"
-                                             Command="{Binding ToggleEditPatientDataCommand}"
+                                            Command="{Binding ToggleEditPatientDataCommand}"
                                             Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
                                              Margin="10,0,0,0"/>
                                 </StackPanel>
@@ -275,21 +272,57 @@
                         <GroupBox Grid.Column="1" Header="Vista Rápida Odontograma" Margin="10,0,0,0" Padding="10">
                             <controls:OdontogramPreviewControl DataContext="{Binding OdontogramPreviewVM}" />
                         </GroupBox>
-
                     </Grid>
                 </mah:MetroTabItem>
-
 
                 <mah:MetroTabItem Padding="20">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconModern Kind="List" VerticalAlignment="Center" Margin="0,0,5,0" />
-                            <TextBlock Text="Historial Clínico" />
+                            <iconPacks:PackIconModern Kind="BookOpen" VerticalAlignment="Center" Margin="0,0,5,0" />
+                            <TextBlock Text="Historial Clínico (Visitas)" />
+                        </StackPanel>
+                    </mah:MetroTabItem.Header>
+
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding VisitHistory}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  FontSize="14"
+                                  GridLinesVisibility="Vertical"
+                                  VerticalGridLinesBrush="#EEEEEE"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single">
+
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fecha" Binding="{Binding VisitDate, StringFormat='dd/MM/yyyy HH:mm'}" Width="Auto"/>
+                                <DataGridTextColumn Header="Doctor" Binding="{Binding DoctorName}" Width="Auto"/>
+                                <DataGridTextColumn Header="Diagnóstico / Concepto" Binding="{Binding Diagnosis}" Width="2*"/>
+
+                                <DataGridTextColumn Header="Notas" Binding="{Binding Notes}" Width="3*"/>
+
+                                <DataGridTextColumn Header="Total" Binding="{Binding TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" Width="Auto">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="HorizontalAlignment" Value="Right" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </mah:MetroTabItem>
+                <mah:MetroTabItem Padding="20">
+                    <mah:MetroTabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconModern Kind="Money" VerticalAlignment="Center" Margin="0,0,5,0" />
+                            <TextBlock Text="Contabilidad (Cargos y Abonos)" />
                         </StackPanel>
                     </mah:MetroTabItem.Header>
 
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
@@ -297,34 +330,48 @@
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
                             <Button Content="Nuevo Presupuesto" 
                                      Command="{Binding NewBudgetCommand}"
-                                    Margin="0,0,8,0"/>
+                                     Margin="0,0,8,0"/>
                             <Button Content="Imprimir Historial (PDF)"
                                      Command="{Binding PrintHistoryCommand}" 
-                                    Margin="0,0,8,0"/>
+                                     Margin="0,0,8,0"/>
                         </StackPanel>
 
-                        <ListView Grid.Row="1"
+                        <Grid Grid.Row="1" Margin="1,0,1,0" Background="#F0F0F0" Height="30">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="2" Text="Debe (Cargos)" FontWeight="SemiBold" Padding="5" 
+                                       FontSize="18" 
+                                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Grid.Column="3" Text="Haber (Abonos)" FontWeight="SemiBold" Padding="5" 
+                                       FontSize="18" 
+                                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        </Grid>
+
+                        <ListView Grid.Row="2"
+                                  Grid.IsSharedSizeScope="True" 
                                   ItemsSource="{Binding HistorialCombinado}"
                                   ItemTemplateSelector="{StaticResource HistorialSelector}"
                                    BorderBrush="#DDDDDD"
-                                  BorderThickness="1"
+                                   BorderThickness="1"
                                   HorizontalContentAlignment="Stretch"
                                    ScrollViewer.VerticalScrollBarVisibility="Auto">
-
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                                     <Setter Property="Focusable" Value="False"/>
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 </Style>
                             </ListView.ItemContainerStyle>
-
                         </ListView>
-
                     </Grid>
                 </mah:MetroTabItem>
 
                 <mah:MetroTabItem Padding="20">
-
                     <mah:MetroTabItem.Header>
                         <Grid>
                             <StackPanel Orientation="Horizontal">
@@ -372,13 +419,10 @@
                                   VerticalGridLinesBrush="#EEEEEE"
                                   FontSize="14"
                                   HeadersVisibility="Column"
-                                  
                                   SelectionMode="Single"
                                   IsReadOnly="True" 
                                   >
-
                             <DataGrid.Columns>
-
                                 <DataGridTemplateColumn Header="Hecho" Width="Auto" IsReadOnly="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type models:TreatmentPlanItem}">
@@ -418,7 +462,6 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-
                             </DataGrid.Columns>
                         </DataGrid>
 
@@ -439,7 +482,6 @@
                                          Margin="0,0,10,0"
                                          VerticalContentAlignment="Center"
                                          FontSize="14"/>
-
                                 <Button Grid.Column="1"
                                         Content="Añadir Tarea"
                                         Command="{Binding AddPlanItemAsyncCommand}"
@@ -450,11 +492,9 @@
                 </mah:MetroTabItem>
             </mah:MetroTabControl>
 
-            <StatusBar 
- Grid.Row="2" Background="#F8F9FA" Padding="10,5">
+            <StatusBar Grid.Row="2" Background="#F8F9FA" Padding="10,5">
                 <StatusBarItem>
-                    <TextBlock 
- Text="Listo" FontWeight="SemiBold"/>
+                    <TextBlock Text="Listo" FontWeight="SemiBold"/>
                 </StatusBarItem>
             </StatusBar>
         </Grid>

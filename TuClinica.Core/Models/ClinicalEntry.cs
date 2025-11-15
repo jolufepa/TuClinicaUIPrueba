@@ -27,10 +27,15 @@ namespace TuClinica.Core.Models
         [ForeignKey("DoctorId")]
         public User? Doctor { get; set; }
 
-        // --- AÑADIR JsonIgnore ---
+        // --- INICIO DE LA MODIFICACIÓN ---
         [NotMapped]
         [JsonIgnore]
-        public string DoctorName => Doctor?.Name ?? "Desconocido";
+        // Esta propiedad ahora comprueba si 'Name' está vacío.
+        // Si lo está, usa 'Username' como alternativa.
+        public string DoctorName => !string.IsNullOrWhiteSpace(Doctor?.Name)
+                                      ? Doctor.Name
+                                      : (Doctor?.Username ?? "Desconocido");
+        // --- FIN DE LA MODIFICACIÓN ---
 
         public DateTime VisitDate { get; set; }
         public string? Diagnosis { get; set; }

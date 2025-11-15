@@ -32,7 +32,11 @@ namespace TuClinica.Services.Tests
         private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
         private Mock<IPaymentRepository> _paymentRepoMock;
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
-        private Mock<IAuthService> _authServiceMock;
+
+        // --- INICIO DE LA MODIFICACIÓN: authServiceMock eliminado de este test ---
+        // private Mock<IAuthService> _authServiceMock; // <-- YA NO SE NECESITA AQUÍ
+        // --- FIN DE LA MODIFICACIÓN ---
+
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
@@ -57,7 +61,9 @@ namespace TuClinica.Services.Tests
             _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
             _paymentRepoMock = new Mock<IPaymentRepository>();
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
-            _authServiceMock = new Mock<IAuthService>();
+
+            // _authServiceMock = new Mock<IAuthService>(); // <-- YA NO SE NECESITA AQUÍ
+
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
@@ -65,14 +71,15 @@ namespace TuClinica.Services.Tests
 
 
             // 2. Creamos la instancia de PatientFileViewModel
-            // --- CAMBIO 4: Pasar la factory al constructor de PatientFileViewModel ---
+            // --- INICIO DE LA MODIFICACIÓN: Constructor de 4 argumentos ---
             _patientFileVM_Instance = new PatientFileViewModel(
-                _authServiceMock.Object,
+                // _authServiceMock.Object, // <-- ELIMINADO
                 _dialogServiceMock.Object,
-                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
+                _scopeFactoryMock.Object,
                 _fileDialogServiceMock.Object,
                 _validationServiceMock.Object
             );
+            // --- FIN DE LA MODIFICACIÓN ---
 
             // 3. Creamos el ViewModel pasándole los Mocks
             // --- CAMBIO 5: Pasar la factory al constructor de PatientsViewModel ---

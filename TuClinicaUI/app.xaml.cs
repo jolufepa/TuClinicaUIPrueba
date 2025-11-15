@@ -274,7 +274,19 @@ namespace TuClinica.UI
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
 
-                    services.AddSingleton<PatientFileViewModel>();
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // services.AddSingleton<PatientFileViewModel>(); // <-- ELIMINADA LA REGISTRACIÓN ANTIGUA
+                    // Añadimos el nuevo registro que construye el VM manualmente sin IAuthService
+                    services.AddSingleton<PatientFileViewModel>(sp =>
+                        new PatientFileViewModel(
+                            // sp.GetRequiredService<IAuthService>(), // <-- ELIMINADO
+                            sp.GetRequiredService<IDialogService>(),
+                            sp.GetRequiredService<IServiceScopeFactory>(),
+                            sp.GetRequiredService<IFileDialogService>(),
+                            sp.GetRequiredService<IValidationService>()
+                        ));
+                    // --- FIN DE LA MODIFICACIÓN ---
+
                     services.AddTransient<OdontogramViewModel>();
                     services.AddSingleton<HomeViewModel>();
 

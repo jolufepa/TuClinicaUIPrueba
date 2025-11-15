@@ -37,6 +37,20 @@ namespace TuClinica.Services.Implementation
     }
     // -----------------------------------------------------------------
 
+    // --- INICIO DE LA MODIFICACIÓN: Clase Helper para el historial unificado (v2) ---
+    /// <summary>
+    /// Clase interna para unificar Cargos y Abonos en una sola lista cronológica para el PDF.
+    /// </summary>
+    internal class PdfHistoryEvent
+    {
+        public DateTime Timestamp { get; set; }
+        public string Doctor { get; set; } = string.Empty; // Columna solo para el Doctor
+        public string Concept { get; set; } = string.Empty; // Diagnóstico, Observaciones o "Abono (Método)"
+        public decimal Debe { get; set; } // Importe del Cargo
+        public decimal Haber { get; set; } // Importe del Abono
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
 
     public class PdfService : IPdfService
     {
@@ -672,8 +686,14 @@ namespace TuClinica.Services.Implementation
                         page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
 
                         page.Header().Element(c => ComposeHistoryHeader(c, patient));
+
+                        // --- INICIO MODIFICACIÓN: Pasamos las listas originales a ComposeHistoryContent ---
                         page.Content().Element(c => ComposeHistoryContent(c, entries, payments, totalBalance));
-                        page.Footer().Element(c => ComposeFooter(c));
+                        // --- FIN MODIFICACIÓN ---
+
+                        // --- INICIO MODIFICACIÓN: Llamamos al nuevo pie de página del historial ---
+                        page.Footer().Element(c => ComposeHistoryFooter(c));
+                        // --- FIN MODIFICACIÓN ---
                     });
                 })
                 .GeneratePdf(); // <-- Este método devuelve byte[]
@@ -722,7 +742,7 @@ namespace TuClinica.Services.Implementation
                     row.RelativeItem(1).Column(col =>
                     {
                         // --- CORRECCIÓN CS1503 (API Moderna) ---
-                        col.Item().AlignRight().Text(text => text.Span("Historial de Paciente").Bold().FontSize(16));
+                        col.Item().AlignRight().Text(text => text.Span("Historial de Cuenta").Bold().FontSize(16));
                         col.Item().AlignRight().Text(text => text.Span($"Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}"));
                     });
                 });
@@ -731,7 +751,7 @@ namespace TuClinica.Services.Implementation
                 column.Item().PaddingTop(20).Column(col =>
                 {
                     // --- CORRECCIÓN CS1503 (API Moderna) ---
-                    col.Item().Text(text => text.Span("Historial de visitas de").FontSize(12));
+                    col.Item().Text(text => text.Span("Paciente:").FontSize(12));
                     col.Item().Text(text => text.Span($"{patient.Name} {patient.Surname}").Bold().FontSize(14));
                     col.Item().Text(text => text.Span($"DNI/NIE: {patient.DniNie}"));
                 });
@@ -740,112 +760,107 @@ namespace TuClinica.Services.Implementation
             });
         }
 
+        // --- INICIO DE LA MODIFICACIÓN: ComposeHistoryContent REESCRITO (v2) ---
         /// <summary>
-        /// Crea el contenido principal con las tablas de cargos y abonos.
+        /// Crea el contenido principal con la tabla unificada de cargos y abonos.
         /// </summary>
         private void ComposeHistoryContent(IContainer container, List<ClinicalEntry> entries, List<Payment> payments, decimal totalBalance)
         {
+            // 1. Unificar las dos listas en una sola lista de 'PdfHistoryEvent'
+            var unifiedHistory = new List<PdfHistoryEvent>();
+
+            foreach (var entry in entries)
+            {
+                unifiedHistory.Add(new PdfHistoryEvent
+                {
+                    Timestamp = entry.VisitDate,
+                    Doctor = entry.DoctorName, // Columna "Doctor"
+                    Concept = entry.Diagnosis ?? "N/A", // Columna "Concepto"
+                    Debe = entry.TotalCost,
+                    Haber = 0
+                });
+            }
+
+            foreach (var payment in payments)
+            {
+                // Construir el concepto del pago
+                string concept = $"Abono (Método: {payment.Method ?? "N/A"})";
+                if (!string.IsNullOrWhiteSpace(payment.Observaciones))
+                {
+                    concept += $" - {payment.Observaciones}";
+                }
+
+                unifiedHistory.Add(new PdfHistoryEvent
+                {
+                    Timestamp = payment.PaymentDate,
+                    Doctor = "", // Columna "Doctor" vacía
+                    Concept = concept, // Columna "Concepto"
+                    Debe = 0,
+                    Haber = payment.Amount
+                });
+            }
+
+            // 2. Ordenar la lista unificada por fecha
+            var sortedHistory = unifiedHistory.OrderBy(e => e.Timestamp).ToList();
+
             container.PaddingVertical(15).Column(col =>
             {
                 col.Spacing(20); // Espacio entre elementos
 
-                // --- TABLA 1: CARGOS Y VISITAS ---
+                // --- TABLA ÚNICA: HISTORIAL CRONOLÓGICO ---
                 col.Item().Column(tableCol =>
                 {
-                    // --- CORRECCIÓN API MODERNA (CS1929 / CS1503) ---
-                    tableCol.Item().PaddingBottom(5).Text(text => text.Span("Resumen de Cargos y Visitas").Bold().FontSize(14));
+                    tableCol.Item().PaddingBottom(5).Text(text => text.Span("Historial de Cuenta").Bold().FontSize(14));
 
                     tableCol.Item().Table(table =>
                     {
                         table.ColumnsDefinition(columns =>
                         {
-                            columns.ConstantColumn(65); // Fecha
-                            columns.RelativeColumn(1);  // Doctor
-                            columns.RelativeColumn(3);  // Concepto
-                            columns.RelativeColumn(1);  // Coste
-                            columns.RelativeColumn(1);  // Saldo
+                            columns.ConstantColumn(65);     // Fecha
+                            columns.RelativeColumn(1.5f); // Doctor
+                            columns.RelativeColumn(3);    // Concepto/Observaciones
+                            columns.RelativeColumn(1);    // Debe
+                            columns.RelativeColumn(1);    // Haber
                         });
 
                         table.Header(header =>
                         {
-                            // --- CORRECCIÓN CS1503 (API Moderna) ---
                             header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Fecha"));
                             header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Doctor"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Concepto"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Coste"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Pendiente"));
+                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Concepto/Observaciones"));
+                            header.Cell().Element(HeaderCellStyle).AlignRight().Text(text => text.Span("Debe"));
+                            header.Cell().Element(HeaderCellStyle).AlignRight().Text(text => text.Span("Haber"));
                         });
 
-                        foreach (var entry in entries.OrderBy(e => e.VisitDate))
+                        // 3. Iterar sobre la lista ordenada y rellenar la tabla
+                        foreach (var item in sortedHistory)
                         {
-                            // --- CORRECCIÓN CS1503 (API Moderna) ---
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span($"{entry.VisitDate:dd/MM/yy}"));
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(entry.DoctorName));
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(entry.Diagnosis));
-                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{entry.TotalCost:C}"));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span($"{item.Timestamp:dd/MM/yy}"));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(item.Doctor));
+                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(item.Concept));
 
-                            // --- CORRECCIÓN CS0023 (API Moderna) ---
-                            // El .Text() debe ser la última llamada en el contenedor de la celda
-                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => {
-                                var color = entry.Balance > 0 ? Colors.Red.Medium : Colors.Green.Medium;
-                                text.Span($"{entry.Balance:C}").FontColor(color);
-                            });
+                            // Columna Debe (Cargo)
+                            string debeText = item.Debe > 0 ? $"{item.Debe:C}" : "";
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span(debeText).FontColor(Colors.Red.Medium));
+
+                            // Columna Haber (Abono)
+                            string haberText = item.Haber > 0 ? $"{item.Haber:C}" : "";
+                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span(haberText).FontColor(Colors.Green.Medium));
                         }
                     });
                 });
 
-                // --- TABLA 2: PAGOS Y ABONOS ---
-                col.Item().Column(tableCol =>
-                {
-                    // --- CORRECCIÓN API MODERNA (CS1929 / CS1503) ---
-                    tableCol.Item().PaddingBottom(5).Text(text => text.Span("Resumen de Pagos y Abonos").Bold().FontSize(14));
-
-                    tableCol.Item().Table(table =>
-                    {
-                        table.ColumnsDefinition(columns =>
-                        {
-                            columns.ConstantColumn(65); // Fecha
-                            columns.RelativeColumn(1);  // Método
-                            columns.RelativeColumn(3);  // (Espacio vacío)
-                            columns.RelativeColumn(1);  // Importe
-                            columns.RelativeColumn(1);  // No Asignado
-                        });
-
-                        table.Header(header =>
-                        {
-                            // --- CORRECCIÓN CS1503 (API Moderna) ---
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Fecha"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Método"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("")); // Celda vacía
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Importe"));
-                            header.Cell().Element(HeaderCellStyle).Text(text => text.Span("Restante"));
-                        });
-
-                        foreach (var payment in payments.OrderBy(p => p.PaymentDate))
-                        {
-                            // --- CORRECCIÓN CS1503 (API Moderna) ---
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span($"{payment.PaymentDate:dd/MM/yy}"));
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span(payment.Method));
-                            table.Cell().Element(BodyCellStyle).Text(text => text.Span("")); // Celda vacía
-                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{payment.Amount:C}"));
-                            table.Cell().Element(c => BodyCellStyle(c, true)).Text(text => text.Span($"{payment.UnallocatedAmount:C}"));
-                        }
-                    });
-                });
-
-                // --- RESUMEN DE SALDO TOTAL ---
+                // --- RESUMEN DE SALDO TOTAL (Sin cambios, sigue siendo correcto) ---
                 col.Item().AlignRight().Width(250, Unit.Point).Column(totalCol =>
                 {
                     totalCol.Item().BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(5);
                     totalCol.Item().Row(row =>
                     {
-                        // --- CORRECCIÓN CS1503 (API Moderna) ---
                         row.RelativeItem().Text(text => text.Span("Total Cargado:").Bold());
                         row.RelativeItem().AlignRight().Text(text => text.Span($"{entries.Sum(e => e.TotalCost):C}"));
                     });
                     totalCol.Item().Row(row =>
                     {
-                        // --- CORRECCIÓN CS1503 (API Moderna) ---
                         row.RelativeItem().Text(text => text.Span("Total Abonado:").Bold());
                         row.RelativeItem().AlignRight().Text(text => text.Span($"{payments.Sum(p => p.Amount):C}"));
                     });
@@ -855,18 +870,11 @@ namespace TuClinica.Services.Implementation
                         var (color, label) = totalBalance > 0 ? (Colors.Red.Medium, "SALDO PENDIENTE:") : (Colors.Green.Medium, "SALDO A FAVOR:");
                         if (totalBalance == 0) (color, label) = (Colors.Black, "SALDO TOTAL:");
 
-                        // --- CORRECCIÓN CS1503 Y CS0023/CS0815 (API Moderna) ---
-                        // 1. Crear el contenedor
-                        // 2. Aplicar modificadores de contenedor
-                        // 3. Llamar a Text() al final
                         row.RelativeItem().Text(text =>
                         {
                             text.Span(label).FontColor(color).Bold().FontSize(14);
                         });
 
-                        // 1. Crear el contenedor
-                        // 2. Aplicar modificadores de contenedor
-                        // 3. Llamar a Text() al final
                         row.RelativeItem().AlignRight().Text(text =>
                         {
                             text.Span($"{totalBalance:C}").FontColor(color).Bold().FontSize(14);
@@ -876,6 +884,7 @@ namespace TuClinica.Services.Implementation
 
             });
         }
+        // --- FIN DE LA MODIFICACIÓN ---
 
 
         // --- MÉTODOS AUXILIARES (PRESUPUESTO) ---
@@ -1136,7 +1145,7 @@ namespace TuClinica.Services.Implementation
             // --- FIN CÓDIGO MODIFICADO ---
         }
 
-        // --- MÉTODO ComposeFooter (MODIFICADO PARA RGPD) ---
+        // --- MÉTODO ComposeFooter (MODIFICADO PARA RGPD Y QUITAR NOTA) ---
         private void ComposeFooter(IContainer container)
         {
             // El texto legal que proporcionaste
@@ -1144,8 +1153,7 @@ namespace TuClinica.Services.Implementation
 
             container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(10).Column(col =>
             {
-                // 1. "Nota: Presupuesto valido por 30 dias"
-                col.Item().Text(text => text.Span("Nota: Presupuesto valido por 30 dias"));
+                // 1. "Nota: Presupuesto valido por 30 dias" -> ELIMINADA
 
                 // 2. Nuevo Texto Legal (RGPD)
                 col.Item().PaddingTop(5).Text(text =>
@@ -1155,9 +1163,37 @@ namespace TuClinica.Services.Implementation
                         .FontColor(Colors.Grey.Medium); // Color gris
                 });
 
-                // 3. Paginación eliminada (como solicitaste)
+                // 3. Paginación
+                col.Item().PaddingTop(5).AlignCenter().Text(text =>
+                {
+                    text.Span("Página ");
+                    text.CurrentPageNumber();
+                    text.Span(" de ");
+                    text.TotalPages();
+                });
             });
         }
+        // --- FIN MODIFICACIÓN ---
+
+        // --- INICIO DE LA MODIFICACIÓN: Nuevo pie de página solo para el historial ---
+        /// <summary>
+        /// Crea un pie de página simple solo con el número de página (para uso interno).
+        /// </summary>
+        private void ComposeHistoryFooter(IContainer container)
+        {
+            container.BorderTop(1).BorderColor(Colors.Grey.Lighten1).PaddingTop(10).Column(col =>
+            {
+                // Paginación
+                col.Item().PaddingTop(5).AlignCenter().Text(text =>
+                {
+                    text.Span("Página ");
+                    text.CurrentPageNumber();
+                    text.Span(" de ");
+                    text.TotalPages();
+                });
+            });
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
 
 
         private string MaskDni(string? dniNie)

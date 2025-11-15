@@ -29,7 +29,9 @@ namespace TuClinica.UI.ViewModels
     public partial class PatientFileViewModel : BaseViewModel
     {
         // --- Servicios ---
-        private readonly IAuthService _authService;
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // private readonly IAuthService _authService; // <-- ELIMINADO
+        // --- FIN DE LA MODIFICACIÓN ---
         private readonly IDialogService _dialogService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IFileDialogService _fileDialogService;
@@ -122,13 +124,17 @@ namespace TuClinica.UI.ViewModels
         private bool _isLoading = false;
 
         public PatientFileViewModel(
-          IAuthService authService,
+          // --- INICIO DE LA MODIFICACIÓN ---
+          // IAuthService authService, // <-- ELIMINADO de los parámetros
+          // --- FIN DE LA MODIFICACIÓN ---
           IDialogService dialogService,
           IServiceScopeFactory scopeFactory,
           IFileDialogService fileDialogService,
           IValidationService validationService)
         {
-            _authService = authService;
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // _authService = authService; // <-- ELIMINADO
+            // --- FIN DE LA MODIFICACIÓN ---
             _dialogService = dialogService;
             _scopeFactory = scopeFactory;
             _fileDialogService = fileDialogService;
@@ -810,26 +816,35 @@ namespace TuClinica.UI.ViewModels
         // --- MÉTODO MODIFICADO ---
         private async Task OpenRegisterChargeDialog()
         {
-            if (CurrentPatient == null || _authService.CurrentUser == null) return;
-
-            // 1. Usamos el servicio de diálogo
-            var (ok, data) = _dialogService.ShowManualChargeDialog(this.AvailableTreatments);
-
-            // 2. Comprobamos si el usuario aceptó
-            if (ok && data != null)
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // 1. Crear un scope para esta operación
+            using (var dbScope = _scopeFactory.CreateScope())
             {
-                // 3. Obtenemos los datos del resultado (incluyendo los nuevos)
-                string concept = data.Concept;
-                decimal unitPrice = data.UnitPrice;
-                int quantity = data.Quantity;
-                int? treatmentId = data.TreatmentId;
-                string observaciones = data.Observaciones;
-                DateTime visitDate = data.SelectedDate ?? DateTime.Now; // <-- Usamos la fecha o el default
+                // 2. Obtener el IAuthService "fresco" desde este scope
+                var authService = dbScope.ServiceProvider.GetRequiredService<IAuthService>();
+                // --- FIN DE LA MODIFICACIÓN ---
 
-                decimal totalCost = unitPrice * quantity;
+                if (CurrentPatient == null || authService.CurrentUser == null) return;
 
-                using (var dbScope = _scopeFactory.CreateScope())
+                // 1. Usamos el servicio de diálogo
+                var (ok, data) = _dialogService.ShowManualChargeDialog(this.AvailableTreatments);
+
+                // 2. Comprobamos si el usuario aceptó
+                if (ok && data != null)
                 {
+                    // 3. Obtenemos los datos del resultado (incluyendo los nuevos)
+                    string concept = data.Concept;
+                    decimal unitPrice = data.UnitPrice;
+                    int quantity = data.Quantity;
+                    int? treatmentId = data.TreatmentId;
+                    string observaciones = data.Observaciones;
+                    DateTime visitDate = data.SelectedDate ?? DateTime.Now; // <-- Usamos la fecha o el default
+
+                    decimal totalCost = unitPrice * quantity;
+
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // 3. Reutilizamos el 'dbScope' que ya teníamos
+                    // --- FIN DE LA MODIFICACIÓN ---
                     try
                     {
                         var clinicalRepo = dbScope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -837,7 +852,10 @@ namespace TuClinica.UI.ViewModels
                         var clinicalEntry = new ClinicalEntry
                         {
                             PatientId = CurrentPatient.Id,
-                            DoctorId = _authService.CurrentUser.Id,
+                            // --- INICIO DE LA MODIFICACIÓN ---
+                            // 4. Usar el authService "fresco" del scope
+                            DoctorId = authService.CurrentUser.Id, // <-- CORREGIDO
+                            // --- FIN DE LA MODIFICACIÓN ---
                             VisitDate = visitDate, // <-- Usar la nueva fecha
                             Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
                             TotalCost = totalCost,
@@ -867,7 +885,7 @@ namespace TuClinica.UI.ViewModels
                         _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
                     }
                 }
-            }
+            } // --- El scope se destruye aquí ---
         }
         // --- FIN MÉTODO MODIFICADO ---
 
