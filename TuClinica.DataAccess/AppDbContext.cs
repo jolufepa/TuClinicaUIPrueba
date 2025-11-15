@@ -34,6 +34,11 @@ namespace TuClinica.DataAccess
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentAllocation> PaymentAllocations { get; set; }
 
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 1. Añadir la nueva tabla
+        public DbSet<TreatmentPlanItem> TreatmentPlanItems { get; set; }
+        // --- FIN DE LA MODIFICACIÓN ---
+
 
         // --- CONSTRUCTOR MODIFICADO ---
         // La inyección de dependencias es suficientemente inteligente
@@ -94,8 +99,11 @@ namespace TuClinica.DataAccess
                 // --- ¡FILTRO DE ENTIDADES! ---
                 // Aquí decides qué entidades auditar. Empezamos con Patient.
                 // Puedes añadir: || entry.Entity is Budget || entry.Entity is Prescription
-                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry))
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // 2. Añadir TreatmentPlanItem al filtro de auditoría
+                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry || entry.Entity is TreatmentPlanItem))
                     continue;
+                // --- FIN DE LA MODIFICACIÓN ---
 
                 var logEntry = new LogEntryTemp(entry)
                 {

@@ -72,6 +72,29 @@ namespace TuClinica.UI.ViewModels
 
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
+        // --- INICIO DE LA MODIFICACIÓN (Nuevas Propiedades) ---
+
+        /// <summary>
+        /// Colección de tareas pendientes para la pestaña "Plan de Tratamiento".
+        /// </summary>
+        public ObservableCollection<TreatmentPlanItem> PendingTasks { get; } = new();
+
+        /// <summary>
+        /// Contador de tareas NO completadas, para el "badge" visual.
+        /// </summary>
+        [ObservableProperty]
+        private int _pendingTaskCount = 0;
+
+        /// <summary>
+        /// Texto enlazado al TextBox para añadir una nueva tarea.
+        /// </summary>
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(AddPlanItemAsyncCommand))]
+        private string _newPlanItemDescription = string.Empty;
+
+        // --- FIN DE LA MODIFICACIÓN ---
+
+
         public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
         public IRelayCommand ToggleEditPatientDataCommand { get; }
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
@@ -81,6 +104,14 @@ namespace TuClinica.UI.ViewModels
         public IRelayCommand NewBudgetCommand { get; }
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
+
+        // --- INICIO DE LA MODIFICACIÓN (Nuevos Comandos) ---
+        public IAsyncRelayCommand AddPlanItemAsyncCommand { get; }
+        public IAsyncRelayCommand<TreatmentPlanItem> TogglePlanItemAsyncCommand { get; }
+        public IAsyncRelayCommand<TreatmentPlanItem> DeletePlanItemAsyncCommand { get; }
+        public IAsyncRelayCommand CheckPendingTasksCommand { get; }
+        // --- FIN DE LA MODIFICACIÓN ---
+
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))]
@@ -116,6 +147,13 @@ namespace TuClinica.UI.ViewModels
             PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync);
             OpenRegisterChargeDialogCommand = new AsyncRelayCommand(OpenRegisterChargeDialog);
 
+            // --- INICIO DE LA MODIFICACIÓN (Inicializar Nuevos Comandos) ---
+            AddPlanItemAsyncCommand = new AsyncRelayCommand(AddPlanItemAsync, CanAddPlanItem);
+            TogglePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(TogglePlanItemAsync);
+            DeletePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(DeletePlanItemAsync);
+            CheckPendingTasksCommand = new AsyncRelayCommand(CheckPendingTasksAsync);
+            // --- FIN DE LA MODIFICACIÓN ---
+
             _unallocatedPayments.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
             _pendingCharges.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
         }
@@ -129,12 +167,14 @@ namespace TuClinica.UI.ViewModels
                 _isLoading = true;
 
                 // --- INICIO DE LA CORRECCIÓN (Reseteo de estado) ---
-                // Limpiamos los campos de asignación de la pestaña Facturación
-                // para evitar que se muestren datos del paciente anterior.
                 SelectedCharge = null;
                 SelectedPayment = null;
                 AmountToAllocate = 0;
                 // --- FIN DE LA CORRECCIÓN ---
+
+                // --- INICIO DE LA MODIFICACIÓN (Resetear Tareas) ---
+                NewPlanItemDescription = string.Empty;
+                // --- FIN DE LA MODIFICACIÓN ---
 
                 CurrentPatient = patient;
                 IsPatientDataReadOnly = true;
@@ -144,12 +184,17 @@ namespace TuClinica.UI.ViewModels
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                     var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
                     var treatmentRepo = scope.ServiceProvider.GetRequiredService<ITreatmentRepository>();
+                    // --- INICIO DE LA MODIFICACIÓN (Cargar Tareas) ---
+                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
 
                     var clinicalHistoryTask = clinicalEntryRepo.GetHistoryForPatientAsync(patient.Id);
                     var paymentHistoryTask = paymentRepo.GetPaymentsForPatientAsync(patient.Id);
                     var treatmentsTask = LoadAvailableTreatments(treatmentRepo);
+                    // 1. Iniciar la carga de tareas
+                    var pendingTasksTask = LoadPendingTasksAsync(planItemRepo, patient.Id);
 
-                    await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask);
+                    await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask, pendingTasksTask);
+                    // --- FIN DE LA MODIFICACIÓN ---
 
                     var clinicalHistory = (await clinicalHistoryTask).ToList();
                     var paymentHistory = (await paymentHistoryTask).ToList();
@@ -175,6 +220,166 @@ namespace TuClinica.UI.ViewModels
                 SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
             }
         }
+
+        // --- INICIO DE LA MODIFICACIÓN (Nuevos Métodos) ---
+
+        /// <summary>
+        /// Carga las tareas pendientes de la BD y actualiza el contador del badge.
+        /// </summary>
+        private async Task LoadPendingTasksAsync(ITreatmentPlanItemRepository planItemRepo, int patientId)
+        {
+            PendingTasks.Clear();
+            var tasks = await planItemRepo.GetTasksForPatientAsync(patientId);
+
+            foreach (var task in tasks.OrderBy(t => t.IsDone).ThenByDescending(t => t.DateAdded))
+            {
+                PendingTasks.Add(task);
+            }
+
+            // Actualizar el contador para el "badge"
+            PendingTaskCount = PendingTasks.Count(t => !t.IsDone);
+        }
+
+        private bool CanAddPlanItem()
+        {
+            return !string.IsNullOrWhiteSpace(NewPlanItemDescription);
+        }
+
+        partial void OnNewPlanItemDescriptionChanged(string value)
+        {
+            AddPlanItemAsyncCommand.NotifyCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// (Comando) Añade una nueva tarea al plan de tratamiento.
+        /// </summary>
+        private async Task AddPlanItemAsync()
+        {
+            if (CurrentPatient == null || !CanAddPlanItem()) return;
+
+            var newItem = new TreatmentPlanItem
+            {
+                PatientId = CurrentPatient.Id,
+                Description = NewPlanItemDescription,
+                IsDone = false,
+                DateAdded = DateTime.Now
+            };
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+                    await planItemRepo.AddAsync(newItem);
+                    await planItemRepo.SaveChangesAsync();
+
+                    // Refrescar la lista
+                    await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
+                }
+                NewPlanItemDescription = string.Empty; // Limpiar el textbox
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al guardar la tarea: {ex.Message}", "Error BD");
+            }
+        }
+
+        /// <summary>
+        /// (Comando) Marca una tarea como hecha o pendiente.
+        /// </summary>
+        private async Task TogglePlanItemAsync(TreatmentPlanItem? item)
+        {
+            if (item == null || CurrentPatient == null) return;
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+
+                    // Obtenemos la entidad real de la BD para actualizarla
+                    var itemToUpdate = await planItemRepo.GetByIdAsync(item.Id);
+                    if (itemToUpdate == null) return;
+
+                    // Invertimos el estado
+                    itemToUpdate.IsDone = !itemToUpdate.IsDone;
+                    planItemRepo.Update(itemToUpdate);
+                    await planItemRepo.SaveChangesAsync();
+
+                    // Refrescar la lista
+                    await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al actualizar la tarea: {ex.Message}", "Error BD");
+            }
+        }
+
+        /// <summary>
+        /// (Comando) Elimina una tarea del plan de tratamiento.
+        /// </summary>
+        private async Task DeletePlanItemAsync(TreatmentPlanItem? item)
+        {
+            if (item == null || CurrentPatient == null) return;
+
+            var result = _dialogService.ShowConfirmation(
+                $"¿Está seguro de que desea eliminar esta tarea?\n\n'{item.Description}'",
+                "Confirmar Eliminación");
+
+            if (result == CoreDialogResult.No) return;
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+
+                    // Obtenemos la entidad real de la BD para eliminarla
+                    var itemToDelete = await planItemRepo.GetByIdAsync(item.Id);
+                    if (itemToDelete == null) return;
+
+                    planItemRepo.Remove(itemToDelete);
+                    await planItemRepo.SaveChangesAsync();
+
+                    // Refrescar la lista
+                    await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al eliminar la tarea: {ex.Message}", "Error BD");
+            }
+        }
+
+        /// <summary>
+        /// (Comando) Muestra el pop-up de tareas pendientes (llamado desde la pestaña).
+        /// </summary>
+        private async Task CheckPendingTasksAsync()
+        {
+            // Pequeña espera para asegurar que la UI se ha cargado
+            await Task.Delay(50);
+
+            if (PendingTaskCount == 0)
+            {
+                // No hay tareas, no mostramos pop-up.
+                return;
+            }
+
+            // Formateamos la lista de tareas
+            var pendingTaskDescriptions = PendingTasks
+                .Where(t => !t.IsDone)
+                .Select(t => t.Description);
+
+            string taskList = string.Join("\n- ", pendingTaskDescriptions);
+
+            _dialogService.ShowMessage(
+                $"El paciente tiene {PendingTaskCount} tarea(s) pendiente(s):\n\n- {taskList}",
+                "Plan de Tratamiento Pendiente");
+        }
+
+        // --- FIN DE LA MODIFICACIÓN ---
+
 
         partial void OnCurrentPatientChanged(Patient? oldValue, Patient? newValue)
         {

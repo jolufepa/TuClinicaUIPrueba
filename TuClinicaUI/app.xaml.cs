@@ -234,6 +234,11 @@ namespace TuClinica.UI
                     services.AddScoped<IPaymentRepository, PaymentRepository>();
                     services.AddScoped<IRepository<PaymentAllocation>, Repository<PaymentAllocation>>();
 
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // 1. Registrar el nuevo repositorio
+                    services.AddScoped<ITreatmentPlanItemRepository, TreatmentPlanItemRepository>();
+                    // --- FIN DE LA MODIFICACIÓN ---
+
                     // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
                     services.AddSingleton<IAuthService, AuthService>();
