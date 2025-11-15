@@ -2,6 +2,8 @@
 using TuClinica.Core.Enums;
 using System.Collections.Generic; // <-- AÑADIR ESTE USING
 using TuClinica.Core.Models;     // <-- AÑADIR ESTE USING
+// --- AÑADIR ESTE USING ---
+using System;
 
 namespace TuClinica.Core.Interfaces.Services
 {
@@ -22,6 +24,11 @@ namespace TuClinica.Core.Interfaces.Services
         public decimal UnitPrice { get; set; }
         public int Quantity { get; set; }
         public int? TreatmentId { get; set; }
+
+        // --- CAMPOS AÑADIDOS ---
+        public string Observaciones { get; set; } = string.Empty;
+        public DateTime? SelectedDate { get; set; }
+        // --- FIN CAMPOS AÑADIDOS ---
     }
     // --- FIN DE LA DEFINICIÓN ---
 
@@ -31,7 +38,9 @@ namespace TuClinica.Core.Interfaces.Services
         DialogResult ShowConfirmation(string message, string title);
         (bool Ok, string Password) ShowPasswordPrompt();
 
-        (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog();
+        // --- FIRMA MODIFICADA ---
+        (bool Ok, decimal Amount, string Method, string Observaciones, DateTime? Date) ShowNewPaymentDialog();
+        // --- FIN FIRMA MODIFICADA ---
 
         // Ahora este método es válido porque ManualChargeResult está definido arriba
         (bool Ok, ManualChargeResult? Data) ShowManualChargeDialog(IEnumerable<Treatment> availableTreatments);

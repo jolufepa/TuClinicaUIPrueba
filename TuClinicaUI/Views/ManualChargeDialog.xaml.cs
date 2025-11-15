@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using TuClinica.Core.Models;
+// --- AÑADIR ESTE USING ---
+using System;
 
 namespace TuClinica.UI.Views
 {
@@ -13,6 +15,11 @@ namespace TuClinica.UI.Views
         public string ManualConcept { get; private set; } = string.Empty;
         public decimal UnitPrice { get; private set; } // Propiedad que falta
         public int Quantity { get; private set; } // Propiedad que falta
+
+        // --- PROPIEDADES NUEVAS ---
+        public DateTime? SelectedDate { get; private set; }
+        public string Observaciones { get; private set; } = string.Empty;
+        // --- FIN PROPIEDADES NUEVAS ---
 
         // Propiedad para cargar los tratamientos desde el ViewModel
         public IEnumerable<Treatment> AvailableTreatments
@@ -63,6 +70,11 @@ namespace TuClinica.UI.Views
             ManualConcept = ConceptTextBox.Text;
             UnitPrice = (decimal)PriceNumericUpDown.Value.Value;
             Quantity = (int)QuantityNumericUpDown.Value.Value;
+
+            // --- LEER NUEVOS VALORES ---
+            Observaciones = ObservacionesTextBox.Text;
+            SelectedDate = DatePickerControl.SelectedDate; // Es Nullable<DateTime>, está bien si no selecciona nada
+            // --- FIN LEER NUEVOS VALORES ---
 
             this.DialogResult = true;
         }

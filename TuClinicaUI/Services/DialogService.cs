@@ -5,6 +5,8 @@ using TuClinica.UI.Views;
 using TuClinica.Core.Enums;
 using System.Collections.Generic;  // <-- ¡AÑADIR ESTE USING!
 using TuClinica.Core.Models;       // <-- ¡AÑADIR ESTE USING! (Para Treatment y ManualChargeResult)
+// --- AÑADIR ESTE USING ---
+using System;
 
 namespace TuClinica.UI.Services
 {
@@ -44,7 +46,8 @@ namespace TuClinica.UI.Services
         }
 
 
-        public (bool Ok, decimal Amount, string Method) ShowNewPaymentDialog()
+        // --- MÉTODO MODIFICADO ---
+        public (bool Ok, decimal Amount, string Method, string Observaciones, DateTime? Date) ShowNewPaymentDialog()
         {
             var dialog = new NewPaymentDialog();
 
@@ -58,10 +61,13 @@ namespace TuClinica.UI.Services
 
             if (result == true)
             {
-                return (true, dialog.Amount, dialog.PaymentMethod);
+                // Devolvemos los nuevos valores
+                return (true, dialog.Amount, dialog.PaymentMethod, dialog.Observaciones, dialog.SelectedDate);
             }
-            return (false, 0, string.Empty);
+            // Devolvemos valores por defecto para los nuevos campos
+            return (false, 0, string.Empty, string.Empty, null);
         }
+        // --- FIN MÉTODO MODIFICADO ---
 
         public void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK)
         {
@@ -101,7 +107,12 @@ namespace TuClinica.UI.Services
                     Concept = dialog.ManualConcept,
                     UnitPrice = dialog.UnitPrice,
                     Quantity = dialog.Quantity,
-                    TreatmentId = dialog.SelectedTreatment?.Id
+                    TreatmentId = dialog.SelectedTreatment?.Id,
+
+                    // --- CAMPOS AÑADIDOS ---
+                    Observaciones = dialog.Observaciones,
+                    SelectedDate = dialog.SelectedDate
+                    // --- FIN CAMPOS AÑADIDOS ---
                 };
                 return (true, resultData);
             }

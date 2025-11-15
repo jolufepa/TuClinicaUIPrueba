@@ -28,6 +28,13 @@ namespace TuClinica.Core.Models
         public decimal Amount { get; set; }
         public string? Method { get; set; } // Ej: "Efectivo", "Tarjeta"
 
+        // --- CAMPO AÑADIDO ---
+        /// <summary>
+        /// Notas u observaciones asociadas a este pago.
+        /// </summary>
+        public string? Observaciones { get; set; }
+        // --- FIN CAMPO AÑADIDO ---
+
         public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 
         // --- AÑADIR JsonIgnore ---

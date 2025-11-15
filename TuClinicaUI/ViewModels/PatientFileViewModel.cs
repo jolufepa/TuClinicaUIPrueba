@@ -378,19 +378,24 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
+        // --- MÉTODO MODIFICADO ---
         private async Task RegisterNewPayment()
         {
             if (CurrentPatient == null) return;
 
-            var (ok, amount, method) = _dialogService.ShowNewPaymentDialog();
+            // 1. Obtenemos los nuevos valores (fecha y observaciones)
+            var (ok, amount, method, observaciones, date) = _dialogService.ShowNewPaymentDialog();
             if (!ok || amount <= 0) return;
 
             var newPayment = new Payment
             {
                 PatientId = CurrentPatient.Id,
-                PaymentDate = DateTime.Now,
+                // 2. Usamos la fecha del diálogo, o DateTime.Now si es null
+                PaymentDate = date ?? DateTime.Now,
                 Amount = amount,
-                Method = method
+                Method = method,
+                // 3. Guardamos las observaciones
+                Observaciones = observaciones
             };
 
             try
@@ -409,6 +414,7 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al guardar el pago: {ex.Message}", "Error BD");
             }
         }
+        // --- FIN MÉTODO MODIFICADO ---
 
         private void InitializeOdontogram()
         {
@@ -596,72 +602,69 @@ namespace TuClinica.UI.ViewModels
             SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
+        // --- MÉTODO MODIFICADO ---
         private async Task OpenRegisterChargeDialog()
         {
             if (CurrentPatient == null || _authService.CurrentUser == null) return;
 
-            using (var dialogScope = _scopeFactory.CreateScope())
+            // 1. Usamos el servicio de diálogo
+            var (ok, data) = _dialogService.ShowManualChargeDialog(this.AvailableTreatments);
+
+            // 2. Comprobamos si el usuario aceptó
+            if (ok && data != null)
             {
-                var dialog = dialogScope.ServiceProvider.GetRequiredService<ManualChargeDialog>();
+                // 3. Obtenemos los datos del resultado (incluyendo los nuevos)
+                string concept = data.Concept;
+                decimal unitPrice = data.UnitPrice;
+                int quantity = data.Quantity;
+                int? treatmentId = data.TreatmentId;
+                string observaciones = data.Observaciones;
+                DateTime visitDate = data.SelectedDate ?? DateTime.Now; // <-- Usamos la fecha o el default
 
-                Window? owner = Application.Current.MainWindow;
-                if (owner != null && owner != dialog)
+                decimal totalCost = unitPrice * quantity;
+
+                using (var dbScope = _scopeFactory.CreateScope())
                 {
-                    dialog.Owner = owner;
-                }
-
-                dialog.AvailableTreatments = this.AvailableTreatments;
-
-                if (dialog.ShowDialog() == true)
-                {
-                    string concept = dialog.ManualConcept;
-                    decimal unitPrice = dialog.UnitPrice;
-                    int quantity = dialog.Quantity;
-                    int? treatmentId = dialog.SelectedTreatment?.Id;
-
-                    decimal totalCost = unitPrice * quantity;
-
-                    using (var dbScope = _scopeFactory.CreateScope())
+                    try
                     {
-                        try
+                        var clinicalRepo = dbScope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
+
+                        var clinicalEntry = new ClinicalEntry
                         {
-                            var clinicalRepo = dbScope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
+                            PatientId = CurrentPatient.Id,
+                            DoctorId = _authService.CurrentUser.Id,
+                            VisitDate = visitDate, // <-- Usar la nueva fecha
+                            Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
+                            TotalCost = totalCost,
+                            Notes = observaciones // <-- Usar el campo 'Notes' para las observaciones
+                        };
 
-                            var clinicalEntry = new ClinicalEntry
-                            {
-                                PatientId = CurrentPatient.Id,
-                                DoctorId = _authService.CurrentUser.Id,
-                                VisitDate = DateTime.Now,
-                                Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
-                                TotalCost = totalCost,
-                            };
-
-                            if (treatmentId.HasValue)
-                            {
-                                clinicalEntry.TreatmentsPerformed.Add(new ToothTreatment
-                                {
-                                    ToothNumber = 0, // 0 = "N/A"
-                                    Surfaces = ToothSurface.Completo,
-                                    TreatmentId = treatmentId.Value,
-                                    TreatmentPerformed = ToothRestoration.Ninguna,
-                                    Price = totalCost
-                                });
-                            }
-
-                            await clinicalRepo.AddAsync(clinicalEntry);
-                            await clinicalRepo.SaveChangesAsync();
-                            await RefreshBillingCollections();
-
-                            _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
-                        }
-                        catch (Exception ex)
+                        if (treatmentId.HasValue)
                         {
-                            _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
+                            clinicalEntry.TreatmentsPerformed.Add(new ToothTreatment
+                            {
+                                ToothNumber = 0, // 0 = "N/A"
+                                Surfaces = ToothSurface.Completo,
+                                TreatmentId = treatmentId.Value,
+                                TreatmentPerformed = ToothRestoration.Ninguna,
+                                Price = totalCost
+                            });
                         }
+
+                        await clinicalRepo.AddAsync(clinicalEntry);
+                        await clinicalRepo.SaveChangesAsync();
+                        await RefreshBillingCollections();
+
+                        _dialogService.ShowMessage($"Cargo registrado con éxito:\n\nConcepto: {clinicalEntry.Diagnosis}\nTotal: {totalCost:C}", "Cargo Registrado");
+                    }
+                    catch (Exception ex)
+                    {
+                        _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
                     }
                 }
             }
         }
+        // --- FIN MÉTODO MODIFICADO ---
 
 
         private async Task LoadAvailableTreatments(ITreatmentRepository treatmentRepository)
@@ -776,7 +779,5 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al eliminar el cargo: {ex.Message}", "Error de Base de Datos");
             }
         }
-
-
     }
 }

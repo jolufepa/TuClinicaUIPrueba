@@ -6,11 +6,11 @@
                  xmlns:local="clr-namespace:TuClinica.UI.Views"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  mc:Ignorable="d"
-                 Title="Registrar Nuevo Pago" Height="250" Width="400"
-                 WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+                 Title="Registrar Nuevo Pago" Height="350" Width="400" WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
                  WindowStyle="ToolWindow" ShowInTaskbar="False">
     <Grid Margin="15">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -22,18 +22,31 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Label Grid.Row="0" Grid.Column="0" Content="Monto (€):" VerticalAlignment="Center"/>
-        <mah:NumericUpDown Grid.Row="0" Grid.Column="1" x:Name="AmountNumericUpDown" Margin="5"
+        <Label Grid.Row="0" Grid.Column="0" Content="Fecha:" VerticalAlignment="Center"/>
+        <DatePicker Grid.Row="0" Grid.Column="1" x:Name="DatePickerControl"
+                    mah:TextBoxHelper.Watermark="Hoy (Predeterminado)"
+                    Margin="5"/>
+
+        <Label Grid.Row="1" Grid.Column="0" Content="Monto (€):" VerticalAlignment="Center"/>
+        <mah:NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="AmountNumericUpDown" Margin="5"
                            Minimum="0.01" StringFormat="C" Culture="es-ES"/>
 
-        <Label Grid.Row="1" Grid.Column="0" Content="Método:" VerticalAlignment="Center"/>
-        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="MethodComboBox" Margin="5" IsEditable="True">
+        <Label Grid.Row="2" Grid.Column="0" Content="Método:" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="MethodComboBox" Margin="5" IsEditable="True">
             <ComboBoxItem Content="Efectivo"/>
             <ComboBoxItem Content="Tarjeta"/>
             <ComboBoxItem Content="Transferencia"/>
         </ComboBox>
 
-        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Label Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Content="Observaciones (Opcional):" VerticalAlignment="Center"/>
+        <TextBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" x:Name="ObservacionesTextBox"
+                 Margin="5"
+                 MinHeight="60"
+                 TextWrapping="Wrap"
+                 AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto"/>
+
+        <StackPanel Grid.Row="5" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
             <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
             <Button Content="Cancelar" IsCancel="True" MinWidth="75"/>
         </StackPanel>

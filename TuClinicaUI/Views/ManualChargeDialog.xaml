@@ -7,13 +7,14 @@
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  mc:Ignorable="d"
                  Title="Registrar Nuevo Cargo/Visita"
-                 Height="350" Width="450"
-                 WindowStartupLocation="CenterOwner"
+                 Height="450" Width="450" WindowStartupLocation="CenterOwner"
                  ResizeMode="NoResize"
                  GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
                  WindowStyle="ToolWindow" ShowInTaskbar="False">
     <Grid Margin="15">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -27,25 +28,38 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Label Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Content="Tratamiento (Opcional):" FontWeight="SemiBold"/>
-        <ComboBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="TreatmentComboBox"
+        <Label Grid.Row="0" Grid.Column="0" Content="Fecha:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <DatePicker Grid.Row="0" Grid.Column="1" x:Name="DatePickerControl"
+                    mah:TextBoxHelper.Watermark="Hoy (Predeterminado)"
+                    Margin="5"/>
+
+        <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Content="Tratamiento (Opcional):" FontWeight="SemiBold"/>
+        <ComboBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Name="TreatmentComboBox"
                   Margin="5"
                   mah:TextBoxHelper.Watermark="Seleccionar un tratamiento predefinido..."
                   DisplayMemberPath="Name"
                   SelectionChanged="TreatmentComboBox_SelectionChanged"/>
 
-        <Label Grid.Row="2" Grid.Column="0" Content="Concepto/Diagnóstico:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="2" Grid.Column="1" x:Name="ConceptTextBox" Margin="5"/>
+        <Label Grid.Row="3" Grid.Column="0" Content="Concepto/Diagnóstico:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="3" Grid.Column="1" x:Name="ConceptTextBox" Margin="5"/>
 
-        <Label Grid.Row="3" Grid.Column="0" Content="Cantidad:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-        <mah:NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="QuantityNumericUpDown" Margin="5"
+        <Label Grid.Row="4" Grid.Column="0" Content="Cantidad:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <mah:NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="QuantityNumericUpDown" Margin="5"
                            Minimum="1" Interval="1" Value="1"/>
 
-        <Label Grid.Row="4" Grid.Column="0" Content="Precio Unit. (€):" VerticalAlignment="Center" FontWeight="SemiBold"/>
-        <mah:NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="PriceNumericUpDown" Margin="5"
+        <Label Grid.Row="5" Grid.Column="0" Content="Precio Unit. (€):" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <mah:NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="PriceNumericUpDown" Margin="5"
                            Minimum="0" StringFormat="C" Culture="es-ES"/>
 
-        <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Label Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Content="Observaciones (Opcional):" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" x:Name="ObservacionesTextBox"
+                 Margin="5"
+                 MinHeight="60"
+                 TextWrapping="Wrap"
+                 AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto"/>
+
+        <StackPanel Grid.Row="8" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
             <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
             <Button Content="Cancelar" IsCancel="True" MinWidth="75"/>
         </StackPanel>

@@ -1,5 +1,7 @@
 ﻿using MahApps.Metro.Controls;
 using System.Windows;
+// --- AÑADIR ESTE USING ---
+using System;
 
 namespace TuClinica.UI.Views
 {
@@ -7,6 +9,11 @@ namespace TuClinica.UI.Views
     {
         public decimal Amount { get; private set; }
         public string PaymentMethod { get; private set; } = string.Empty;
+
+        // --- PROPIEDADES NUEVAS ---
+        public DateTime? SelectedDate { get; private set; }
+        public string Observaciones { get; private set; } = string.Empty;
+        // --- FIN PROPIEDADES NUEVAS ---
 
         public NewPaymentDialog()
         {
@@ -29,6 +36,11 @@ namespace TuClinica.UI.Views
 
             Amount = (decimal)AmountNumericUpDown.Value;
             PaymentMethod = MethodComboBox.Text;
+
+            // --- LEER NUEVOS VALORES ---
+            Observaciones = ObservacionesTextBox.Text;
+            SelectedDate = DatePickerControl.SelectedDate;
+            // --- FIN LEER NUEVOS VALORES ---
 
             this.DialogResult = true;
         }
