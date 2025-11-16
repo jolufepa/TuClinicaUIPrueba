@@ -1,8 +1,7 @@
 ﻿// En: TuClinica.Core/Interfaces/Services/IDialogService.cs
 using TuClinica.Core.Enums;
-using System.Collections.Generic; // <-- AÑADIR ESTE USING
-using TuClinica.Core.Models;     // <-- AÑADIR ESTE USING
-// --- AÑADIR ESTE USING ---
+using System.Collections.Generic;
+using TuClinica.Core.Models;     
 using System;
 
 namespace TuClinica.Core.Interfaces.Services
@@ -44,5 +43,6 @@ namespace TuClinica.Core.Interfaces.Services
 
         // Ahora este método es válido porque ManualChargeResult está definido arriba
         (bool Ok, ManualChargeResult? Data) ShowManualChargeDialog(IEnumerable<Treatment> availableTreatments);
+        (bool Ok, PatientDocumentType DocumentType, string DocumentNumber, string Notes) ShowLinkedDocumentDialog();
     }
 }

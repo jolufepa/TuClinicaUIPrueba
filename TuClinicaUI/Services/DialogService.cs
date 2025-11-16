@@ -3,9 +3,9 @@ using System.Windows;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.UI.Views;
 using TuClinica.Core.Enums;
-using System.Collections.Generic;  // <-- ¡AÑADIR ESTE USING!
-using TuClinica.Core.Models;       // <-- ¡AÑADIR ESTE USING! (Para Treatment y ManualChargeResult)
-// --- AÑADIR ESTE USING ---
+using System.Collections.Generic;
+using TuClinica.Core.Models;      
+using Microsoft.Extensions.DependencyInjection;
 using System;
 
 namespace TuClinica.UI.Services
@@ -109,15 +109,32 @@ namespace TuClinica.UI.Services
                     Quantity = dialog.Quantity,
                     TreatmentId = dialog.SelectedTreatment?.Id,
 
-                    // --- CAMPOS AÑADIDOS ---
                     Observaciones = dialog.Observaciones,
                     SelectedDate = dialog.SelectedDate
-                    // --- FIN CAMPOS AÑADIDOS ---
+                    
                 };
                 return (true, resultData);
             }
 
             return (false, null);
+        }
+        public (bool Ok, PatientDocumentType DocumentType, string DocumentNumber, string Notes) ShowLinkedDocumentDialog()
+        {
+            // Usamos el ServiceProvider para crear la nueva ventana
+            var dialog = App.AppHost!.Services.GetRequiredService<LinkedDocumentDialog>();
+
+            Window? owner = Application.Current.MainWindow;
+            if (owner != null && owner != dialog)
+            {
+                dialog.Owner = owner;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                return (true, dialog.DocumentType, dialog.DocumentNumber, dialog.Notes);
+            }
+
+            return (false, PatientDocumentType.Otro, string.Empty, string.Empty);
         }
     }
 }

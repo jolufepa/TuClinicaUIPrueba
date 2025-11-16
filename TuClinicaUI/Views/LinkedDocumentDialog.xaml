@@ -1,0 +1,54 @@
+﻿<mah:MetroWindow x:Class="TuClinica.UI.Views.LinkedDocumentDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:local="clr-namespace:TuClinica.UI.Views"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core"
+                 mc:Ignorable="d"
+                 Title="Añadir Documento Vinculado" 
+                 Height="280" Width="400"
+                 WindowStartupLocation="CenterOwner"
+                 ResizeMode="NoResize"
+                 GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
+                 WindowStyle="ToolWindow" ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="DocumentTypesProvider" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="enums:PatientDocumentType" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Window.Resources>
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Label Grid.Row="0" Grid.Column="0" Content="Tipo de Documento:" VerticalAlignment="Center" Margin="0,5,10,5"/>
+        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="DocumentTypeComboBox" Margin="0,5"
+                  ItemsSource="{Binding Source={StaticResource DocumentTypesProvider}}" />
+
+        <Label Grid.Row="1" Grid.Column="0" Content="Número:" VerticalAlignment="Center" Margin="0,5,10,5"/>
+        <TextBox Grid.Row="1" Grid.Column="1" x:Name="DocumentNumberTextBox" Margin="0,5" />
+
+        <Label Grid.Row="2" Grid.Column="0" Content="Notas:" VerticalAlignment="Center" Margin="0,5,10,5"/>
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="NotesTextBox" Margin="0,5" 
+                 mah:TextBoxHelper.Watermark="Ej: Pasaporte antiguo"/>
+
+        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Aceptar" IsDefault="True" Click="AcceptButton_Click" MinWidth="75" Margin="0,0,10,0" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+            <Button Content="Cancelar" IsCancel="True" MinWidth="75"/>
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

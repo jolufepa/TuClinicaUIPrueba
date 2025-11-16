@@ -10,8 +10,9 @@ using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
-// --- AÑADIR ESTE USING ---
-using TuClinica.Core.Enums;
+// --- INICIO DE LA MODIFICACIÓN ---
+using TuClinica.Core.Enums; // <-- AÑADIDO para poder usar PatientDocumentType
+// --- FIN DE LA MODIFICACIÓN ---
 
 namespace TuClinica.Services.Tests
 {
@@ -30,6 +31,11 @@ namespace TuClinica.Services.Tests
         private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
         private Mock<IPaymentRepository> _paymentRepoMock;
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
+
+        // --- INICIO DE LA MODIFICACIÓN: authServiceMock AHORA SÍ ES NECESARIO ---
+        private Mock<IAuthService> _authServiceMock; // <-- AHORA ES NECESARIO
+        // --- FIN DE LA MODIFICACIÓN ---
+
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
@@ -51,18 +57,25 @@ namespace TuClinica.Services.Tests
             _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
             _paymentRepoMock = new Mock<IPaymentRepository>();
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
+
+            _authServiceMock = new Mock<IAuthService>(); // <-- INICIALIZAR EL MOCK
+
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
             // --- FIN MOCKS NUEVOS ---
 
+
             // 2. Creamos la instancia de PatientFileViewModel
+            // --- INICIO DE LA MODIFICACIÓN: Constructor de 5 argumentos (AHORA CORRECTO) ---
             _patientFileVM_Instance = new PatientFileViewModel(
-                _dialogServiceMock.Object,
-                _scopeFactoryMock.Object,
-                _fileDialogServiceMock.Object,
-                _validationServiceMock.Object
+                _authServiceMock.Object, // <-- 1. IAuthService
+                _dialogServiceMock.Object, // <-- 2. IDialogService
+                _scopeFactoryMock.Object, // <-- 3. IServiceScopeFactory
+                _fileDialogServiceMock.Object, // <-- 4. IFileDialogService
+                _validationServiceMock.Object // <-- 5. IValidationService
             );
+            // --- FIN DE LA MODIFICACIÓN ---
 
             // 3. Creamos el ViewModel pasándole los Mocks
             _viewModel = new PatientsViewModel(
@@ -123,8 +136,8 @@ namespace TuClinica.Services.Tests
 
             // 2. Preparamos un paciente nuevo
             _viewModel.SetNewPatientFormCommand.Execute(null);
-            _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO";
-            _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI;
+            _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO"; // <-- CAMBIADO
+            _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI; // <-- AÑADIDO
 
             // Act
             await _viewModel.SavePatientCommand.ExecuteAsync(null);

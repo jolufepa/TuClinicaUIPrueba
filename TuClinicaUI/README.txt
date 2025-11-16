@@ -1,5 +1,4 @@
-﻿
-🦷 TuClínica.UI - Sistema de Gestión Dental
+﻿🦷 TuClínica.UI - Sistema de Gestión Dental
 
 TuClínica.UI es una aplicación de escritorio robusta y segura (WPF, .NET 8) diseñada para modernizar la administración y gestión clínica de pacientes, tratamientos y documentos en clínicas dentales.
 Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integridad de los datos.
@@ -8,47 +7,58 @@ Desarrollada con un enfoque en la eficiencia, la arquitectura limpia y la integr
 🚀 CARACTERÍSTICAS PRINCIPALES
 =========================
 
-* Ficha de Paciente Unificada: Módulo centralizado que combina datos personales, un odontograma visual y un sistema de contabilidad completo con pestañas dedicadas para "Historial Clínico" y "Facturación".
+* Ficha de Paciente Unificada: Módulo centralizado que combina datos personales, un odontograma visual y un sistema de contabilidad completo.
+
+* Gestión Avanzada de Identidad de Pacientes:
+    - Tipos de Documento Flexibles: Permite el registro de pacientes con DNI, NIE, Pasaporte u "Otro Documento", ideal para pacientes nacionales y extranjeros.
+    - Validación Inteligente: Aplica validación estricta (formato y letra) para DNI/NIE, pero una validación flexible (longitud mínima) para Pasaportes y Otros.
+    - Prevención de Duplicados (Registro): Al crear un "Nuevo Paciente", el sistema advierte si el Documento, Teléfono o Nombre+Apellidos ya existen en otra ficha activa, previniendo duplicados.
+    - Documentos Vinculados: Permite vincular documentos antiguos (ej. un NIE o Pasaporte) a la ficha principal del paciente a través de una pestaña dedicada.
+    - Fusión de Pacientes (al Editar): Si se edita el documento de un paciente a uno que ya existe en otra ficha, el sistema ofrece (solo a Doctores/Admins) fusionar todo el historial (presupuestos, pagos, visitas) del paciente actual al paciente existente, archivando la ficha antigua para mantener la integridad de los datos.
+    - Gestión Segura de Pacientes Archivados: Los pacientes fusionados se marcan con una nota interna "[FUSIONADO...]" y el sistema bloquea su reactivación para impedir la reaparición de duplicados.
+
 * Odontograma Interactivo (FDI) - ¡Refactorizado!:
-    * El odontograma ahora funciona como un "mapa visual puro" del estado dental del paciente (Condiciones y Restauraciones).
-    * El estado visual se guarda de forma independiente en la ficha del paciente (como JSON), desacoplando la vista de la facturación.
-    * Permite marcar el estado por superficie (Caries, Sano, Fractura, Obturación, Corona, etc.) a través de un diálogo emergente.
+    - El odontograma ahora funciona como un "mapa visual puro" del estado dental del paciente (Condiciones y Restauraciones).
+    - El estado visual se guarda de forma independiente en la ficha del paciente (como JSON), desacoplando la vista de la facturación.
+    - Permite marcar el estado por superficie (Caries, Sano, Fractura, Obturación, Corona, etc.) a través de un diálogo emergente.
+
 * Sistema de Contabilidad (Cargos y Abonos): Gestión financiera profesional que separa "Cargos" (tratamientos, consultas) de "Abonos" (pagos del paciente).
+
 * Registro de Cargos Centralizado - ¡Refactorizado!:
-    * Se ha "eliminado" el registro de cargos desde el odontograma.
-    * Todo el registro de cargos se centraliza en un único diálogo emergente ("Registrar Cargo/Visita").
-    * Este diálogo permite registrar un cargo usando un tratamiento predefinido del catálogo (con autocompletado de precio) o introduciendo un concepto, cantidad y precio unitario manualmente.
-* Registro de Pagos: Flujo de trabajo limpio para registrar abonos (efectivo, tarjeta) que quedan como "saldo a favor", ahora centralizado en el panel de "Acciones" de la ficha del paciente.
+    - Todo el registro de cargos se centraliza en un único diálogo emergente ("Registrar Cargo/Visita").
+    - Permite registrar un cargo usando un tratamiento predefinido del catálogo o introduciendo un concepto, cantidad y precio unitario manualmente.
+
+* Registro de Pagos: Flujo de trabajo limpio para registrar abonos (efectivo, tarjeta) que quedan como "saldo a favor".
 * Asignación de Pagos: Interfaz dedicada en la pestaña "Facturación" para asignar pagos no asignados a cargos pendientes de pago.
 * Gestión de Saldos: Cálculo de saldo total en tiempo real y seguimiento de cargos pendientes.
 * Anulación de Cargos: Funcionalidad para eliminar cargos erróneos, que anula automáticamente las asignaciones y devuelve el saldo al paciente.
 
 * Plan de Tratamiento (Tareas Pendientes):
-    * Pestaña dedicada en la ficha del paciente para gestionar una lista de tareas (To-Do list) para futuras visitas (ej. "Endodoncia P.48").
-    * Las tareas se guardan en la base de datos y se pueden marcar como "Completadas" con un clic.
-    * Un "badge" (contador) visual en la cabecera de la pestaña muestra cuántas tareas quedan pendientes.
-    * Al hacer clic en la pestaña, un diálogo emergente alerta al doctor de las tareas pendientes activas.
+    - Pestaña dedicada en la ficha del paciente para gestionar una lista de tareas (To-Do list) para futuras visitas (ej. "Endodoncia P.48").
+    - Las tareas se guardan en la base de datos y se pueden marcar como "Completadas" con un clic.
+    - Un "badge" (contador) visual en la cabecera de la pestaña muestra cuántas tareas quedan pendientes.
 
-* Módulo de Presupuestos: Creación de presupuestos con cálculos automáticos (IVA, descuentos) y exportación a PDF (usando QuestPDF).
+* Módulo de Presupuestos: Creación de presupuestos con cálculos automáticos (IVA, descuentos, financiación) y exportación a PDF (usando QuestPDF).
 * Módulo de Recetas: Prescripción de medicamentos, gestión de pautas (dosages) y fármacos, y exportación a PDF (usando plantillas iTextSharp).
 * Gestión de Tratamientos: Catálogo de tratamientos con precios predeterminados.
 * Gestión de Usuarios: Control de acceso basado en roles (Administrador, Doctor, Recepcionista).
+
 * Seguridad y Auditoría (Nivel Profesional):
-    * Base de Datos Cifrada: Almacenamiento local seguro usando SQLite (SQLCipher). La clave se protege con Windows DPAPI.
-    * Hashing de Contraseñas: Autenticación robusta con BCrypt.
-    * Backups Cifrados (Streaming): Importación/Exportación de copias de seguridad de cualquier tamaño. El sistema utiliza streaming (AES-CBC + HMAC) para evitar errores de memoria (OutOfMemoryException) con archivos grandes.
-    * Sistema de Licencias: Activación por hardware (Machine ID) con firmas RSA.
-    * Registro de Actividad (Logs): Auditoría automática de creación, modificación y borrado de datos sensibles (pacientes) interceptando `DbContext.SaveChangesAsync`.
-    * Visor de Auditoría: Panel de administrador para la revisión y exportación de todos los logs de actividad.
+    - Base de Datos Cifrada: Almacenamiento local seguro usando SQLite (SQLCipher). La clave se protege con Windows DPAPI.
+    - Hashing de Contraseñas: Autenticación robusta con BCrypt.
+    - Backups Cifrados (Streaming): Importación/Exportación de copias de seguridad de cualquier tamaño (AES-CBC + HMAC).
+    - Sistema de Licencias: Activación por hardware (Machine ID) con firmas RSA.
+    - Registro de Actividad (Logs): Auditoría automática de creación, modificación y borrado de datos sensibles.
+    - Visor de Auditoría: Panel de administrador para la revisión y exportación de todos los logs de actividad.
 
 =========================
 ⚙️ ARQUITECTURA Y TECNOLOGÍAS
 =========================
 
 El proyecto sigue una arquitectura limpia de N-Capas y el patrón MVVM (Model-View-ViewModel) para garantizar la separación de responsabilidades y la alta testabilidad.
+
 --- Arquitectura de Capas ---
 
-(Formateado para .txt)
 Proyecto                Responsabilidad
 --------------------    -----------------------------------------------------------------
 TuClinica.UI            Presentación (WPF) y ViewModels. Interfaz con el usuario.
@@ -56,11 +66,11 @@ TuClinica.Services      Lógica de Negocio (Auth, Validación, PDF, Licencia, Ba
 TuClinica.DataAccess    Persistencia de Datos (Entity Framework Core y Repositorios).
 TuClinica.Core          Contratos de Negocio (Modelos, Interfaces, Enums).
 TuClinica.Services.Tests Pruebas Unitarias (MSTest & Moq) para la lógica de negocio.
+
 * Gestión de Dependencias (DI): Sigue las mejores prácticas de DI, inyectando `IServiceScopeFactory` en servicios `Singleton` (como `AuthService` y `PatientFileViewModel`) para crear y gestionar de forma segura el ciclo de vida de los servicios `Scoped` (como `AppDbContext`).
 
 --- Stack Tecnológico ---
 
-(Formateado para .txt)
 Componente                  Tecnología/Librería         Propósito
 ------------------------    -----------------------     -----------------------------------------------
 Framework                   .NET 8 (WPF)                Interfaz de usuario de escritorio.
@@ -83,7 +93,7 @@ Testing                     MSTest & Moq                Pruebas unitarias y Mock
 --- Requisitos Previos ---
 
   * .NET 8 SDK
-  * Visual Studio 2022
+  * Visual Studio 2022 (o superior)
 
 --- Primer Arranque ---
 
@@ -112,6 +122,7 @@ Durante el desarrollo, se detectó una inconsistencia en la implementación de `
   * La mayoría de ViewModels (ej. `AdminViewModel`, `BudgetsViewModel`) usan los generadores de código modernos `[RelayCommand]` de CommunityToolkit.Mvvm.
   * El `LoginViewModel` utiliza una implementación manual (Propiedad `ICommand` + inicialización en el constructor).
   * Actualización: El `PatientFileViewModel` (un Singleton) también requiere inicialización manual de comandos por la misma razón.
+
 Esto no es un error, es una decisión de diseño deliberada.
 Ciertos ViewModels (`LoginViewModel`, `PatientFileViewModel`) se instancian como Singletons "inmediatamente" al arrancar la aplicación, al mismo tiempo que el `DataContext` se está enlazando (binding).
 Esto crea una "race condition" (carrera de condiciones) donde el binding del XAML (`Command="{Binding MiComando}"`) se ejecuta *antes* de que el generador `[RelayCommand]` haya tenido tiempo de crear e inicializar la propiedad del comando.
@@ -154,4 +165,3 @@ SOLUCIÓN: El código obsoleto en `PdfService.cs` (específicamente en `ComposeO
   * `.Canvas()` (que está obsoleto) fue eliminado por completo.
 La lógica de dibujo de superficies se reemplazó por un método `DrawSurface` que solo usa `.Background()`.
 Cualquier futura actualización de QuestPDF o modificación de `PdfService.cs` debe verificar que la API utilizada para el odontograma sigue siendo compatible con la versión de la librería.
-```

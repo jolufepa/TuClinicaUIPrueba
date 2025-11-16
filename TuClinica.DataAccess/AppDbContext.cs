@@ -37,6 +37,8 @@ namespace TuClinica.DataAccess
         // --- INICIO DE LA MODIFICACIÓN ---
         // 1. Añadir la nueva tabla
         public DbSet<TreatmentPlanItem> TreatmentPlanItems { get; set; }
+        // 2. Añadir la nueva tabla de documentos
+        public DbSet<LinkedDocument> LinkedDocuments { get; set; }
         // --- FIN DE LA MODIFICACIÓN ---
 
 
@@ -88,7 +90,7 @@ namespace TuClinica.DataAccess
         {
             ChangeTracker.DetectChanges();
             var entries = new List<LogEntryTemp>();
-            var username = _authService.CurrentUser?.Username ?? "System"; // Obtener usuario logueado
+            var username = _authService.CurrentUser?.Username ?? "System"; // Obtener usuario loguado
 
             foreach (var entry in ChangeTracker.Entries())
             {
@@ -100,8 +102,8 @@ namespace TuClinica.DataAccess
                 // Aquí decides qué entidades auditar. Empezamos con Patient.
                 // Puedes añadir: || entry.Entity is Budget || entry.Entity is Prescription
                 // --- INICIO DE LA MODIFICACIÓN ---
-                // 2. Añadir TreatmentPlanItem al filtro de auditoría
-                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry || entry.Entity is TreatmentPlanItem))
+                // 2. Añadir TreatmentPlanItem y LinkedDocument al filtro de auditoría
+                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry || entry.Entity is TreatmentPlanItem || entry.Entity is LinkedDocument))
                     continue;
                 // --- FIN DE LA MODIFICACIÓN ---
 

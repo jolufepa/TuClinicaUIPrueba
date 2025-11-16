@@ -57,7 +57,8 @@ namespace TuClinica.DataAccess.Repositories
         {
             if (string.IsNullOrWhiteSpace(query))
             {
-                return Enumerable.Empty<Patient>();
+                // --- MODIFICADO: Devolvemos la primera página si la búsqueda está vacía ---
+                return await GetAllAsync(includeInactive, page, pageSize);
             }
 
             query = query.Trim().ToLower();
@@ -70,12 +71,15 @@ namespace TuClinica.DataAccess.Repositories
                 dbQuery = dbQuery.Where(p => p.IsActive);
             }
 
-            // --- INICIO DE LA MODIFICACIÓN ---
+            // --- INICIO DE LA MODIFICACIÓN (BÚSQUEDA COMBINADA) ---
             // Aplicamos el filtro de búsqueda de texto
             var filteredQuery = dbQuery
                 .Where(p => p.Name.ToLower().Contains(query) ||
                             p.Surname.ToLower().Contains(query) ||
-                            p.DocumentNumber.ToLower().Contains(query)); // <-- CAMBIADO DE DniNie
+                            p.DocumentNumber.ToLower().Contains(query) ||
+                            // Añadimos la búsqueda en la tabla de documentos vinculados
+                            p.LinkedDocuments.Any(d => d.DocumentNumber.ToLower().Contains(query))
+                            );
             // --- FIN DE LA MODIFICACIÓN ---
 
             // Aplicamos orden y paginación
@@ -134,11 +138,13 @@ namespace TuClinica.DataAccess.Repositories
                 dbQuery = dbQuery.Where(p => p.IsActive);
             }
 
-            // --- INICIO DE LA MODIFICACIÓN ---
+            // --- INICIO DE LA MODIFICACIÓN (BÚSQUEDA COMBINADA) ---
             return await dbQuery
                 .Where(p => p.Name.ToLower().Contains(query) ||
                             p.Surname.ToLower().Contains(query) ||
-                            p.DocumentNumber.ToLower().Contains(query)) // <-- CAMBIADO DE DniNie
+                            p.DocumentNumber.ToLower().Contains(query) ||
+                            // Añadimos la búsqueda en la tabla de documentos vinculados
+                            p.LinkedDocuments.Any(d => d.DocumentNumber.ToLower().Contains(query)))
                 .CountAsync();
             // --- FIN DE LA MODIFICACIÓN ---
         }

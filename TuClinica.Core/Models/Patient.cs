@@ -6,7 +6,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
-using TuClinica.Core.Enums; // <-- AÑADIR ESTE USING
+using TuClinica.Core.Enums;
+// --- AÑADIR ESTE USING ---
+using System.Collections.Generic;
 
 namespace TuClinica.Core.Models
 {
@@ -67,6 +69,14 @@ namespace TuClinica.Core.Models
         [ObservableProperty]
         private string? _odontogramStateJson;
 
+        // --- INICIO DE LA MODIFICACIÓN (Añadir Colección) ---
+        /// <summary>
+        /// Colección de documentos históricos o secundarios asociados a este paciente.
+        /// El documento principal y actual siempre está en DocumentType y DocumentNumber.
+        /// </summary>
+        public ICollection<LinkedDocument> LinkedDocuments { get; set; } = new List<LinkedDocument>();
+        // --- FIN DE LA MODIFICACIÓN ---
+
         [NotMapped]
         [ReadOnly(true)]
         [Browsable(false)]
@@ -97,6 +107,7 @@ namespace TuClinica.Core.Models
                 Notes = this.Notes,
                 IsActive = this.IsActive,
                 OdontogramStateJson = this.OdontogramStateJson
+                // Omitimos la colección de LinkedDocuments a propósito
             };
         }
 

@@ -278,6 +278,7 @@ namespace TuClinica.UI
 
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
+                            sp.GetRequiredService<IAuthService>(),
                             sp.GetRequiredService<IDialogService>(),
                             sp.GetRequiredService<IServiceScopeFactory>(),
                             sp.GetRequiredService<IFileDialogService>(),
@@ -297,7 +298,9 @@ namespace TuClinica.UI
                     services.AddTransient<ManualChargeDialog>();
                     services.AddTransient<OdontogramStateDialog>();
                     services.AddTransient<LicenseWindow>(sp => { var vm = sp.GetRequiredService<LicenseViewModel>(); return new LicenseWindow { DataContext = vm }; });
+                    services.AddTransient<LinkedDocumentDialog>();
                 })
+
                 .Build();
         }
 

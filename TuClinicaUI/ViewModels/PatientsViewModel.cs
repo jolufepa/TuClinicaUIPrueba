@@ -2,23 +2,24 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using TuClinica.Core.Enums;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using TuClinica.Core.Enums;
+using TuClinica.Core.Extensions;
+using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-using TuClinica.Core.Extensions;
-using System.Threading;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -259,6 +260,11 @@ namespace TuClinica.UI.ViewModels
             IsFormEnabled = true;
         }
 
+        // En: TuClinicaUI/ViewModels/PatientsViewModel.cs
+        // (Sustituye este método en la clase PatientsViewModel)
+
+        // En: TuClinicaUI/ViewModels/PatientsViewModel.cs
+
         private async Task SavePatientAsync()
         {
             // 1. Limpieza y formato de datos
@@ -268,6 +274,11 @@ namespace TuClinica.UI.ViewModels
             PatientFormModel.Email = PatientFormModel.Email?.ToLower().Trim() ?? string.Empty;
 
             // 2. Validación de Documento
+            if (string.IsNullOrWhiteSpace(PatientFormModel.DocumentNumber))
+            {
+                _dialogService.ShowMessage("El número de documento no puede estar vacío.", "Dato Requerido");
+                return;
+            }
             if (!_validationService.IsValidDocument(PatientFormModel.DocumentNumber, PatientFormModel.DocumentType))
             {
                 _dialogService.ShowMessage("El número de documento introducido no tiene un formato válido para el tipo seleccionado.", "Documento Inválido");
@@ -276,72 +287,110 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // --- INICIO DE LÓGICA DE GUARDADO/ACTUALIZACIÓN ---
+                // --- INICIO DE LA MODIFICACIÓN (Lógica de Duplicados Robusta) ---
                 if (PatientFormModel.Id == 0) // Es un paciente NUEVO
                 {
-                    // --- INICIO DE LA MODIFICACIÓN (Lógica de Reactivación) ---
+                    // 1. Buscar por Documento (búsqueda exacta en principal y vinculados)
+                    var existingByDoc = (await _patientRepository.SearchByNameOrDniAsync(PatientFormModel.DocumentNumber, true, 1, 10))
+                                        .FirstOrDefault();
 
-                    // Buscamos CUALQUIER paciente (activo o inactivo) con ese DNI
-                    var existingByDoc = await _patientRepository.FindAsync(p => p.DocumentNumber.ToUpper() == PatientFormModel.DocumentNumber.ToUpper());
-                    if (existingByDoc != null && existingByDoc.Any())
-                    // ---
+                    if (existingByDoc != null)
                     {
-                        var duplicatePatient = existingByDoc.First();
+                        string estado = existingByDoc.IsActive ? "activo" : "archivado";
+                        _dialogService.ShowMessage($"El documento '{PatientFormModel.DocumentNumber}' ya existe y pertenece al paciente {estado}: {existingByDoc.PatientDisplayInfo}.", "Documento Duplicado");
+                        return;
+                    }
 
-                        if (duplicatePatient.IsActive)
+                    // 2. Buscar por Teléfono (si se proporcionó)
+                    if (!string.IsNullOrWhiteSpace(PatientFormModel.Phone))
+                    {
+                        var existingByPhone = (await _patientRepository.FindAsync(p => p.Phone == PatientFormModel.Phone && p.IsActive)).FirstOrDefault();
+                        if (existingByPhone != null)
                         {
-                            // --- MODIFICADO ---
-                            _dialogService.ShowMessage($"El documento '{PatientFormModel.DocumentNumber}' ya existe y pertenece al paciente activo: {duplicatePatient.PatientDisplayInfo}.", "Documento Duplicado");
-                            // ---
-                            return;
+                            var resultPhone = _dialogService.ShowConfirmation(
+                                $"ADVERTENCIA: El número de teléfono '{PatientFormModel.Phone}' ya está registrado a nombre de:\n\n" +
+                                $"{existingByPhone.PatientDisplayInfo}\n\n" +
+                                "¿Está seguro de que este es un paciente nuevo y no un duplicado?",
+                                "Posible Duplicado (Teléfono)");
+
+                            if (resultPhone == CoreDialogResult.No)
+                            {
+                                return; // El usuario cancela la creación
+                            }
+                        }
+                    }
+
+                    // 3. Buscar por Nombre y Apellidos (búsqueda exacta)
+                    var existingByName = (await _patientRepository.FindAsync(p =>
+                                            p.Name.ToLower() == PatientFormModel.Name.ToLower() &&
+                                            p.Surname.ToLower() == PatientFormModel.Surname.ToLower() &&
+                                            p.IsActive)).FirstOrDefault();
+
+                    if (existingByName != null)
+                    {
+                        var resultName = _dialogService.ShowConfirmation(
+                               $"ADVERTENCIA: Ya existe un paciente activo con el nombre '{PatientFormModel.Name} {PatientFormModel.Surname}'.\n\n" +
+                               $"Documento: {existingByName.DocumentNumber}\n" +
+                               $"Teléfono: {existingByName.Phone}\n\n" +
+                               "¿Está seguro de que este es un paciente nuevo?",
+                               "Posible Duplicado (Nombre)");
+
+                        if (resultName == CoreDialogResult.No)
+                        {
+                            return; // El usuario cancela la creación
+                        }
+                    }
+
+                    // 4. Lógica de Reactivación (Si el DNI se encuentra en un paciente archivado)
+                    var archivedPatient = (await _patientRepository.FindAsync(p => p.DocumentNumber.ToUpper() == PatientFormModel.DocumentNumber.ToUpper() && !p.IsActive)).FirstOrDefault();
+                    if (archivedPatient != null)
+                    {
+                        var resultReactivate = _dialogService.ShowConfirmation(
+                            $"El paciente '{archivedPatient.PatientDisplayInfo}' (Doc: {archivedPatient.DocumentNumber}) ya existe, pero se encuentra archivado.\n\n" +
+                            $"¿Desea reactivarlo ahora y actualizar sus datos con los del formulario?",
+                            "Paciente Archivado Encontrado");
+
+                        if (resultReactivate == CoreDialogResult.Yes)
+                        {
+                            var patientToReactivate = await _patientRepository.GetByIdAsync(archivedPatient.Id);
+                            if (patientToReactivate != null)
+                            {
+                                patientToReactivate.CopyFrom(PatientFormModel);
+                                patientToReactivate.IsActive = true;
+                                _patientRepository.Update(patientToReactivate);
+                                _dialogService.ShowMessage("Paciente reactivado y actualizado con éxito.", "Éxito");
+                            }
                         }
                         else
                         {
-                            // --- MODIFICADO ---
-                            var result = _dialogService.ShowConfirmation(
-                                $"El paciente '{duplicatePatient.PatientDisplayInfo}' (Doc: {duplicatePatient.DocumentNumber}) ya existe, pero se encuentra archivado.\n\n" +
-                                $"¿Desea reactivarlo ahora y actualizar sus datos con los del formulario?",
-                                "Paciente Archivado Encontrado");
-                            // ---
-
-                            if (result == CoreDialogResult.Yes)
-                            {
-                                var patientToReactivate = await _patientRepository.GetByIdAsync(duplicatePatient.Id);
-                                if (patientToReactivate != null)
-                                {
-                                    patientToReactivate.CopyFrom(PatientFormModel);
-                                    patientToReactivate.IsActive = true;
-                                    _patientRepository.Update(patientToReactivate);
-                                    _dialogService.ShowMessage("Paciente reactivado y actualizado con éxito.", "Éxito");
-                                }
-                                // ... (resto del else)
-                            }
-                            else { return; }
+                            return; // El usuario no quiso reactivar
                         }
                     }
                     else
                     {
+                        // 5. Si pasa todas las comprobaciones, es un paciente nuevo de verdad
                         await _patientRepository.AddAsync(PatientFormModel);
                         _dialogService.ShowMessage("Paciente creado con éxito.", "Éxito");
                     }
                 }
-                else // Está EDITANDO un paciente existente
+                else // Está EDITANDO un paciente existente (Esta lógica es para la Ficha de Paciente, no para este ViewModel)
                 {
+                    // Esta lógica se maneja en PatientFileViewModel. La dejamos aquí
+                    // por si acaso, pero la lógica principal de edición está en el otro VM.
                     var existingPatient = await _patientRepository.GetByIdAsync(PatientFormModel.Id);
                     if (existingPatient != null)
                     {
-                        // --- MODIFICADO ---
                         // Comprobar si ha cambiado el Documento y si el NUEVO Documento ya existe en OTRO paciente
                         if (!string.Equals(existingPatient.DocumentNumber, PatientFormModel.DocumentNumber, StringComparison.OrdinalIgnoreCase))
                         {
-                            var duplicateCheck = await _patientRepository.FindAsync(p => p.DocumentNumber.ToUpper() == PatientFormModel.DocumentNumber.ToUpper() && p.Id != PatientFormModel.Id);
-                            if (duplicateCheck != null && duplicateCheck.Any())
+                            var duplicateCheck = (await _patientRepository.SearchByNameOrDniAsync(PatientFormModel.DocumentNumber, true, 1, 10))
+                                                 .FirstOrDefault(p => p.Id != PatientFormModel.Id);
+                            if (duplicateCheck != null)
                             {
                                 _dialogService.ShowMessage($"El Documento '{PatientFormModel.DocumentNumber}' ya está asignado a otro paciente.", "Documento Duplicado");
                                 return;
                             }
                         }
-                        // ---
 
                         existingPatient.CopyFrom(PatientFormModel);
                         _patientRepository.Update(existingPatient);
@@ -353,8 +402,7 @@ namespace TuClinica.UI.ViewModels
                         return;
                     }
                 }
-                // --- FIN DE LÓGICA DE GUARDADO/ACTUALIZACIÓN ---
-
+                // --- FIN DE LA MODIFICACIÓN ---
 
                 // 3. Guardar cambios y refrescar la UI
                 await _patientRepository.SaveChangesAsync();
@@ -367,7 +415,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al guardar el paciente:\n{ex.Message}", "Error Base de Datos");
             }
         }
-
         // --- INICIO DE MODIFICACIÓN: Lógica de "Smart Delete" ---
         private async Task DeletePatientAsync()
         {
@@ -450,28 +497,60 @@ namespace TuClinica.UI.ViewModels
             IsFormEnabled = false;
             SelectedPatient = null;
         }
-        // --- FIN DE MODIFICACIÓN ---
+      
 
         private async Task ReactivatePatientAsync()
         {
             if (SelectedPatient == null) return;
 
-            var result = _dialogService.ShowConfirmation($"¿Está seguro de reactivar al paciente '{SelectedPatient.Name} {SelectedPatient.Surname}'?\n\nVolverá a aparecer en la lista principal.", "Confirmar Reactivación");
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // 1. Obtener la entidad completa para revisar sus notas ANTES de preguntar
+            Patient? patientToReactivate;
+            try
+            {
+                // Usamos GetByIdAsync para obtener la entidad completa desde la BD
+                patientToReactivate = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al cargar los datos del paciente: {ex.Message}", "Error BD");
+                return;
+            }
+
+            if (patientToReactivate == null)
+            {
+                _dialogService.ShowMessage("No se encontró el paciente seleccionado.", "Error");
+                await LoggedSearchAsync(false); // Refrescar
+                return;
+            }
+
+            // 2. Comprobar si es un paciente fusionado (nuestra "bandera" en las notas)
+            // Comprobamos si las Notas no son nulas y si contienen nuestra bandera
+            if (patientToReactivate.Notes != null && patientToReactivate.Notes.Contains("[FUSIONADO"))
+            {
+                _dialogService.ShowMessage(
+                    "Este paciente no puede ser reactivado.\n\n" +
+                    $"Motivo: Sus datos fueron fusionados con otra ficha de paciente. Reactivarlo crearía duplicados.\n\n" +
+                    $"{patientToReactivate.Notes}",
+                    "Reactivación Bloqueada");
+                return; // Salir de la operación
+            }
+            // --- FIN DE LA MODIFICACIÓN ---
+
+            // 3. Si no está fusionado, proceder con la confirmación normal
+            var result = _dialogService.ShowConfirmation($"¿Está seguro de reactivar al paciente '{patientToReactivate.Name} {patientToReactivate.Surname}'?\n\nVolverá a aparecer en la lista principal.", "Confirmar Reactivación");
             if (result == CoreDialogResult.No) return;
 
             try
             {
-                var p = await _patientRepository.GetByIdAsync(SelectedPatient.Id);
-                if (p != null)
-                {
-                    p.IsActive = true;
-                    _patientRepository.Update(p);
-                    await _patientRepository.SaveChangesAsync();
-                    _dialogService.ShowMessage("Paciente reactivado con éxito.", "Éxito");
+                // 4. Actualizar el paciente (ya lo tenemos)
+                patientToReactivate.IsActive = true;
+                _patientRepository.Update(patientToReactivate);
+                await _patientRepository.SaveChangesAsync();
+                _dialogService.ShowMessage("Paciente reactivado con éxito.", "Éxito");
 
-                    await LoggedSearchAsync(false); // Refrescar página actual
-                    SelectedPatient = null;
-                }
+                await LoggedSearchAsync(false); // Refrescar página actual
+                SelectedPatient = null;
             }
             catch (Exception ex)
             {

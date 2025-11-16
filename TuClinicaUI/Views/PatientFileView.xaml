@@ -7,7 +7,7 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:selectors="clr-namespace:TuClinica.UI.Selectors"
        
-       xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
+             xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              xmlns:events="clr-namespace:TuClinica.UI.ViewModels.Events" 
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:models="clr-namespace:TuClinica.Core.Models;assembly=TuClinica.Core"
@@ -20,6 +20,10 @@
 
 
             <converters:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <converters:IsGreaterThanZeroConverter x:Key="IsGreaterThanZeroConverter"/>
+            <converters:SaldoColorConverter x:Key="SaldoColorConverter"/>
 
             <converters:FirstErrorConverter x:Key="FirstErrorConverter"/>
 
@@ -397,7 +401,54 @@
                     </Grid>
                 </mah:MetroTabItem>
 
+                <mah:MetroTabItem Padding="20">
+                    <mah:MetroTabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconModern Kind="Link" VerticalAlignment="Center" Margin="0,0,5,0" />
+                            <TextBlock Text="Documentos Vinculados" />
+                        </StackPanel>
+                    </mah:MetroTabItem.Header>
 
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <DataGrid Grid.Row="0"
+                                  ItemsSource="{Binding LinkedDocuments}"
+                                  SelectedItem="{Binding SelectedLinkedDocument}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  FontSize="14"
+                                  GridLinesVisibility="Vertical"
+                                  VerticalGridLinesBrush="#EEEEEE"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single">
+
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding DocumentType}" Width="Auto"/>
+                                <DataGridTextColumn Header="Número de Documento" Binding="{Binding DocumentNumber}" Width="*"/>
+                                <DataGridTextColumn Header="Notas" Binding="{Binding Notes}" Width="2*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0"
+                                    Visibility="{Binding CanManageDocuments, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Button Content="Añadir Documento"
+                                    Command="{Binding AddLinkedDocumentCommand}"
+                                    ToolTip="Añadir manualmente un nuevo documento vinculado (ej. un pasaporte antiguo)."
+                                    Style="{StaticResource MahApps.Styles.Button.Square.Accent}"
+                                    Margin="0,0,10,0"/>
+                            <Button Content="Eliminar Vinculado"
+                                    Command="{Binding DeleteLinkedDocumentCommand}"
+                                    Background="IndianRed" 
+                                    Foreground="White"/>
+                        </StackPanel>
+
+                    </Grid>
+                </mah:MetroTabItem>
                 <mah:MetroTabItem Padding="20">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
