@@ -314,6 +314,17 @@ namespace TuClinica.UI.ViewModels
 
                             if (mergeResult == CoreDialogResult.Yes)
                             {
+                                // === CORRECCIÓN CRÍTICA: RESTAURAR DATOS ANTIGUOS ANTES DE FUSIONAR ===
+                                // Guardamos temporalmente el DNI NUEVO que ha escrito el usuario
+                                var tempNewDocNumber = CurrentPatient.DocumentNumber;
+                                var tempNewDocType = CurrentPatient.DocumentType;
+
+                                // Restauramos el estado ORIGINAL (el NIE antiguo) en el objeto CurrentPatient.
+                                // Esto es vital para que la fusión guarde el documento ANTIGUO en el historial.
+                                CurrentPatient.DocumentNumber = _originalPatientState.DocumentNumber;
+                                CurrentPatient.DocumentType = _originalPatientState.DocumentType;
+                                // ---------------------------------------------------------------------
+
                                 bool success = await MergePatientHistoryAsync(CurrentPatient, duplicate);
                                 if (success)
                                 {
@@ -322,9 +333,15 @@ namespace TuClinica.UI.ViewModels
                                     WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(null!)); // Truco para refrescar o salir
                                     return;
                                 }
+                                else
+                                {
+                                    // Si falla la fusión, restauramos los valores nuevos en pantalla
+                                    CurrentPatient.DocumentNumber = tempNewDocNumber;
+                                    CurrentPatient.DocumentType = tempNewDocType;
+                                }
                             }
 
-                            // Si cancela la fusión, revertimos el cambio visual
+                            // Si cancela la fusión, revertimos el cambio visual al original
                             CurrentPatient.CopyFrom(_originalPatientState);
                             return;
                         }
@@ -393,12 +410,14 @@ namespace TuClinica.UI.ViewModels
                     await context.Database.ExecuteSqlRawAsync("UPDATE LinkedDocuments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
 
                     // Guardar el documento principal del paciente 'source' como vinculado en 'target'
+                    // AHORA SÍ: 'source' tiene el documento ANTIGUO restaurado.
                     var sourceDocHistory = new LinkedDocument
                     {
                         PatientId = target.Id,
                         DocumentType = source.DocumentType,
                         DocumentNumber = source.DocumentNumber,
-                        Notes = $"Fusión: Doc. principal del ID {source.Id}"
+                        // Guardamos una nota explicativa
+                        Notes = $"Fusión: {source.Name} {source.Surname} ({source.DocumentNumber}) - Original ID {source.Id}"
                     };
                     context.LinkedDocuments.Add(sourceDocHistory);
 
@@ -407,7 +426,11 @@ namespace TuClinica.UI.ViewModels
                     if (sourceEntity != null)
                     {
                         sourceEntity.IsActive = false;
-                        sourceEntity.Notes = (sourceEntity.Notes ?? "") + $"\n[FUSIONADO a ID {target.Id} el {DateTime.Now}]";
+
+                        // --- CORRECCIÓN: FORMATO DETALLADO EN LA NOTA DE FUSIÓN ---
+                        sourceEntity.Notes = (sourceEntity.Notes ?? "") +
+                            $"\n[FUSIONADO a Paciente: {target.Name} {target.Surname} (Doc: {target.DocumentNumber}) - ID {target.Id} el {DateTime.Now}]";
+                        // ----------------------------------------------------------
                     }
 
                     await context.SaveChangesAsync();
@@ -421,7 +444,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- Gestión de Documentos Vinculados ---
+        // --- Gestión de Documentos Vinculados (CORREGIDA LA COMPROBACIÓN MANUAL) ---
         private async Task AddLinkedDocumentAsync()
         {
             if (CurrentPatient == null) return;
@@ -431,7 +454,7 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // 1. Mostrar el diálogo de creación (ESTA ES LA PARTE QUE FALTABA)
+            // 1. Mostrar el diálogo de creación
             var (ok, docType, docNum, notes) = _dialogService.ShowLinkedDocumentDialog();
 
             // 2. Si el usuario cancela o lo deja vacío, salir
@@ -443,7 +466,7 @@ namespace TuClinica.UI.ViewModels
             // 3. Validar el formato del documento (para DNI/NIE)
             if (!_validationService.IsValidDocument(docNum, docType))
             {
-                _dialogService.ShowMessage($"El número de documento '{docNum}' no tiene un formato válido para el tipo '{docType}'.", "Formato Inválido");
+                _dialogService.ShowMessage($"El número de documento '{docNum}' no tiene un formato válido.", "Formato Inválido");
                 return;
             }
 
@@ -454,14 +477,36 @@ namespace TuClinica.UI.ViewModels
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
                     var linkedDocRepo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
 
-                    // 4. Comprobar que este documento no exista YA en la BD (en CUALQUIER paciente)
-                    // Usamos una búsqueda rápida
+                    // 4. Comprobar duplicados
                     var duplicate = (await patientRepo.SearchByNameOrDniAsync(docNum, true, 1, 10)).FirstOrDefault();
 
                     if (duplicate != null)
                     {
-                        _dialogService.ShowMessage($"El documento '{docNum}' ya está asignado al paciente: {duplicate.PatientDisplayInfo}.", "Documento Duplicado");
-                        return;
+                        // --- CASO A: Si el duplicado es el MISMO paciente (actual), refrescamos y salimos
+                        if (duplicate.Id == CurrentPatient.Id)
+                        {
+                            _dialogService.ShowMessage($"Este documento ya consta como asignado a este paciente. Actualizando lista...", "Información");
+                            await LoadPatient(CurrentPatient); // RECARGAR FICHA PARA QUE APAREZCA
+                            return;
+                        }
+
+                        // --- CASO B: Si el duplicado es un paciente ARCHIVADO (Inactivo), permitimos recuperar
+                        if (!duplicate.IsActive)
+                        {
+                            var confirm = _dialogService.ShowConfirmation(
+                               $"El documento '{docNum}' pertenece a un paciente archivado ({duplicate.PatientDisplayInfo}).\n\n" +
+                               "¿Desea recuperar este documento y vincularlo a esta ficha activa?",
+                               "Recuperar Documento");
+
+                            if (confirm != CoreDialogResult.Yes) return;
+                            // Si dice SÍ, continuamos y creamos el LinkedDocument
+                        }
+                        else
+                        {
+                            // --- CASO C: Es otro paciente ACTIVO distinto -> Bloqueo real
+                            _dialogService.ShowMessage($"El documento '{docNum}' ya está asignado al paciente activo: {duplicate.PatientDisplayInfo}.", "Documento Duplicado");
+                            return;
+                        }
                     }
 
                     // 5. Crear y guardar el nuevo documento
@@ -501,8 +546,6 @@ namespace TuClinica.UI.ViewModels
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var repo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
-                    // Necesitamos adjuntar la entidad al contexto antes de poder eliminarla
-                    // o buscarla por ID
                     var docToDelete = await repo.GetByIdAsync(SelectedLinkedDocument.Id);
                     if (docToDelete != null)
                     {
@@ -521,7 +564,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- Otros Métodos Auxiliares (Copia exacta de lo que ya tenías) ---
+        // --- Otros Métodos Auxiliares (Sin Cambios) ---
         private async Task LoadPendingTasksAsync(ITreatmentPlanItemRepository planItemRepo, int patientId)
         {
             PendingTasks.Clear();
