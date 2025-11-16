@@ -8,6 +8,7 @@
              
       
  
+ 
              xmlns:converters="clr-namespace:TuClinica.UI.Converters"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:PatientsViewModel}"
@@ -17,6 +18,7 @@
 
     <UserControl.Resources>
         <ResourceDictionary>
+
 
             <converters:BooleanToVisibilityConverter 
  x:Key="BooleanToVisibilityConverter"/>
@@ -33,7 +35,8 @@
         </Grid.RowDefinitions>
 
         <FrameworkElement x:Name="BindingProxy" Visibility="Collapsed" DataContext="{Binding}" 
-           
+        
+    
                   Grid.Row="0" Grid.Column="0" />
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
@@ -42,21 +45,23 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
+
             <TextBox 
  Grid.Column="0" 
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     mah:TextBoxHelper.Watermark="Buscar por 
- nombre o DNI..." 
+                     mah:TextBoxHelper.Watermark="Buscar por nombre, apellidos o nº documento..." 
                      VerticalAlignment="Center"/>
 
             <CheckBox Grid.Column="1"
-                 
+          
+        
         Content="Mostrar pacientes archivados"
                       IsChecked="{Binding ShowInactivePatients}"
                 
        Margin="15,0,0,0"
                       VerticalAlignment="Center"/>
         </Grid>
+
 
 
         <Grid Grid.Row="1">
@@ -70,50 +75,58 @@
 
             <DataGrid Grid.Column="0" 
                       ItemsSource="{Binding Patients}" 
-            
+  
+           
              SelectedItem="{Binding SelectedPatient}"
                       SelectionMode="Single"
               
          BorderThickness="1"
                       BorderBrush="#D6D6D6"
-                      
+         
+              
    AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserAddRows="False"
                       FontSize="14"
-                      GridLinesVisibility="Vertical" 
+                  
+     GridLinesVisibility="Vertical" 
            
               VerticalGridLinesBrush="LightGray">
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Apellidos" Binding="{Binding Surname}" Width="2*"/>
-
                     <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="1.5*"/>
-                    <DataGridTextColumn Header="DNI/NIE" Binding="{Binding 
- DniNie}" Width="*"/>
+                    <DataGridTextColumn Header="Tipo Doc." Binding="{Binding DocumentType}" Width="Auto"/>
+                    <DataGridTextColumn Header="Nº Documento" Binding="{Binding DocumentNumber}" Width="*"/>
                     <DataGridTextColumn Header="Teléfono" Binding="{Binding Phone}" Width="*"/>
 
 
                     <DataGridCheckBoxColumn Header="Activo" 
-                                            Binding="{Binding IsActive}" 
+                                   
+          Binding="{Binding IsActive}" 
          
                                       Width="Auto"
-                                            
+                                          
+   
                    
                            >
 
 
                         <DataGridCheckBoxColumn.ElementStyle>
+
                             <Style TargetType="CheckBox">
 
                                 <Setter Property="HorizontalAlignment" Value="Center"/>
                                 <Setter Property="IsEnabled" Value="False"/>
 
+
                                 <Setter Property="Visibility" 
                                         Value="{Binding DataContext.ShowInactivePatients, 
-                                                        RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, 
+                                                       
+  RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, 
                                                         Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </Style>
+
 
                         </DataGridCheckBoxColumn.ElementStyle>
                     </DataGridCheckBoxColumn>
@@ -121,9 +134,9 @@
 
                 </DataGrid.Columns>
             </DataGrid>
+
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="20,0,0,0">
                 <Grid IsEnabled="{Binding IsFormEnabled}">
-
 
                     <StackPanel>
 
@@ -134,14 +147,16 @@
 
                         <TextBox Text="{Binding PatientFormModel.Surname}"/>
 
+                        <Label Content="Tipo de Documento:"/>
+                        <ComboBox ItemsSource="{Binding DocumentTypes}"
+                                  SelectedItem="{Binding PatientFormModel.DocumentType}"
+                                  Margin="0,0,0,10"/>
 
-                        <Label Content="DNI/NIE:"/>
-                        <TextBox Text="{Binding PatientFormModel.DniNie}"/>
-
+                        <Label Content="Número de Documento:"/>
+                        <TextBox Text="{Binding PatientFormModel.DocumentNumber}"/>
                         <Label Content="Fecha de Nacimiento:"/>
 
                         <DatePicker SelectedDate="{Binding PatientFormModel.DateOfBirth}" Margin="0,0,0,10"/>
-
 
                         <Label Content="Teléfono:"/>
                         <TextBox Text="{Binding PatientFormModel.Phone}"/>
@@ -149,7 +164,6 @@
                         <Label Content="Email:"/>
 
                         <TextBox Text="{Binding PatientFormModel.Email}"/>
-
 
                         <Label Content="Dirección:"/>
                         <TextBox Text="{Binding PatientFormModel.Address}"/>
@@ -160,21 +174,21 @@
  Text="{Binding PatientFormModel.Notes}" 
                                  TextWrapping="Wrap" 
                                  MinHeight="100" 
-                  
+     
+              
                
     AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto"/>
 
                         <CheckBox Content="Paciente Activo"
-                         
+         
+                 
             IsChecked="{Binding PatientFormModel.IsActive}"
    
                                 Margin="0,15,0,0"
-                                  Visibility="{Binding IsFormEnabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-
+                                  Visibility="{Binding IsFormEnabled, 
+ Converter={StaticResource BooleanToVisibilityConverter}}"/>
                     </StackPanel>
-
                 </Grid>
             </ScrollViewer>
         </Grid>
@@ -182,6 +196,7 @@
         <Grid Grid.Row="2" Margin="0,20,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+
                 <ColumnDefinition Width="*"/>
 
             </Grid.ColumnDefinitions>
@@ -194,17 +209,20 @@
                         Style="{StaticResource MahApps.Styles.Button.Square}"/>
 
                 <TextBlock Text="{Binding PageInfo}" 
-       
+     
+   
                        VerticalAlignment="Center" 
                            FontWeight="SemiBold" 
                            Margin="5,0"/>
 
                 <Button Content="Siguiente &gt;" 
+ 
      
                       Command="{Binding NextPageCommand}" 
                         Margin="5,0,0,0"
                         Style="{StaticResource MahApps.Styles.Button.Square}"/>
             </StackPanel>
+
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
 
@@ -213,24 +231,28 @@
                         Command="{Binding DeletePatientAsyncCommand}" 
                         Margin="0,0,10,0"
            
-                        
+                
+         
  Background="IndianRed"
                         Foreground="White"
                         Visibility="{Binding IsPatientSelectedAndActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                 <Button Content="Reactivar"
-                        Command="{Binding ReactivatePatientAsyncCommand}"
+                       
+  Command="{Binding ReactivatePatientAsyncCommand}"
          
       
                         Margin="0,0,10,0"
                         Background="SeaGreen"
                         Foreground="White"
-                         
+           
+               
   Visibility="{Binding IsPatientSelectedAndInactive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                 <Button Content="Nuevo"
                         Command="{Binding SetNewPatientFormCommand}"
                         Margin="0,0,10,0"/>
+
 
                 <Button Content="Ver Ficha"
               
@@ -240,13 +262,15 @@
 
                 <Button Content="Editar"
                         Command="{Binding EditPatientCommand}"
-                       
+   
+                     
     Margin="0,0,10,0"/>
 
                 <Button Content="Guardar"
                         Command="{Binding SavePatientCommand}"
               
-                        IsEnabled="{Binding IsFormEnabled}"
+                    
+     IsEnabled="{Binding IsFormEnabled}"
                   
          IsDefault="True"
                         Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>

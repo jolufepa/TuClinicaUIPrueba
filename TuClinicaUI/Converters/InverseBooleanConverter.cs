@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Windows; // <-- ¡ASEGÚRATE DE QUE ESTE USING ESTÉ PRESENTE!
 using System.Windows.Data; // Para IValueConverter
 
 namespace TuClinica.UI.Converters // Asegúrate que el namespace es .UI.Converters
@@ -10,11 +11,17 @@ namespace TuClinica.UI.Converters // Asegúrate que el namespace es .UI.Converte
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool boolValue)
+            // --- INICIO DE LA CORRECCIÓN ---
+            bool boolValue = false;
+            if (value is bool)
             {
-                return !boolValue; // Devuelve el valor negado
+                boolValue = (bool)value;
             }
-            return true; // Valor por defecto si no es booleano
+
+            // Si el valor es TRUE (modo solo lectura), devolvemos COLLAPSED (oculto)
+            // Si el valor es FALSE (modo edición), devolvemos VISIBLE
+            return boolValue ? Visibility.Collapsed : Visibility.Visible;
+            // --- FIN DE LA CORRECCIÓN ---
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

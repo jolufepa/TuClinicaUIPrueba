@@ -4,7 +4,8 @@
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:TuClinica.UI.Views"
-                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+              
+    xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
                  mc:Ignorable="d"
                  Title="Seleccionar Paciente" Height="500" Width="700"
@@ -12,6 +13,7 @@
                  d:DataContext="{d:DesignInstance Type=viewmodels:PatientSelectionViewModel}">
 
     <Grid Margin="15">
+
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -20,19 +22,20 @@
 
         <TextBox Grid.Row="0" Margin="0,0,0,10" FontSize="14"
                  mah:TextBoxHelper.Watermark="Buscar por Nombre, Apellidos o Nº Documento..."
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+              
+    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
         <DataGrid Grid.Row="1" Margin="0,0,0,10" FontSize="14"
                   ItemsSource="{Binding SearchResults}"
                   SelectedItem="{Binding SelectedPatientFromList, Mode=TwoWay}"
                   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                   SelectionMode="Single">
+
             <DataGrid.InputBindings>
                 <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ConfirmSelectionCommand}"/>
             </DataGrid.InputBindings>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nombre" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
                 <DataGridTextColumn Header="Apellidos" Binding="{Binding Surname, Mode=OneWay}" Width="2*"/>
-
                 <DataGridTextColumn Header="Tipo Doc." Binding="{Binding DocumentType, Mode=OneWay}" Width="Auto"/>
                 <DataGridTextColumn Header="Nº Documento" Binding="{Binding DocumentNumber, Mode=OneWay}" Width="*"/>
             </DataGrid.Columns>
@@ -42,7 +45,8 @@
             <Button Content="Cancelar" IsCancel="True" Margin="0,0,10,0"/>
 
             <Button Content="Aceptar" IsDefault="True"
-                    Command="{Binding ConfirmSelectionCommand}"
+      
+               Command="{Binding ConfirmSelectionCommand}"
                     Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
         </StackPanel>
     </Grid>

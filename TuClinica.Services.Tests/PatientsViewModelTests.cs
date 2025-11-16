@@ -8,9 +8,10 @@ using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
-// --- CAMBIO 1: Añadir using para IServiceScopeFactory ---
 using Microsoft.Extensions.DependencyInjection;
-using System.Threading.Tasks; // <-- AÑADIDO PARA TASK
+using System.Threading.Tasks;
+// --- AÑADIR ESTE USING ---
+using TuClinica.Core.Enums;
 
 namespace TuClinica.Services.Tests
 {
@@ -20,10 +21,7 @@ namespace TuClinica.Services.Tests
         // --- Dependencias (Mocks) ---
         private Mock<IPatientRepository> _patientRepoMock;
         private Mock<IValidationService> _validationServiceMock;
-
-        // --- CAMBIO 2: Renombrar a 'scopeFactoryMock' ---
         private Mock<IServiceScopeFactory> _scopeFactoryMock;
-
         private PatientFileViewModel _patientFileVM_Instance; // Objeto real, pero con dependencias mockeadas
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
@@ -32,11 +30,6 @@ namespace TuClinica.Services.Tests
         private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
         private Mock<IPaymentRepository> _paymentRepoMock;
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
-
-        // --- INICIO DE LA MODIFICACIÓN: authServiceMock eliminado de este test ---
-        // private Mock<IAuthService> _authServiceMock; // <-- YA NO SE NECESITA AQUÍ
-        // --- FIN DE LA MODIFICACIÓN ---
-
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
@@ -50,10 +43,7 @@ namespace TuClinica.Services.Tests
             // 1. Inicializamos todos los Mocks
             _patientRepoMock = new Mock<IPatientRepository>();
             _validationServiceMock = new Mock<IValidationService>();
-
-            // --- CAMBIO 3: Inicializar el mock de la factory ---
             _scopeFactoryMock = new Mock<IServiceScopeFactory>();
-
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
 
@@ -61,32 +51,24 @@ namespace TuClinica.Services.Tests
             _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
             _paymentRepoMock = new Mock<IPaymentRepository>();
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
-
-            // _authServiceMock = new Mock<IAuthService>(); // <-- YA NO SE NECESITA AQUÍ
-
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
             // --- FIN MOCKS NUEVOS ---
 
-
             // 2. Creamos la instancia de PatientFileViewModel
-            // --- INICIO DE LA MODIFICACIÓN: Constructor de 4 argumentos ---
             _patientFileVM_Instance = new PatientFileViewModel(
-                // _authServiceMock.Object, // <-- ELIMINADO
                 _dialogServiceMock.Object,
                 _scopeFactoryMock.Object,
                 _fileDialogServiceMock.Object,
                 _validationServiceMock.Object
             );
-            // --- FIN DE LA MODIFICACIÓN ---
 
             // 3. Creamos el ViewModel pasándole los Mocks
-            // --- CAMBIO 5: Pasar la factory al constructor de PatientsViewModel ---
             _viewModel = new PatientsViewModel(
                 _patientRepoMock.Object,
                 _validationServiceMock.Object,
-                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
+                _scopeFactoryMock.Object,
                 _patientFileVM_Instance,
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
@@ -128,18 +110,21 @@ namespace TuClinica.Services.Tests
             Assert.AreEqual(123, _viewModel.PatientFormModel.Id, "El Id no se copió al formulario.");
         }
 
+        // --- INICIO DE LA MODIFICACIÓN (TEST CORREGIDO) ---
         [TestMethod]
-        public async Task SavePatientAsync_NoDebeGuardar_SiDniEsInvalido()
+        public async Task SavePatientAsync_NoDebeGuardar_SiDocumentoEsInvalido()
         {
             // Arrange
             // 1. Configuramos el Mock de validación para que devuelva 'false'
+            //    usando el NUEVO método IsValidDocument
             _validationServiceMock
-                .Setup(v => v.IsValidDniNie(It.IsAny<string>()))
+                .Setup(v => v.IsValidDocument(It.IsAny<string>(), It.IsAny<PatientDocumentType>()))
                 .Returns(false);
 
             // 2. Preparamos un paciente nuevo
             _viewModel.SetNewPatientFormCommand.Execute(null);
-            _viewModel.PatientFormModel.DniNie = "DNI_INVALIDO";
+            _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO";
+            _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI;
 
             // Act
             await _viewModel.SavePatientCommand.ExecuteAsync(null);
@@ -149,8 +134,9 @@ namespace TuClinica.Services.Tests
             _patientRepoMock.Verify(
                 repo => repo.AddAsync(It.IsAny<Patient>()),
                 Times.Never,
-                "Se llamó a AddAsync con un DNI inválido.");
+                "Se llamó a AddAsync con un Documento inválido.");
         }
+        // --- FIN DE LA MODIFICACIÓN ---
 
 
         [TestMethod]

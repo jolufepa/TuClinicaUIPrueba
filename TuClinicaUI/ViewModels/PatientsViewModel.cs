@@ -252,19 +252,10 @@ namespace TuClinica.UI.ViewModels
         private void EditPatient()
         {
             if (SelectedPatient == null) return;
-            PatientFormModel = new Patient
-            {
-                Id = SelectedPatient.Id,
-                Name = SelectedPatient.Name,
-                Surname = SelectedPatient.Surname,
-                DniNie = SelectedPatient.DniNie,
-                DateOfBirth = SelectedPatient.DateOfBirth,
-                Phone = SelectedPatient.Phone,
-                Address = SelectedPatient.Address,
-                Email = SelectedPatient.Email,
-                Notes = SelectedPatient.Notes,
-                IsActive = SelectedPatient.IsActive
-            };
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Usamos el método DeepCopy que ya existe en el modelo Patient
+            PatientFormModel = SelectedPatient.DeepCopy();
+            // --- FIN DE LA MODIFICACIÓN ---
             IsFormEnabled = true;
         }
 

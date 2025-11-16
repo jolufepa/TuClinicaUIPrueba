@@ -96,6 +96,9 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand<TreatmentPlanItem> DeletePlanItemAsyncCommand { get; }
         public IAsyncRelayCommand CheckPendingTasksCommand { get; }
 
+        // --- AÑADIDO ---
+        public IEnumerable<PatientDocumentType> DocumentTypes => Enum.GetValues(typeof(PatientDocumentType)).Cast<PatientDocumentType>();
+
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))]
@@ -841,14 +844,17 @@ namespace TuClinica.UI.ViewModels
         {
             if (_originalPatientState == null || CurrentPatient == null) return false;
 
+            // --- INICIO DE LA MODIFICACIÓN ---
             return _originalPatientState.Name != CurrentPatient.Name ||
                    _originalPatientState.Surname != CurrentPatient.Surname ||
-                   _originalPatientState.DniNie != CurrentPatient.DniNie ||
+                   _originalPatientState.DocumentType != CurrentPatient.DocumentType || // <-- AÑADIDO
+                   _originalPatientState.DocumentNumber != CurrentPatient.DocumentNumber || // <-- CAMBIADO
                    _originalPatientState.DateOfBirth != CurrentPatient.DateOfBirth ||
                    _originalPatientState.Phone != CurrentPatient.Phone ||
                    _originalPatientState.Address != CurrentPatient.Address ||
                    _originalPatientState.Email != CurrentPatient.Email ||
                    _originalPatientState.Notes != CurrentPatient.Notes;
+            // --- FIN DE LA MODIFICACIÓN ---
         }
 
         private async Task SavePatientDataAsync()
