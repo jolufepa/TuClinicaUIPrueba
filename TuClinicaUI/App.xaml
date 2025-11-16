@@ -13,7 +13,7 @@
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
 
             </ResourceDictionary.MergedDictionaries>
-
+            <converters:FirstErrorConverter x:Key="FirstErrorConverter"/>
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
             <converters:SaldoColorConverter x:Key="SaldoColorConverter" />
@@ -34,17 +34,17 @@
                 <Setter Property="Foreground" Value="#FF5D4037" />
                 <Setter Property="FontWeight" Value="Bold" />
                 <Setter Property="Margin" Value="0,10,0,2" />
-
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="16" />
             </Style>
 
             <Style x:Key="FichaTextBlockStyle" TargetType="TextBlock">
                 <Setter Property="Background" Value="#FFFBF8ED" />
                 <Setter Property="Padding" Value="8,5,8,5" />
                 <Setter Property="Margin" Value="0,0,0,10" />
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="18" />
                 <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Height" Value="32" />
+                <Setter Property="FontWeight" Value="Normal"/>
+                <Setter Property="MinHeight" Value="38"/>
             </Style>
 
             <Style x:Key="FichaTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource MahApps.Styles.TextBox}">
@@ -55,8 +55,9 @@
                 <Setter Property="BorderThickness" Value="0,0,0,1" />
                 <Setter Property="Padding" Value="8,5,8,5" />
                 <Setter Property="Margin" Value="0,0,0,10" />
-                <Setter Property="FontSize" Value="14" />
-
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontWeight" Value="Normal"/>
+                <Setter Property="MinHeight" Value="38"/>
                 <Setter Property="mah:TextBoxHelper.UseFloatingWatermark" Value="False" />
 
                 <Setter Property="Template">
@@ -67,11 +68,9 @@
                                 <Border x:Name="border"
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
-          
-                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
                                         CornerRadius="0"
-                             
-              SnapsToDevicePixels="True">
+                                        SnapsToDevicePixels="True">
                                     <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
                                 </Border>
 
@@ -96,7 +95,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>

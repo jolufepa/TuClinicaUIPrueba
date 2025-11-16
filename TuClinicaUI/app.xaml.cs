@@ -1,4 +1,5 @@
-﻿// --- Using Esenciales ---
+﻿// En: TuClinica.UI/app.xaml.cs
+// --- Using Esenciales ---
 using BCrypt.Net; // Para BCrypt
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -211,9 +212,11 @@ namespace TuClinica.UI
             AppHost = Host.CreateDefaultBuilder()
                 .ConfigureServices((hostContext, services) =>
                 {
-                    // Configuración General
-                    services.Configure<AppSettings>(hostContext.Configuration.GetSection("ClinicSettings"));
-                    services.AddSingleton(sp => sp.GetRequiredService<IOptions<AppSettings>>().Value);
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // Registramos el nuevo servicio como Singleton
+                    services.AddSingleton<ISettingsService, SettingsService>();
+                    // --- FIN DE LA MODIFICACIÓN ---
+
 
                     // Base de Datos
                     services.AddDbContext<AppDbContext>(options => {
@@ -231,36 +234,35 @@ namespace TuClinica.UI
                     services.AddScoped<IMedicationRepository, MedicationRepository>();
                     services.AddScoped<IDosageRepository, DosageRepository>();
                     services.AddScoped<IClinicalEntryRepository, ClinicalEntryRepository>();
-                    services.AddScoped<IPaymentRepository, PaymentRepository>();
-                    services.AddScoped<IRepository<PaymentAllocation>, Repository<PaymentAllocation>>();
 
-                    // --- INICIO DE LA MODIFICACIÓN ---
-                    // 1. Registrar el nuevo repositorio
+                    // *** ¡AQUÍ ESTÁ LA CORRECCIÓN! ***
+                    services.AddScoped<IPaymentRepository, PaymentRepository>(); // <-- ESTA LÍNEA FALTABA
+
+                    services.AddScoped<IRepository<PaymentAllocation>, Repository<PaymentAllocation>>();
                     services.AddScoped<ITreatmentPlanItemRepository, TreatmentPlanItemRepository>();
-                    // --- FIN DE LA MODIFICACIÓN ---
 
                     // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
                     services.AddSingleton<IAuthService, AuthService>();
                     services.AddSingleton<ILicenseService, LicenseService>();
                     services.AddScoped<IBackupService, BackupService>();
+
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // Modificamos el registro de PdfService para que use ISettingsService
                     services.AddScoped<IPdfService>(sp => new PdfService(
-                        sp.GetRequiredService<AppSettings>(),
+                        sp.GetRequiredService<ISettingsService>().GetSettings(), // <-- CAMBIADO
                         GetBudgetsFolderPath(),
-                        GetPrescriptionsFolderPath(), // <-- Nueva Ruta
+                        GetPrescriptionsFolderPath(),
                         sp.GetRequiredService<IPatientRepository>()
                     ));
+                    // --- FIN DE LA MODIFICACIÓN ---
+
                     services.AddScoped<IActivityLogService, ActivityLogService>();
-
-                    // *** CORRECCIÓN: Especificar el namespace completo de la UI para InactivityService ***
                     services.AddSingleton<IInactivityService, TuClinica.UI.Services.InactivityService>();
-
                     services.AddSingleton<IDialogService, DialogService>();
                     services.AddSingleton<IFileDialogService, FileDialogService>();
                     services.AddSingleton<ICryptoService, CryptoService>();
                     services.AddSingleton<IFileSystemService, FileSystemService>();
-
-
 
                     // ViewModels
                     services.AddTransient<PatientsViewModel>();
@@ -274,24 +276,16 @@ namespace TuClinica.UI
                     services.AddTransient<UserEditViewModel>();
                     services.AddTransient<PrescriptionViewModel>();
 
-                    // --- INICIO DE LA MODIFICACIÓN ---
-                    // services.AddSingleton<PatientFileViewModel>(); // <-- ELIMINADA LA REGISTRACIÓN ANTIGUA
-                    // Añadimos el nuevo registro que construye el VM manualmente sin IAuthService
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
-                            // sp.GetRequiredService<IAuthService>(), // <-- ELIMINADO
                             sp.GetRequiredService<IDialogService>(),
                             sp.GetRequiredService<IServiceScopeFactory>(),
                             sp.GetRequiredService<IFileDialogService>(),
                             sp.GetRequiredService<IValidationService>()
                         ));
-                    // --- FIN DE LA MODIFICACIÓN ---
 
                     services.AddTransient<OdontogramViewModel>();
                     services.AddSingleton<HomeViewModel>();
-
-
-                    // *******************************************************************
 
                     // Vistas
                     services.AddSingleton<MainWindow>();
@@ -299,26 +293,15 @@ namespace TuClinica.UI
                     services.AddTransient<PatientSelectionDialog>();
                     services.AddTransient<UserEditDialog>();
                     services.AddTransient<OdontogramWindow>();
-
-                    // *** CAMBIO: Eliminada la vista obsoleta ***
-                    // services.AddTransient<TreatmentPriceDialog>();
-
                     services.AddTransient<NewPaymentDialog>();
-
-                    // *** CAMBIO: Añadida la nueva vista ***
                     services.AddTransient<ManualChargeDialog>();
-                    services.AddTransient<OdontogramStateDialog>(); // <-- REGISTRO FASE 2
-
-                    // 3. Añadimos la nueva Vista (UserControl)
-                    // (No necesitamos registrar PatientFileView.xaml porque es un UserControl
-                    // cargado por un DataTemplate en MainWindow.xaml)
-
+                    services.AddTransient<OdontogramStateDialog>();
                     services.AddTransient<LicenseWindow>(sp => { var vm = sp.GetRequiredService<LicenseViewModel>(); return new LicenseWindow { DataContext = vm }; });
                 })
                 .Build();
         }
 
-        // --- Lógica de Arranque ---
+        // --- Lógica de Arranque (Sin cambios, pero la incluyo por completitud) ---
         protected override async void OnStartup(StartupEventArgs e)
         {
             await AppHost!.StartAsync();

@@ -9,7 +9,6 @@
                  mc:Ignorable="d"
                  Title="Seleccionar Paciente" Height="500" Width="700"
                  WindowStartupLocation="CenterOwner"
-                 
                  d:DataContext="{d:DesignInstance Type=viewmodels:PatientSelectionViewModel}">
 
     <Grid Margin="15">
@@ -20,9 +19,8 @@
         </Grid.RowDefinitions>
 
         <TextBox Grid.Row="0" Margin="0,0,0,10" FontSize="14"
-                 mah:TextBoxHelper.Watermark="Buscar por Nombre, Apellidos o DNI/NIE..."
+                 mah:TextBoxHelper.Watermark="Buscar por Nombre, Apellidos o Nº Documento..."
                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
-
         <DataGrid Grid.Row="1" Margin="0,0,0,10" FontSize="14"
                   ItemsSource="{Binding SearchResults}"
                   SelectedItem="{Binding SelectedPatientFromList, Mode=TwoWay}"
@@ -34,7 +32,9 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nombre" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
                 <DataGridTextColumn Header="Apellidos" Binding="{Binding Surname, Mode=OneWay}" Width="2*"/>
-                <DataGridTextColumn Header="DNI/NIE" Binding="{Binding DniNie, Mode=OneWay}" Width="*"/>
+
+                <DataGridTextColumn Header="Tipo Doc." Binding="{Binding DocumentType, Mode=OneWay}" Width="Auto"/>
+                <DataGridTextColumn Header="Nº Documento" Binding="{Binding DocumentNumber, Mode=OneWay}" Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
 

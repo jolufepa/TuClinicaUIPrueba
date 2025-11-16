@@ -1,12 +1,37 @@
-﻿using System.Linq;
+﻿// En: TuClinica.Services/Implementation/ValidationService.cs
+using System.Linq;
 using System.Text.RegularExpressions;
+using TuClinica.Core.Enums; // <-- AÑADIR ESTE USING
+using TuClinica.Core.Interfaces.Services;
 
-using TuClinica.Core.Interfaces.Services; //
 namespace TuClinica.Services.Implementation
 {
-    // Esta clase implementa el contrato IValidationService
     public class ValidationService : IValidationService
     {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        public bool IsValidDocument(string documentNumber, PatientDocumentType type)
+        {
+            if (string.IsNullOrWhiteSpace(documentNumber))
+                return false;
+
+            switch (type)
+            {
+                case PatientDocumentType.DNI:
+                case PatientDocumentType.NIE:
+                    // Usamos la validación estricta que ya teníamos
+                    return IsValidDniNie(documentNumber);
+
+                case PatientDocumentType.Pasaporte:
+                case PatientDocumentType.Otro:
+                    // Para pasaporte u otro, solo pedimos un mínimo de 4 caracteres
+                    return documentNumber.Length >= 4;
+
+                default:
+                    return false;
+            }
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
         public bool IsValidDniNie(string nif)
         {
             if (string.IsNullOrWhiteSpace(nif))
@@ -14,7 +39,6 @@ namespace TuClinica.Services.Implementation
 
             nif = nif.ToUpper().Trim();
 
-            // Usamos una expresión regular para comprobar el formato (8 números + 1 letra ó X/Y/Z + 7 números + 1 letra)
             if (!Regex.IsMatch(nif, @"^(\d{8}[A-Z]|[XYZ]\d{7}[A-Z])$"))
                 return false;
 
@@ -37,10 +61,9 @@ namespace TuClinica.Services.Implementation
             }
             else
             {
-                return false; // No se pudo convertir el número
+                return false;
             }
 
-            // Comprobamos si la letra del NIF coincide con la letra calculada
             return nif.Last() == letraCalculada;
         }
     }

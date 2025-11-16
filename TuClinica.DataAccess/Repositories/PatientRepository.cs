@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// En: TuClinica.DataAccess/Repositories/PatientRepository.cs
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -69,11 +70,13 @@ namespace TuClinica.DataAccess.Repositories
                 dbQuery = dbQuery.Where(p => p.IsActive);
             }
 
+            // --- INICIO DE LA MODIFICACIÓN ---
             // Aplicamos el filtro de búsqueda de texto
             var filteredQuery = dbQuery
                 .Where(p => p.Name.ToLower().Contains(query) ||
                             p.Surname.ToLower().Contains(query) ||
-                            p.DniNie.ToLower().Contains(query));
+                            p.DocumentNumber.ToLower().Contains(query)); // <-- CAMBIADO DE DniNie
+            // --- FIN DE LA MODIFICACIÓN ---
 
             // Aplicamos orden y paginación
             return await filteredQuery
@@ -131,11 +134,13 @@ namespace TuClinica.DataAccess.Repositories
                 dbQuery = dbQuery.Where(p => p.IsActive);
             }
 
+            // --- INICIO DE LA MODIFICACIÓN ---
             return await dbQuery
                 .Where(p => p.Name.ToLower().Contains(query) ||
                             p.Surname.ToLower().Contains(query) ||
-                            p.DniNie.ToLower().Contains(query))
+                            p.DocumentNumber.ToLower().Contains(query)) // <-- CAMBIADO DE DniNie
                 .CountAsync();
+            // --- FIN DE LA MODIFICACIÓN ---
         }
     }
 }

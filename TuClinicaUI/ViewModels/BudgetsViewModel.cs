@@ -32,10 +32,7 @@ namespace TuClinica.UI.ViewModels
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IBudgetRepository _budgetRepository;
         private readonly IPdfService _pdfService;
-
-        // --- CAMBIO 1: Reemplazar IServiceProvider ---
         private readonly IServiceScopeFactory _scopeFactory;
-
         private readonly IDialogService _dialogService;
 
         public IRelayCommand SelectPatientCommand { get; }
@@ -112,49 +109,36 @@ namespace TuClinica.UI.ViewModels
         public bool IsPatientSelected => CurrentPatient != null;
         public bool CanGenerateBudget => IsPatientSelected && BudgetItems.Any();
 
-
-        // --- CAMBIO 2: Actualizar el constructor ---
         public BudgetsViewModel(
             IPatientRepository patientRepository,
             ITreatmentRepository treatmentRepository,
             IBudgetRepository budgetRepository,
             IPdfService pdfService,
-            IServiceScopeFactory scopeFactory, // <-- MODIFICADO
+            IServiceScopeFactory scopeFactory,
             IDialogService dialogService)
         {
             _patientRepository = patientRepository;
             _treatmentRepository = treatmentRepository;
             _budgetRepository = budgetRepository;
             _pdfService = pdfService;
-            _scopeFactory = scopeFactory; // <-- MODIFICADO
+            _scopeFactory = scopeFactory;
             _dialogService = dialogService;
 
             SelectPatientCommand = new RelayCommand(SelectPatient);
 
-            // Escuchar cambios en la colección de items para recalcular
             BudgetItems.CollectionChanged += (s, e) => RecalculateTotalsOnItemChange();
 
-            // Cargar tratamientos disponibles al inicio
             _ = LoadAvailableTreatmentsAsync();
 
-            // Cargar historial al iniciar
             _ = LoadBudgetHistoryAsync();
 
             WeakReferenceMessenger.Default.Register(this);
         }
 
-        /// <summary>
-        /// Recibe el mensaje para pre-seleccionar un paciente.
-        /// </summary>
         public void Receive(NavigateToNewBudgetMessage message)
         {
-            // Este método es llamado por MainWindowViewModel
-            // (Esta lógica la movimos en el paso anterior)
         }
 
-        /// <summary>
-        /// Configura el ViewModel para un nuevo presupuesto, pre-seleccionando un paciente.
-        /// </summary>
         public void SetPatientForNewBudget(Patient patient)
         {
             ClearBudget();
@@ -162,13 +146,11 @@ namespace TuClinica.UI.ViewModels
         }
 
 
-        // Este método se llama automáticamente cuando CurrentPatient cambia
         partial void OnCurrentPatientChanged(Patient? value)
         {
-            // Actualiza la propiedad de display, usando la lógica del modelo Patient
             CurrentPatientDisplay = value?.PatientDisplayInfo ?? "Ningún paciente seleccionado";
         }
-        // Método para cargar tratamientos activos
+
         private async Task LoadAvailableTreatmentsAsync()
         {
             var treatments = await _treatmentRepository.GetAllAsync();
@@ -182,7 +164,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Método llamado cuando se añade/quita un item o cambian sus propiedades internas
         private void RecalculateTotalsOnItemChange()
         {
             OnPropertyChanged(nameof(Subtotal));
@@ -190,24 +171,17 @@ namespace TuClinica.UI.ViewModels
             OnPropertyChanged(nameof(BaseImponible));
             OnPropertyChanged(nameof(VatAmount));
             OnPropertyChanged(nameof(TotalAmount));
-            RecalculateFinancing(); // <-- AÑADIDO
+            RecalculateFinancing();
             GenerateBudgetCommand.NotifyCanExecuteChanged();
         }
 
-        // --- CORRECCIÓN: Métodos parciales para reaccionar a cambios ---
-
-        // El método erróneo OnTotalAmountChanged() ha sido eliminado.
-
-        // Estos métodos SÍ existen porque DiscountPercent y VatPercent son [ObservableProperty]
         partial void OnDiscountPercentChanged(decimal value)
         {
-            // Esta propiedad también afecta a TotalAmount, así que recalculamos
             RecalculateFinancing();
         }
 
         partial void OnVatPercentChanged(decimal value)
         {
-            // Esta propiedad también afecta a TotalAmount, así que recalculamos
             RecalculateFinancing();
         }
 
@@ -221,50 +195,39 @@ namespace TuClinica.UI.ViewModels
         {
             RecalculateFinancing();
         }
-        // --- FIN DE LA CORRECCIÓN ---
 
-
-        // --- Lógica de cálculo de financiación ---
         private void RecalculateFinancing()
         {
             if (NumberOfMonths <= 0 || TotalAmount == 0)
             {
                 MonthlyPayment = 0;
-                TotalFinanced = TotalAmount; // El total es el pago único
+                TotalFinanced = TotalAmount;
             }
             else if (InterestRate == 0)
             {
-                // Financiación simple 0%
                 MonthlyPayment = TotalAmount / NumberOfMonths;
                 TotalFinanced = TotalAmount;
             }
             else
             {
-                // Cálculo profesional (Fórmula de amortización de préstamo - Sistema Francés)
                 try
                 {
-                    // Convertimos a double para usar Math.Pow
                     double totalV = (double)TotalAmount;
-                    // Interés mensual (ej: 5.5% anual -> 0.055 / 12)
                     double i = (double)(InterestRate / 100) / 12;
                     int n = NumberOfMonths;
 
-                    // Fórmula: Cuota = [V * i] / [1 - (1 + i)^-n]
                     double monthlyPaymentDouble = (totalV * i) / (1 - Math.Pow(1 + i, -n));
 
-                    // Redondeamos a 2 decimales
                     MonthlyPayment = (decimal)Math.Round(monthlyPaymentDouble, 2, MidpointRounding.AwayFromZero);
                     TotalFinanced = MonthlyPayment * n;
                 }
                 catch (Exception)
                 {
-                    // Evita errores si los valores son extremos (ej. Overflow)
                     MonthlyPayment = 0;
                     TotalFinanced = TotalAmount;
                 }
             }
 
-            // Notificamos a la UI
             OnPropertyChanged(nameof(MonthlyPayment));
             OnPropertyChanged(nameof(TotalFinanced));
         }
@@ -272,30 +235,21 @@ namespace TuClinica.UI.ViewModels
 
         // --- Comandos (Formulario Creación) ---
 
-        // Método que ejecuta el comando SelectPatientCommand (Corregido)
         private void SelectPatient()
         {
             try
             {
-                // --- CAMBIO 3: Usar 'scopeFactory' para resolver el diálogo 'Transient' ---
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var dialog = scope.ServiceProvider.GetRequiredService<PatientSelectionDialog>();
 
-                    // --- ASIGNACIÓN DE PROPIETARIO MÁS SEGURA ---
                     Window? ownerWindow = Application.Current.MainWindow;
-                    // Comprobar si MainWindow existe y NO es el propio diálogo
                     if (ownerWindow != null && ownerWindow != dialog)
                     {
                         dialog.Owner = ownerWindow;
                     }
-                    else
-                    {
-                        // Si no se puede asignar (ej. MainWindow aún no lista), el diálogo se abrirá centrado en la pantalla.
-                    }
-                    // --- FIN ASIGNACIÓN SEGURA ---
 
-                    var result = dialog.ShowDialog(); // Muestra el diálogo modalmente
+                    var result = dialog.ShowDialog();
 
                     var dialogViewModel = dialog.ViewModel;
                     if (dialogViewModel == null)
@@ -308,16 +262,13 @@ namespace TuClinica.UI.ViewModels
                     {
                         CurrentPatient = dialogViewModel.SelectedPatientFromList;
                     }
-                    else
-                    {
-                    }
-                } // El 'scope' y el 'dialog' se destruyen aquí
+                }
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error al abrir la selección de paciente:\n{ex.Message}", "Error");
             }
-        }// Fin del método SelectPatient
+        }
 
         [RelayCommand]
         private void AddPredefinedTreatment(Treatment? selectedTreatment)
@@ -358,7 +309,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Método para escuchar cambios en Quantity/UnitPrice de un item
         private void HookPropertyChanged(BudgetLineItem item)
         {
             if (item is INotifyPropertyChanged npc)
@@ -367,7 +317,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Método para dejar de escuchar
         private void UnhookPropertyChanged(BudgetLineItem item)
         {
             if (item is INotifyPropertyChanged npc)
@@ -376,7 +325,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Handler que recalcula totales cuando cambia Quantity o UnitPrice
         private void BudgetItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(BudgetLineItem.Quantity) || e.PropertyName == nameof(BudgetLineItem.UnitPrice))
@@ -391,7 +339,6 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null) return;
 
-            // --- 1. Crear el objeto Budget ---
             var newBudget = new Budget
             {
                 PatientId = CurrentPatient.Id,
@@ -410,68 +357,54 @@ namespace TuClinica.UI.ViewModels
                 Status = BudgetStatus.Pendiente,
                 Patient = null,
 
-                // --- AÑADIR ESTAS LÍNEAS ---
                 NumberOfMonths = this.NumberOfMonths,
                 InterestRate = this.InterestRate
-                // --- FIN LÍNEAS AÑADIDAS ---
             };
 
-            // --- 2. Guardar en BD (con manejo de reintentos) ---
             bool guardadoConExito = false;
-            int intentosMaximos = 3; // Para evitar un bucle infinito
+            int intentosMaximos = 3;
 
             for (int i = 0; i < intentosMaximos; i++)
             {
                 try
                 {
-                    // Obtenemos el número DENTRO del bucle
                     newBudget.BudgetNumber = await _budgetRepository.GetNextBudgetNumberAsync();
 
                     await _budgetRepository.AddAsync(newBudget);
                     await _budgetRepository.SaveChangesAsync();
 
-                    guardadoConExito = true; // Si llega aquí, se guardó
-                    break; // Salimos del bucle
+                    guardadoConExito = true;
+                    break;
                 }
                 catch (DbUpdateException ex)
                 {
-                    // Comprobamos si el error es por la restricción UNIQUE
                     if (ex.InnerException != null && ex.InnerException.Message.Contains("UNIQUE constraint failed: Budgets.BudgetNumber"))
                     {
-                        // Es una colisión (race condition).
-                        // El bucle continuará y volverá a intentarlo
-                        // con un nuevo número en la siguiente iteración.
-                        await Task.Delay(50); // Pequeña espera opcional
+                        await Task.Delay(50);
                     }
                     else
                     {
-                        // Fue otro error de BD
                         _dialogService.ShowMessage($"Error al guardar el presupuesto en la base de datos:\n{ex.Message}", "Error BD");
-                        break; // Salir del bucle, no reintentar
+                        break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Fue un error general
                     _dialogService.ShowMessage($"Error inesperado al guardar:\n{ex.Message}", "Error General");
-                    break; // Salir del bucle
+                    break;
                 }
             }
 
-            // Si después de los reintentos no se pudo guardar, informamos y salimos.
             if (!guardadoConExito)
             {
                 return;
             }
 
-            // --- 3. Generar PDF ---
             string pdfPath = string.Empty;
             try
             {
-
-
                 pdfPath = await _pdfService.GenerateBudgetPdfAsync(newBudget);
-                newBudget.PdfFilePath = pdfPath; // Guardamos la ruta
+                newBudget.PdfFilePath = pdfPath;
             }
             catch (Exception ex)
             {
@@ -479,7 +412,6 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // --- 4. Actualizar BD con la ruta del PDF ---
             try
             {
                 _budgetRepository.Update(newBudget);
@@ -492,7 +424,6 @@ namespace TuClinica.UI.ViewModels
             }
 
 
-            // --- 5. Mostrar PDF y Preguntar Imprimir (Tu requisito) ---
             try
             {
                 ProcessStartInfo psi = new ProcessStartInfo(pdfPath) { UseShellExecute = true };
@@ -510,10 +441,8 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"No se pudo abrir el archivo PDF:\n{ex.Message}", "Error Abrir PDF");
             }
 
-            // --- 6. Limpiar formulario ---
             ClearBudget();
 
-            // Refrescar el historial
             await LoadBudgetHistoryAsync();
         }
 
@@ -523,12 +452,10 @@ namespace TuClinica.UI.ViewModels
             CurrentPatient = null;
             BudgetItems.Clear();
             DiscountPercent = 0;
-            VatPercent = 0; // Restablecer a 0
-            NumberOfMonths = 0; // <-- AÑADIDO
-            InterestRate = 0;   // <-- AÑADIDO
+            VatPercent = 0;
+            NumberOfMonths = 0;
+            InterestRate = 0;
         }
-
-        // --- Métodos y Comandos para el HISTORIAL ---
 
         [RelayCommand]
         private async Task LoadBudgetHistoryAsync()
@@ -572,17 +499,12 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // Propiedad para habilitar el botón "Abrir PDF"
         private bool CanOpenPdf(Budget? budget)
         {
             var budgetToCheck = budget ?? SelectedBudgetFromHistory;
             return budgetToCheck != null && !string.IsNullOrEmpty(budgetToCheck.PdfFilePath) && File.Exists(budgetToCheck.PdfFilePath);
         }
 
-
-        // *** NUEVO: Comandos para actualizar el estado del presupuesto ***
-
-        // Helper CanExecute para los comandos de estado
         private bool CanUpdateStatus()
         {
             return SelectedBudgetFromHistory != null;
@@ -603,11 +525,9 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand(CanExecute = nameof(CanUpdateStatus))]
         private async Task MarkAsPendingAsync()
         {
-            // Solo si queremos permitir volver a "Pendiente" un presupuesto
             await UpdateSelectedBudgetStatusAsync(BudgetStatus.Pendiente);
         }
 
-        // Método principal que actualiza la BD y la UI
         private async Task UpdateSelectedBudgetStatusAsync(BudgetStatus newStatus)
         {
             if (SelectedBudgetFromHistory == null)
@@ -616,7 +536,6 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // Opcional: Confirmación
             var result = _dialogService.ShowConfirmation($"¿Estás seguro de que quieres marcar este presupuesto como '{newStatus}'?",
                                              "Confirmar cambio de estado");
 
@@ -626,11 +545,8 @@ namespace TuClinica.UI.ViewModels
 
             try
             {
-                // 1. Actualizar la base de datos
                 await _budgetRepository.UpdateStatusAsync(budgetToUpdate.Id, newStatus);
 
-                // 2. Recargar el historial para reflejar el cambio en la UI
-                // Esta es la forma más robusta de asegurar que la UI está sincronizada.
                 await LoadBudgetHistoryAsync();
             }
             catch (Exception ex)

@@ -29,9 +29,6 @@ namespace TuClinica.UI.ViewModels
     public partial class PatientFileViewModel : BaseViewModel
     {
         // --- Servicios ---
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // private readonly IAuthService _authService; // <-- ELIMINADO
-        // --- FIN DE LA MODIFICACIÓN ---
         private readonly IDialogService _dialogService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IFileDialogService _fileDialogService;
@@ -74,27 +71,14 @@ namespace TuClinica.UI.ViewModels
 
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
-        // --- INICIO DE LA MODIFICACIÓN (Nuevas Propiedades) ---
-
-        /// <summary>
-        /// Colección de tareas pendientes para la pestaña "Plan de Tratamiento".
-        /// </summary>
         public ObservableCollection<TreatmentPlanItem> PendingTasks { get; } = new();
 
-        /// <summary>
-        /// Contador de tareas NO completadas, para el "badge" visual.
-        /// </summary>
         [ObservableProperty]
         private int _pendingTaskCount = 0;
 
-        /// <summary>
-        /// Texto enlazado al TextBox para añadir una nueva tarea.
-        /// </summary>
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(AddPlanItemAsyncCommand))]
         private string _newPlanItemDescription = string.Empty;
-
-        // --- FIN DE LA MODIFICACIÓN ---
 
 
         public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
@@ -107,12 +91,10 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
 
-        // --- INICIO DE LA MODIFICACIÓN (Nuevos Comandos) ---
         public IAsyncRelayCommand AddPlanItemAsyncCommand { get; }
         public IAsyncRelayCommand<TreatmentPlanItem> TogglePlanItemAsyncCommand { get; }
         public IAsyncRelayCommand<TreatmentPlanItem> DeletePlanItemAsyncCommand { get; }
         public IAsyncRelayCommand CheckPendingTasksCommand { get; }
-        // --- FIN DE LA MODIFICACIÓN ---
 
 
         [ObservableProperty]
@@ -124,17 +106,11 @@ namespace TuClinica.UI.ViewModels
         private bool _isLoading = false;
 
         public PatientFileViewModel(
-          // --- INICIO DE LA MODIFICACIÓN ---
-          // IAuthService authService, // <-- ELIMINADO de los parámetros
-          // --- FIN DE LA MODIFICACIÓN ---
           IDialogService dialogService,
           IServiceScopeFactory scopeFactory,
           IFileDialogService fileDialogService,
           IValidationService validationService)
         {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // _authService = authService; // <-- ELIMINADO
-            // --- FIN DE LA MODIFICACIÓN ---
             _dialogService = dialogService;
             _scopeFactory = scopeFactory;
             _fileDialogService = fileDialogService;
@@ -153,18 +129,15 @@ namespace TuClinica.UI.ViewModels
             PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync);
             OpenRegisterChargeDialogCommand = new AsyncRelayCommand(OpenRegisterChargeDialog);
 
-            // --- INICIO DE LA MODIFICACIÓN (Inicializar Nuevos Comandos) ---
             AddPlanItemAsyncCommand = new AsyncRelayCommand(AddPlanItemAsync, CanAddPlanItem);
             TogglePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(TogglePlanItemAsync);
             DeletePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(DeletePlanItemAsync);
             CheckPendingTasksCommand = new AsyncRelayCommand(CheckPendingTasksAsync);
-            // --- FIN DE LA MODIFICACIÓN ---
 
             _unallocatedPayments.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
             _pendingCharges.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
         }
 
-        // --- MÉTODO MODIFICADO ---
         public async Task LoadPatient(Patient patient)
         {
             if (_isLoading) return;
@@ -172,15 +145,11 @@ namespace TuClinica.UI.ViewModels
             {
                 _isLoading = true;
 
-                // --- INICIO DE LA CORRECCIÓN (Reseteo de estado) ---
                 SelectedCharge = null;
                 SelectedPayment = null;
                 AmountToAllocate = 0;
-                // --- FIN DE LA CORRECCIÓN ---
 
-                // --- INICIO DE LA MODIFICACIÓN (Resetear Tareas) ---
                 NewPlanItemDescription = string.Empty;
-                // --- FIN DE LA MODIFICACIÓN ---
 
                 CurrentPatient = patient;
                 IsPatientDataReadOnly = true;
@@ -190,17 +159,14 @@ namespace TuClinica.UI.ViewModels
                     var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                     var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
                     var treatmentRepo = scope.ServiceProvider.GetRequiredService<ITreatmentRepository>();
-                    // --- INICIO DE LA MODIFICACIÓN (Cargar Tareas) ---
                     var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
 
                     var clinicalHistoryTask = clinicalEntryRepo.GetHistoryForPatientAsync(patient.Id);
                     var paymentHistoryTask = paymentRepo.GetPaymentsForPatientAsync(patient.Id);
                     var treatmentsTask = LoadAvailableTreatments(treatmentRepo);
-                    // 1. Iniciar la carga de tareas
                     var pendingTasksTask = LoadPendingTasksAsync(planItemRepo, patient.Id);
 
                     await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask, pendingTasksTask);
-                    // --- FIN DE LA MODIFICACIÓN ---
 
                     var clinicalHistory = (await clinicalHistoryTask).ToList();
                     var paymentHistory = (await paymentHistoryTask).ToList();
@@ -227,11 +193,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- INICIO DE LA MODIFICACIÓN (Nuevos Métodos) ---
-
-        /// <summary>
-        /// Carga las tareas pendientes de la BD y actualiza el contador del badge.
-        /// </summary>
         private async Task LoadPendingTasksAsync(ITreatmentPlanItemRepository planItemRepo, int patientId)
         {
             PendingTasks.Clear();
@@ -242,7 +203,6 @@ namespace TuClinica.UI.ViewModels
                 PendingTasks.Add(task);
             }
 
-            // Actualizar el contador para el "badge"
             PendingTaskCount = PendingTasks.Count(t => !t.IsDone);
         }
 
@@ -256,9 +216,6 @@ namespace TuClinica.UI.ViewModels
             AddPlanItemAsyncCommand.NotifyCanExecuteChanged();
         }
 
-        /// <summary>
-        /// (Comando) Añade una nueva tarea al plan de tratamiento.
-        /// </summary>
         private async Task AddPlanItemAsync()
         {
             if (CurrentPatient == null || !CanAddPlanItem()) return;
@@ -279,10 +236,9 @@ namespace TuClinica.UI.ViewModels
                     await planItemRepo.AddAsync(newItem);
                     await planItemRepo.SaveChangesAsync();
 
-                    // Refrescar la lista
                     await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
                 }
-                NewPlanItemDescription = string.Empty; // Limpiar el textbox
+                NewPlanItemDescription = string.Empty;
             }
             catch (Exception ex)
             {
@@ -290,9 +246,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        /// <summary>
-        /// (Comando) Marca una tarea como hecha o pendiente.
-        /// </summary>
         private async Task TogglePlanItemAsync(TreatmentPlanItem? item)
         {
             if (item == null || CurrentPatient == null) return;
@@ -303,16 +256,13 @@ namespace TuClinica.UI.ViewModels
                 {
                     var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
 
-                    // Obtenemos la entidad real de la BD para actualizarla
                     var itemToUpdate = await planItemRepo.GetByIdAsync(item.Id);
                     if (itemToUpdate == null) return;
 
-                    // Invertimos el estado
                     itemToUpdate.IsDone = !itemToUpdate.IsDone;
                     planItemRepo.Update(itemToUpdate);
                     await planItemRepo.SaveChangesAsync();
 
-                    // Refrescar la lista
                     await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
                 }
             }
@@ -322,9 +272,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        /// <summary>
-        /// (Comando) Elimina una tarea del plan de tratamiento.
-        /// </summary>
         private async Task DeletePlanItemAsync(TreatmentPlanItem? item)
         {
             if (item == null || CurrentPatient == null) return;
@@ -341,14 +288,12 @@ namespace TuClinica.UI.ViewModels
                 {
                     var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
 
-                    // Obtenemos la entidad real de la BD para eliminarla
                     var itemToDelete = await planItemRepo.GetByIdAsync(item.Id);
                     if (itemToDelete == null) return;
 
                     planItemRepo.Remove(itemToDelete);
                     await planItemRepo.SaveChangesAsync();
 
-                    // Refrescar la lista
                     await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
                 }
             }
@@ -358,21 +303,15 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        /// <summary>
-        /// (Comando) Muestra el pop-up de tareas pendientes (llamado desde la pestaña).
-        /// </summary>
         private async Task CheckPendingTasksAsync()
         {
-            // Pequeña espera para asegurar que la UI se ha cargado
             await Task.Delay(50);
 
             if (PendingTaskCount == 0)
             {
-                // No hay tareas, no mostramos pop-up.
                 return;
             }
 
-            // Formateamos la lista de tareas
             var pendingTaskDescriptions = PendingTasks
                 .Where(t => !t.IsDone)
                 .Select(t => t.Description);
@@ -384,19 +323,18 @@ namespace TuClinica.UI.ViewModels
                 "Plan de Tratamiento Pendiente");
         }
 
-        // --- FIN DE LA MODIFICACIÓN ---
-
-
         partial void OnCurrentPatientChanged(Patient? oldValue, Patient? newValue)
         {
             if (oldValue != null)
             {
                 oldValue.PropertyChanged -= CurrentPatient_PropertyChanged;
+                oldValue.ErrorsChanged -= CurrentPatient_ErrorsChanged;
             }
 
             if (newValue != null)
             {
                 newValue.PropertyChanged += CurrentPatient_PropertyChanged;
+                newValue.ErrorsChanged += CurrentPatient_ErrorsChanged;
                 _originalPatientState = newValue.DeepCopy();
             }
             else
@@ -411,6 +349,14 @@ namespace TuClinica.UI.ViewModels
         {
             if (IsPatientDataReadOnly) return;
             SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
+        }
+
+        private void CurrentPatient_ErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e)
+        {
+            if (!IsPatientDataReadOnly)
+            {
+                SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
+            }
         }
 
         private async Task AllocatePayment()
@@ -589,23 +535,19 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- MÉTODO MODIFICADO ---
         private async Task RegisterNewPayment()
         {
             if (CurrentPatient == null) return;
 
-            // 1. Obtenemos los nuevos valores (fecha y observaciones)
             var (ok, amount, method, observaciones, date) = _dialogService.ShowNewPaymentDialog();
             if (!ok || amount <= 0) return;
 
             var newPayment = new Payment
             {
                 PatientId = CurrentPatient.Id,
-                // 2. Usamos la fecha del diálogo, o DateTime.Now si es null
                 PaymentDate = date ?? DateTime.Now,
                 Amount = amount,
                 Method = method,
-                // 3. Guardamos las observaciones
                 Observaciones = observaciones
             };
 
@@ -625,7 +567,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error al guardar el pago: {ex.Message}", "Error BD");
             }
         }
-        // --- FIN MÉTODO MODIFICADO ---
 
         private void InitializeOdontogram()
         {
@@ -795,14 +736,18 @@ namespace TuClinica.UI.ViewModels
         {
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
 
-            if (!IsPatientDataReadOnly)
+            if (!IsPatientDataReadOnly) // Entrando en modo edición
             {
                 if (CurrentPatient != null)
                 {
                     _originalPatientState = CurrentPatient.DeepCopy();
+
+                    // ¡AQUÍ ESTÁ LA CORRECCIÓN!
+                    // Forzamos la validación del modelo en cuanto se pulsa "Editar".
+                    CurrentPatient.ForceValidation();
                 }
             }
-            else
+            else // Cancelando el modo edición
             {
                 if (CurrentPatient != null && _originalPatientState != null)
                 {
@@ -813,38 +758,27 @@ namespace TuClinica.UI.ViewModels
             SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
         }
 
-        // --- MÉTODO MODIFICADO ---
         private async Task OpenRegisterChargeDialog()
         {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // 1. Crear un scope para esta operación
             using (var dbScope = _scopeFactory.CreateScope())
             {
-                // 2. Obtener el IAuthService "fresco" desde este scope
                 var authService = dbScope.ServiceProvider.GetRequiredService<IAuthService>();
-                // --- FIN DE LA MODIFICACIÓN ---
 
                 if (CurrentPatient == null || authService.CurrentUser == null) return;
 
-                // 1. Usamos el servicio de diálogo
                 var (ok, data) = _dialogService.ShowManualChargeDialog(this.AvailableTreatments);
 
-                // 2. Comprobamos si el usuario aceptó
                 if (ok && data != null)
                 {
-                    // 3. Obtenemos los datos del resultado (incluyendo los nuevos)
                     string concept = data.Concept;
                     decimal unitPrice = data.UnitPrice;
                     int quantity = data.Quantity;
                     int? treatmentId = data.TreatmentId;
                     string observaciones = data.Observaciones;
-                    DateTime visitDate = data.SelectedDate ?? DateTime.Now; // <-- Usamos la fecha o el default
+                    DateTime visitDate = data.SelectedDate ?? DateTime.Now;
 
                     decimal totalCost = unitPrice * quantity;
 
-                    // --- INICIO DE LA MODIFICACIÓN ---
-                    // 3. Reutilizamos el 'dbScope' que ya teníamos
-                    // --- FIN DE LA MODIFICACIÓN ---
                     try
                     {
                         var clinicalRepo = dbScope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
@@ -852,21 +786,18 @@ namespace TuClinica.UI.ViewModels
                         var clinicalEntry = new ClinicalEntry
                         {
                             PatientId = CurrentPatient.Id,
-                            // --- INICIO DE LA MODIFICACIÓN ---
-                            // 4. Usar el authService "fresco" del scope
-                            DoctorId = authService.CurrentUser.Id, // <-- CORREGIDO
-                            // --- FIN DE LA MODIFICACIÓN ---
-                            VisitDate = visitDate, // <-- Usar la nueva fecha
+                            DoctorId = authService.CurrentUser.Id,
+                            VisitDate = visitDate,
                             Diagnosis = quantity > 1 ? $"{concept} (x{quantity})" : concept,
                             TotalCost = totalCost,
-                            Notes = observaciones // <-- Usar el campo 'Notes' para las observaciones
+                            Notes = observaciones
                         };
 
                         if (treatmentId.HasValue)
                         {
                             clinicalEntry.TreatmentsPerformed.Add(new ToothTreatment
                             {
-                                ToothNumber = 0, // 0 = "N/A"
+                                ToothNumber = 0,
                                 Surfaces = ToothSurface.Completo,
                                 TreatmentId = treatmentId.Value,
                                 TreatmentPerformed = ToothRestoration.Ninguna,
@@ -885,10 +816,8 @@ namespace TuClinica.UI.ViewModels
                         _dialogService.ShowMessage($"Error al registrar el cargo: {ex.Message}", "Error BD");
                     }
                 }
-            } // --- El scope se destruye aquí ---
+            }
         }
-        // --- FIN MÉTODO MODIFICADO ---
-
 
         private async Task LoadAvailableTreatments(ITreatmentRepository treatmentRepository)
         {
@@ -902,7 +831,10 @@ namespace TuClinica.UI.ViewModels
 
         private bool CanSavePatientData()
         {
-            return !IsPatientDataReadOnly && HasPatientDataChanged();
+            return !IsPatientDataReadOnly &&
+                   HasPatientDataChanged() &&
+                   CurrentPatient != null &&
+                   !CurrentPatient.HasErrors;
         }
 
         private bool HasPatientDataChanged()
@@ -923,19 +855,34 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null) return;
 
-            // --- INICIO DE LA MODIFICACIÓN ---
-            CurrentPatient.Name = CurrentPatient.Name.ToTitleCase();
-            CurrentPatient.Surname = CurrentPatient.Surname.ToTitleCase();
-            // --- FIN DE LA MODIFICACIÓN ---
+            CurrentPatient.ForceValidation();
 
-            CurrentPatient.DniNie = CurrentPatient.DniNie?.ToUpper().Trim() ?? string.Empty;
-            CurrentPatient.Email = CurrentPatient.Email?.ToLower().Trim() ?? string.Empty;
-
-            if (!_validationService.IsValidDniNie(CurrentPatient.DniNie))
+            if (CurrentPatient.HasErrors)
             {
-                _dialogService.ShowMessage("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE Inválido");
+                var firstError = CurrentPatient.GetErrors().FirstOrDefault()?.ErrorMessage;
+                _dialogService.ShowMessage($"No se pueden guardar los cambios. Revise los errores.\n\nError: {firstError}", "Datos Inválidos");
                 return;
             }
+
+            CurrentPatient.Name = CurrentPatient.Name.ToTitleCase();
+            CurrentPatient.Surname = CurrentPatient.Surname.ToTitleCase();
+
+            // --- INICIO DE LA MODIFICACIÓN ---
+            CurrentPatient.DocumentNumber = CurrentPatient.DocumentNumber?.ToUpper().Trim() ?? string.Empty;
+            CurrentPatient.Email = CurrentPatient.Email?.ToLower(); // El trim ya se hizo en el setter
+
+            if (string.IsNullOrEmpty(CurrentPatient.Email))
+            {
+                CurrentPatient.Email = null;
+            }
+
+            // Validación de Documento
+            if (!_validationService.IsValidDocument(CurrentPatient.DocumentNumber, CurrentPatient.DocumentType))
+            {
+                _dialogService.ShowMessage("El número de documento introducido no tiene un formato válido para el tipo seleccionado.", "Documento Inválido");
+                return;
+            }
+            // --- FIN DE LA MODIFICACIÓN ---
 
             try
             {

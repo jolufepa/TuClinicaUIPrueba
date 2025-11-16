@@ -17,14 +17,29 @@
         </Grid.ColumnDefinitions>
 
         <DataGrid Grid.Column="0"
-                  ItemsSource="{Binding Treatments}"
+                 ItemsSource="{Binding Treatments}"
                   SelectedItem="{Binding SelectedTreatment, Mode=TwoWay}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   CanUserAddRows="False"
                   FontSize="14" Margin="0,0,20,0">
+
+            <DataGrid.Resources>
+                <Style TargetType="TextBlock" x:Key="WrapTextStyle">
+                    <Setter Property="TextWrapping" Value="Wrap"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                    <Setter Property="Margin" Value="4"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="2*"/>
+                <DataGridTemplateColumn Header="Nombre" Width="2*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Style="{StaticResource WrapTextStyle}"
+                                       Text="{Binding Name}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Precio (€)" Binding="{Binding DefaultPrice, StringFormat=C, ConverterCulture='es-ES'}" Width="*"/>
                 <DataGridCheckBoxColumn Header="Activo" Binding="{Binding IsActive}" Width="Auto"/>
             </DataGrid.Columns>
@@ -67,13 +82,13 @@
 
                 <Button Content="Editar"
                         Command="{Binding EditTreatmentCommand}"
-                        Margin="0,0,10,0"/>
+                         Margin="0,0,10,0"/>
 
                 <Button Content="Guardar"
                         Command="{Binding SaveTreatmentCommand}"
                         IsEnabled="{Binding IsFormEnabled}"
                         IsDefault="True"
-                        Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+                         Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
             </StackPanel>
         </Grid>
     </Grid>

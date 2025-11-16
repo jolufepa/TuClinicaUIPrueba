@@ -1,33 +1,43 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel; // <-- Necesario
+﻿// En: TuClinica.Core/Models/Patient.cs
+using CommunityToolkit.Mvvm.ComponentModel;
 using System;
-using System.ComponentModel.DataAnnotations; // <-- Necesario
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using TuClinica.Core.Enums; // <-- AÑADIR ESTE USING
 
 namespace TuClinica.Core.Models
 {
-    // CAMBIO CLAVE: ObservableObject -> ObservableValidator
     public partial class Patient : ObservableValidator
     {
         [Key]
         [ObservableProperty]
         private int _id;
 
-        [Required] // <-- Atributo de validación
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
         [ObservableProperty]
         private string _name = string.Empty;
 
-        [Required] // <-- Atributo de validación
+        [Required(ErrorMessage = "El apellido es obligatorio.")]
         [ObservableProperty]
         private string _surname = string.Empty;
 
-        [Required] // <-- Atributo de validación
-        [ObservableProperty]
-        private string _dniNie = string.Empty;
+
+        // --- INICIO DE LA MODIFICACIÓN ---
 
         [ObservableProperty]
+        private PatientDocumentType _documentType; // <-- AÑADIDO
+
+        [Required(ErrorMessage = "El número de documento es obligatorio.")]
+        [ObservableProperty]
+        private string _documentNumber = string.Empty; // <-- RENOMBRADO (antes _dniNie)
+
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        [ObservableProperty]
+        [CustomValidation(typeof(TuClinica.Core.Models.ValidationRules), nameof(TuClinica.Core.Models.ValidationRules.IsValidDateOfBirth))]
         private DateTime? _dateOfBirth;
 
         [ObservableProperty]
@@ -36,8 +46,17 @@ namespace TuClinica.Core.Models
         [ObservableProperty]
         private string? _address;
 
-        [ObservableProperty]
+        [RegularExpression(@"^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", ErrorMessage = "El formato del email no es válido.")]
         private string? _email;
+        public string? Email
+        {
+            get => _email;
+            set
+            {
+                var trimmedValue = value?.Trim();
+                SetProperty(ref _email, trimmedValue, true);
+            }
+        }
 
         [ObservableProperty]
         private string? _notes;
@@ -53,10 +72,9 @@ namespace TuClinica.Core.Models
         [Browsable(false)]
         [JsonIgnore]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public string PatientDisplayInfo => $"{Name} {Surname} ({DniNie})";
+        // --- MODIFICADO para usar DocumentNumber ---
+        public string PatientDisplayInfo => $"{Name} {Surname} ({DocumentNumber})";
 
-
-        // --- MÉTODOS AÑADIDOS (Usados por el ViewModel) ---
 
         /// <summary>
         /// Crea una copia exacta de este paciente.
@@ -68,7 +86,10 @@ namespace TuClinica.Core.Models
                 Id = this.Id,
                 Name = this.Name,
                 Surname = this.Surname,
-                DniNie = this.DniNie,
+                // --- MODIFICADO ---
+                DocumentType = this.DocumentType,
+                DocumentNumber = this.DocumentNumber,
+                // ---
                 DateOfBirth = this.DateOfBirth,
                 Phone = this.Phone,
                 Address = this.Address,
@@ -87,7 +108,10 @@ namespace TuClinica.Core.Models
             // No cambiamos el Id
             this.Name = source.Name;
             this.Surname = source.Surname;
-            this.DniNie = source.DniNie;
+            // --- MODIFICADO ---
+            this.DocumentType = source.DocumentType;
+            this.DocumentNumber = source.DocumentNumber;
+            // ---
             this.DateOfBirth = source.DateOfBirth;
             this.Phone = source.Phone;
             this.Address = source.Address;
@@ -95,6 +119,11 @@ namespace TuClinica.Core.Models
             this.Notes = source.Notes;
             this.IsActive = source.IsActive;
             this.OdontogramStateJson = source.OdontogramStateJson;
+        }
+
+        public void ForceValidation()
+        {
+            base.ValidateAllProperties();
         }
     }
 }

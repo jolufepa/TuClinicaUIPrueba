@@ -27,6 +27,9 @@ namespace TuClinica.UI.ViewModels
         private readonly IActivityLogService _activityLogService;
         private readonly IDialogService _dialogService;
         private readonly IFileDialogService _fileDialogService;
+        // --- INICIO DE LA MODIFICACIÓN ---
+        private readonly ISettingsService _settingsService;
+        // --- FIN DE LA MODIFICACIÓN ---
 
         // --- Colecciones para la Vista ---
         [ObservableProperty]
@@ -42,12 +45,29 @@ namespace TuClinica.UI.ViewModels
         [NotifyCanExecuteChangedFor(nameof(DeleteUserAsyncCommand))] // <-- AÑADIDO
         private User? _selectedUser;
 
+        // --- INICIO DE LA MODIFICACIÓN (Propiedades de Configuración) ---
+        [ObservableProperty]
+        private string _clinicName = string.Empty;
+        [ObservableProperty]
+        private string _clinicCif = string.Empty;
+        [ObservableProperty]
+        private string _clinicAddress = string.Empty;
+        [ObservableProperty]
+        private string _clinicPhone = string.Empty;
+        [ObservableProperty]
+        private string _clinicLogoPath = string.Empty;
+        [ObservableProperty]
+        private string _clinicEmail = string.Empty;
+        // --- FIN DE LA MODIFICACIÓN ---
+
         // --- Comandos ---
         public IAsyncRelayCommand LoadLogsCommand { get; }
         public IAsyncRelayCommand ExportLogsCommand { get; }
         public IAsyncRelayCommand PurgeOldLogsCommand { get; }
-        // --- COMANDO AÑADIDO ---
         public IAsyncRelayCommand DeleteUserAsyncCommand { get; }
+        // --- INICIO DE LA MODIFICACIÓN ---
+        public IAsyncRelayCommand SaveSettingsCommand { get; }
+        // --- FIN DE LA MODIFICACIÓN ---
 
 
         public AdminViewModel(
@@ -57,7 +77,11 @@ namespace TuClinica.UI.ViewModels
             IRepository<ActivityLog> logRepository,
             IActivityLogService activityLogService,
             IDialogService dialogService,
-            IFileDialogService fileDialogService)
+            IFileDialogService fileDialogService,
+            // --- INICIO DE LA MODIFICACIÓN ---
+            ISettingsService settingsService // Inyectar el nuevo servicio
+                                             // --- FIN DE LA MODIFICACIÓN ---
+            )
         {
             _userRepository = userRepository;
             _scopeFactory = scopeFactory;
@@ -66,19 +90,92 @@ namespace TuClinica.UI.ViewModels
             _activityLogService = activityLogService;
             _dialogService = dialogService;
             _fileDialogService = fileDialogService;
+            // --- INICIO DE LA MODIFICACIÓN ---
+            _settingsService = settingsService;
+            // --- FIN DE LA MODIFICACIÓN ---
 
             // Comandos
             LoadLogsCommand = new AsyncRelayCommand(LoadLogsAsync);
             ExportLogsCommand = new AsyncRelayCommand(ExportLogsAsync);
             PurgeOldLogsCommand = new AsyncRelayCommand(PurgeOldLogsAsync);
-            // --- COMANDO AÑADIDO ---
             DeleteUserAsyncCommand = new AsyncRelayCommand(DeleteUserAsync, CanExecuteOnSelectedUser);
+            // --- INICIO DE LA MODIFICACIÓN ---
+            SaveSettingsCommand = new AsyncRelayCommand(SaveSettingsAsync);
+            // --- FIN DE LA MODIFICACIÓN ---
 
 
             // Carga inicial de datos
             _ = LoadUsersAsync();
             _ = LoadLogsAsync();
+            // --- INICIO DE LA MODIFICACIÓN ---
+            LoadSettings(); // Cargar la configuración de la clínica
+            // --- FIN DE LA MODIFICACIÓN ---
         }
+
+        // --- INICIO DE LA MODIFICACIÓN (Nuevos Métodos) ---
+
+        /// <summary>
+        /// Carga la configuración actual desde el servicio a las propiedades del ViewModel.
+        /// </summary>
+        private void LoadSettings()
+        {
+            try
+            {
+                var settings = _settingsService.GetSettings();
+                ClinicName = settings.ClinicName;
+                ClinicCif = settings.ClinicCif;
+                ClinicAddress = settings.ClinicAddress;
+                ClinicPhone = settings.ClinicPhone;
+                ClinicLogoPath = settings.ClinicLogoPath;
+                ClinicEmail = settings.ClinicEmail;
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al cargar la configuración: {ex.Message}", "Error");
+            }
+        }
+
+        /// <summary>
+        /// Guarda la configuración modificada desde el ViewModel al archivo appsettings.json.
+        /// </summary>
+        private async Task SaveSettingsAsync()
+        {
+            var settings = new AppSettings
+            {
+                ClinicName = this.ClinicName,
+                ClinicCif = this.ClinicCif,
+                ClinicAddress = this.ClinicAddress,
+                ClinicPhone = this.ClinicPhone,
+                ClinicLogoPath = this.ClinicLogoPath,
+                ClinicEmail = this.ClinicEmail
+            };
+
+            var result = _dialogService.ShowConfirmation(
+                "¿Está seguro de que desea guardar los cambios en la configuración de la clínica?\n\nLa aplicación debe reiniciarse para que todos los cambios surtan efecto.",
+                "Confirmar Guardado");
+
+            if (result == CoreDialogResult.No)
+                return;
+
+            try
+            {
+                bool success = await _settingsService.SaveSettingsAsync(settings);
+                if (success)
+                {
+                    _dialogService.ShowMessage("Configuración guardada. Por favor, reinicie la aplicación.", "Éxito");
+                }
+                else
+                {
+                    _dialogService.ShowMessage("No se pudo guardar la configuración.", "Error");
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al guardar la configuración: {ex.Message}", "Error Crítico");
+            }
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
 
         // --- Métodos de Carga ---
 

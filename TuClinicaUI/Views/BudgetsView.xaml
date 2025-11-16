@@ -18,6 +18,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
+
     <mah:MetroTabControl>
 
         <mah:MetroTabItem Header="Crear Presupuesto">
@@ -68,7 +69,22 @@
 
                 <DataGrid Grid.Row="2" Margin="0,0,0,15" ItemsSource="{Binding BudgetItems}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Descripción" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="3*"/>
+                        <DataGridTextColumn Header="Descripción" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="3*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="Margin" Value="4" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                            <DataGridTextColumn.EditingElementStyle>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                    <Setter Property="AcceptsReturn" Value="True" />
+                                </Style>
+                            </DataGridTextColumn.EditingElementStyle>
+                        </DataGridTextColumn>
+
                         <DataGridTemplateColumn Header="Cantidad" Width="Auto" MinWidth="70">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -215,7 +231,9 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="DNI/NIE" Binding="{Binding Patient.DniNie}" Width="*"/>
+
+                        <DataGridTextColumn Header="Tipo Doc." Binding="{Binding Patient.DocumentType}" Width="Auto"/>
+                        <DataGridTextColumn Header="Nº Documento" Binding="{Binding Patient.DocumentNumber}" Width="*"/>
                         <DataGridTextColumn Header="Total" Binding="{Binding TotalAmount, StringFormat=C, ConverterCulture='es-ES'}" Width="*">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">

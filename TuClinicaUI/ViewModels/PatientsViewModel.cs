@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using TuClinica.Core.Enums;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -92,7 +93,7 @@ namespace TuClinica.UI.ViewModels
         public IAsyncRelayCommand NextPageCommand { get; }
         public IAsyncRelayCommand PreviousPageCommand { get; }
         // --- FIN DE MODIFICACIÓN ---
-
+        public IEnumerable<PatientDocumentType> DocumentTypes => Enum.GetValues(typeof(PatientDocumentType)).Cast<PatientDocumentType>();
 
         public PatientsViewModel(IPatientRepository patientRepository,
                                  IValidationService validationService,
@@ -272,13 +273,13 @@ namespace TuClinica.UI.ViewModels
             // 1. Limpieza y formato de datos
             PatientFormModel.Name = PatientFormModel.Name.ToTitleCase();
             PatientFormModel.Surname = PatientFormModel.Surname.ToTitleCase();
-            PatientFormModel.DniNie = PatientFormModel.DniNie?.ToUpper().Trim() ?? string.Empty;
+            PatientFormModel.DocumentNumber = PatientFormModel.DocumentNumber?.ToUpper().Trim() ?? string.Empty;
             PatientFormModel.Email = PatientFormModel.Email?.ToLower().Trim() ?? string.Empty;
 
-            // 2. Validación de DNI
-            if (!_validationService.IsValidDniNie(PatientFormModel.DniNie))
+            // 2. Validación de Documento
+            if (!_validationService.IsValidDocument(PatientFormModel.DocumentNumber, PatientFormModel.DocumentType))
             {
-                _dialogService.ShowMessage("El DNI o NIE introducido no tiene un formato válido.", "DNI/NIE Inválido");
+                _dialogService.ShowMessage("El número de documento introducido no tiene un formato válido para el tipo seleccionado.", "Documento Inválido");
                 return;
             }
 
@@ -290,83 +291,68 @@ namespace TuClinica.UI.ViewModels
                     // --- INICIO DE LA MODIFICACIÓN (Lógica de Reactivación) ---
 
                     // Buscamos CUALQUIER paciente (activo o inactivo) con ese DNI
-                    var existingByDni = await _patientRepository.FindAsync(p => p.DniNie.ToUpper() == PatientFormModel.DniNie);
-
-                    if (existingByDni != null && existingByDni.Any())
+                    var existingByDoc = await _patientRepository.FindAsync(p => p.DocumentNumber.ToUpper() == PatientFormModel.DocumentNumber.ToUpper());
+                    if (existingByDoc != null && existingByDoc.Any())
+                    // ---
                     {
-                        var duplicatePatient = existingByDni.First();
+                        var duplicatePatient = existingByDoc.First();
 
                         if (duplicatePatient.IsActive)
                         {
-                            // El paciente ya existe y está activo. Error.
-                            _dialogService.ShowMessage($"El DNI/NIE '{PatientFormModel.DniNie}' ya existe y pertenece al paciente activo: {duplicatePatient.PatientDisplayInfo}.", "DNI/NIE Duplicado");
+                            // --- MODIFICADO ---
+                            _dialogService.ShowMessage($"El documento '{PatientFormModel.DocumentNumber}' ya existe y pertenece al paciente activo: {duplicatePatient.PatientDisplayInfo}.", "Documento Duplicado");
+                            // ---
                             return;
                         }
                         else
                         {
-                            // ¡El paciente existe pero está ARCHIVADO!
+                            // --- MODIFICADO ---
                             var result = _dialogService.ShowConfirmation(
-                                $"El paciente '{duplicatePatient.PatientDisplayInfo}' (DNI: {duplicatePatient.DniNie}) ya existe, pero se encuentra archivado.\n\n" +
+                                $"El paciente '{duplicatePatient.PatientDisplayInfo}' (Doc: {duplicatePatient.DocumentNumber}) ya existe, pero se encuentra archivado.\n\n" +
                                 $"¿Desea reactivarlo ahora y actualizar sus datos con los del formulario?",
                                 "Paciente Archivado Encontrado");
+                            // ---
 
                             if (result == CoreDialogResult.Yes)
                             {
-                                // El usuario quiere reactivar.
-                                // Usamos el Id del duplicado para cargar la entidad rastreada
                                 var patientToReactivate = await _patientRepository.GetByIdAsync(duplicatePatient.Id);
                                 if (patientToReactivate != null)
                                 {
-                                    // Copiamos los datos nuevos del formulario (nombre, teléfono, etc.)
                                     patientToReactivate.CopyFrom(PatientFormModel);
-                                    // Forzamos la reactivación
                                     patientToReactivate.IsActive = true;
-
                                     _patientRepository.Update(patientToReactivate);
                                     _dialogService.ShowMessage("Paciente reactivado y actualizado con éxito.", "Éxito");
                                 }
-                                else
-                                {
-                                    // Esto no debería pasar, pero por si acaso.
-                                    _dialogService.ShowMessage("Error: No se pudo encontrar el paciente archivado para reactivar.", "Error");
-                                    return;
-                                }
+                                // ... (resto del else)
                             }
-                            else
-                            {
-                                // El usuario eligió "No", así que cancelamos el guardado.
-                                return;
-                            }
+                            else { return; }
                         }
                     }
                     else
                     {
-                        // No hay duplicados. Es un paciente 100% nuevo.
                         await _patientRepository.AddAsync(PatientFormModel);
                         _dialogService.ShowMessage("Paciente creado con éxito.", "Éxito");
                     }
-
-                    // --- FIN DE LA MODIFICACIÓN ---
                 }
                 else // Está EDITANDO un paciente existente
                 {
                     var existingPatient = await _patientRepository.GetByIdAsync(PatientFormModel.Id);
                     if (existingPatient != null)
                     {
-                        // Comprobar si ha cambiado el DNI y si el NUEVO DNI ya existe en OTRO paciente
-                        if (!string.Equals(existingPatient.DniNie, PatientFormModel.DniNie, StringComparison.OrdinalIgnoreCase))
+                        // --- MODIFICADO ---
+                        // Comprobar si ha cambiado el Documento y si el NUEVO Documento ya existe en OTRO paciente
+                        if (!string.Equals(existingPatient.DocumentNumber, PatientFormModel.DocumentNumber, StringComparison.OrdinalIgnoreCase))
                         {
-                            var duplicateCheck = await _patientRepository.FindAsync(p => p.DniNie.ToUpper() == PatientFormModel.DniNie && p.Id != PatientFormModel.Id);
+                            var duplicateCheck = await _patientRepository.FindAsync(p => p.DocumentNumber.ToUpper() == PatientFormModel.DocumentNumber.ToUpper() && p.Id != PatientFormModel.Id);
                             if (duplicateCheck != null && duplicateCheck.Any())
                             {
-                                _dialogService.ShowMessage($"El DNI/NIE '{PatientFormModel.DniNie}' ya está asignado a otro paciente.", "DNI/NIE Duplicado");
+                                _dialogService.ShowMessage($"El Documento '{PatientFormModel.DocumentNumber}' ya está asignado a otro paciente.", "Documento Duplicado");
                                 return;
                             }
                         }
+                        // ---
 
-                        // Copiamos todos los datos del formulario al paciente rastreado
-                        existingPatient.CopyFrom(PatientFormModel); // Usamos el método del modelo
-
+                        existingPatient.CopyFrom(PatientFormModel);
                         _patientRepository.Update(existingPatient);
                         _dialogService.ShowMessage("Paciente actualizado con éxito.", "Éxito");
                     }

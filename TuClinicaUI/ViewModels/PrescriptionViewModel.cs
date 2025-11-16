@@ -16,7 +16,6 @@ using TuClinica.DataAccess;
 using TuClinica.UI.Views;
 using TuClinica.Core.Interfaces;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-// --- AÑADIR ESTE USING ---
 using TuClinica.Core.Extensions;
 
 
@@ -30,6 +29,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IDosageRepository _dosageRepository;
         private readonly IRepository<Prescription> _prescriptionRepository;
         private readonly IDialogService _dialogService;
+        private readonly ISettingsService _settingsService;
 
         private Patient? _selectedPatient;
         public Patient? SelectedPatient
@@ -81,16 +81,14 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- CAMPOS MODIFICADOS ---
         [ObservableProperty]
-        private string _medicationQuantity = "1"; // Sigue siendo string (ej: "1 envase")
+        private string _medicationQuantity = "1";
 
         [ObservableProperty]
-        private int _durationInDays = 10; // Nuevo campo (reemplaza TreatmentDuration)
+        private int _durationInDays = 10;
 
         [ObservableProperty]
         private string _instructions = string.Empty;
-        // --- FIN CAMPOS MODIFICADOS ---
 
 
         public ObservableCollection<Medication> Medications { get; set; } = new();
@@ -135,7 +133,9 @@ namespace TuClinica.UI.ViewModels
             IMedicationRepository medicationRepository,
             IDosageRepository dosageRepository,
             IRepository<Prescription> prescriptionRepository,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            ISettingsService settingsService
+            )
         {
             _scopeFactory = scopeFactory;
             _pdfService = pdfService;
@@ -143,6 +143,7 @@ namespace TuClinica.UI.ViewModels
             _dosageRepository = dosageRepository;
             _prescriptionRepository = prescriptionRepository;
             _dialogService = dialogService;
+            _settingsService = settingsService;
 
             SelectPatientCommand = new RelayCommand(SelectPatient);
             GeneratePrescriptionPdfCommand = new AsyncRelayCommand(GeneratePrescriptionPdfAsync, CanGeneratePrescription);
@@ -214,7 +215,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- MÉTODO MODIFICADO ---
         private async Task<Prescription?> CreateAndSavePrescriptionAsync()
         {
             if (!CanGeneratePrescription())
@@ -223,11 +223,10 @@ namespace TuClinica.UI.ViewModels
                 return null;
             }
 
-            AppSettings settings;
+            AppSettings settings = _settingsService.GetSettings();
             User? currentUser;
             using (var scope = _scopeFactory.CreateScope())
             {
-                settings = scope.ServiceProvider.GetRequiredService<AppSettings>();
                 var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
                 currentUser = authService.CurrentUser;
             }
@@ -238,21 +237,19 @@ namespace TuClinica.UI.ViewModels
                 Patient = SelectedPatient,
                 IssueDate = DateTime.Now,
                 Instructions = this.Instructions,
-                PrescriptorName = currentUser?.Username ?? settings.ClinicName,
+                PrescriptorName = currentUser?.Name ?? settings.ClinicName,
                 PrescriptorCollegeNum = currentUser?.CollegeNumber ?? string.Empty,
                 PrescriptorSpecialty = currentUser?.Specialty ?? "General",
             };
 
-            // --- Lógica de mapeo actualizada ---
             var item = new PrescriptionItem
             {
                 MedicationName = this.MedicationSearchText,
                 DosagePauta = this.DosageSearchText,
-                DurationInDays = this.DurationInDays, // <-- Campo nuevo
-                Quantity = this.MedicationQuantity, // <-- Campo existente
+                DurationInDays = this.DurationInDays,
+                Quantity = this.MedicationQuantity,
                 Prescription = prescription
             };
-            // --- Fin lógica actualizada ---
 
             prescription.Items.Add(item);
             try
@@ -307,7 +304,6 @@ namespace TuClinica.UI.ViewModels
             ClearForm();
         }
 
-        // --- MÉTODO MODIFICADO ---
         private void ClearForm()
         {
             SelectedPatient = null;
@@ -315,7 +311,7 @@ namespace TuClinica.UI.ViewModels
             DosageSearchText = string.Empty;
             Instructions = string.Empty;
             MedicationQuantity = "1";
-            DurationInDays = 10; // <-- Campo nuevo
+            DurationInDays = 10;
             SelectedMedicationForPrescription = null;
         }
 
@@ -386,7 +382,7 @@ namespace TuClinica.UI.ViewModels
         private async Task SaveMedicationAsync()
         {
             string nameToSave = NewMedicationName.ToTitleCase();
-            string presentationToSave = NewMedicationPresentation.ToTitleCase();
+            string presentationToSave = NewMedicationPresentation.Trim();
 
             if (string.IsNullOrWhiteSpace(nameToSave))
             {

@@ -21,7 +21,7 @@
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
                     <Button Content="Nuevo Usuario"
-                            Command="{Binding AddNewUserCommand}"
+                         Command="{Binding AddNewUserCommand}"
                             Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
                     <Button Content="Editar Usuario"
                             Command="{Binding EditUserCommand}"
@@ -44,11 +44,11 @@
                 </StackPanel>
 
                 <DataGrid Grid.Row="1"
-                          ItemsSource="{Binding Users}"
+                           ItemsSource="{Binding Users}"
                           SelectedItem="{Binding SelectedUser, Mode=TwoWay}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False" CanUserDeleteRows="False"
-                          IsReadOnly="True"
+                           IsReadOnly="True"
                           FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray"
                           SelectionMode="Single">
                     <DataGrid.Columns>
@@ -104,5 +104,51 @@
             </Grid>
         </mah:MetroTabItem>
 
+        <mah:MetroTabItem Header="Configuración de la Clínica">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid Margin="15">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Nombre Clínica:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ClinicName, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="CIF:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ClinicCif, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Dirección:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ClinicAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                    <Label Grid.Row="3" Grid.Column="0" Content="Teléfono:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ClinicPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                    <Label Grid.Row="4" Grid.Column="0" Content="Email:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ClinicEmail, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                    <Label Grid.Row="5" Grid.Column="0" Content="Ruta del Logo:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ClinicLogoPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"
+                             mah:TextBoxHelper.Watermark="Ej: Assets/logo.png"/>
+
+                    <Button Grid.Row="7" Grid.Column="1" 
+                            Content="Guardar Configuración"
+                            Command="{Binding SaveSettingsCommand}"
+                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                            HorizontalAlignment="Right"
+                            Margin="0,20,0,0"/>
+                </Grid>
+            </ScrollViewer>
+        </mah:MetroTabItem>
     </mah:MetroTabControl>
 </UserControl>

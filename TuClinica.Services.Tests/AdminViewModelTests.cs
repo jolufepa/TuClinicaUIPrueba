@@ -21,15 +21,16 @@ namespace TuClinica.Services.Tests
     {
         // --- Mocks ---
         private Mock<IUserRepository> _userRepoMock;
-
-        // --- CAMBIO 2: Renombrar a 'scopeFactoryMock' ---
         private Mock<IServiceScopeFactory> _scopeFactoryMock;
-
         private Mock<IBackupService> _backupServiceMock;
         private Mock<IRepository<ActivityLog>> _logRepoMock;
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        private Mock<ISettingsService> _settingsServiceMock; // 1. Declarar el nuevo mock
+        // --- FIN DE LA MODIFICACIÓN ---
 
         // --- SUT ---
         private AdminViewModel _viewModel;
@@ -38,29 +39,33 @@ namespace TuClinica.Services.Tests
         public void Setup()
         {
             _userRepoMock = new Mock<IUserRepository>();
-
-            // --- CAMBIO 3: Inicializar el mock de la factory ---
             _scopeFactoryMock = new Mock<IServiceScopeFactory>();
-
             _backupServiceMock = new Mock<IBackupService>();
             _logRepoMock = new Mock<IRepository<ActivityLog>>();
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
 
+            // --- INICIO DE LA MODIFICACIÓN ---
+            _settingsServiceMock = new Mock<ISettingsService>(); // 2. Inicializar el nuevo mock
+            // --- FIN DE LA MODIFICACIÓN ---
+
             // Configuramos LoadLogsAsync para que no falle
             _logRepoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ActivityLog>());
 
-            // --- CAMBIO 4: Pasar la factory al constructor ---
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // 3. Pasar el nuevo mock (.Object) al constructor
             _viewModel = new AdminViewModel(
                 _userRepoMock.Object,
-                _scopeFactoryMock.Object, // <-- ARGUMENTO MODIFICADO
+                _scopeFactoryMock.Object,
                 _backupServiceMock.Object,
                 _logRepoMock.Object,
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object,
-                _fileDialogServiceMock.Object
+                _fileDialogServiceMock.Object,
+                _settingsServiceMock.Object // <-- Argumento añadido
             );
+            // --- FIN DE LA MODIFICACIÓN ---
         }
 
         [TestMethod]
