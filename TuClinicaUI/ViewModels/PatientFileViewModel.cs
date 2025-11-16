@@ -392,6 +392,7 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
+        // === MEJORA CRÍTICA: TRANSACCIÓN PARA LA FUSIÓN ===
         private async Task<bool> MergePatientHistoryAsync(Patient source, Patient target)
         {
             if (source.Id == target.Id) return false;
@@ -401,50 +402,63 @@ namespace TuClinica.UI.ViewModels
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                    // Mover todos los registros relacionados
-                    await context.Database.ExecuteSqlRawAsync("UPDATE Budgets SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
-                    await context.Database.ExecuteSqlRawAsync("UPDATE ClinicalEntries SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
-                    await context.Database.ExecuteSqlRawAsync("UPDATE Payments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
-                    await context.Database.ExecuteSqlRawAsync("UPDATE Prescriptions SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
-                    await context.Database.ExecuteSqlRawAsync("UPDATE TreatmentPlanItems SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
-                    await context.Database.ExecuteSqlRawAsync("UPDATE LinkedDocuments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                    // Iniciamos la transacción. Si algo falla, todo se revierte.
+                    using var transaction = await context.Database.BeginTransactionAsync();
 
-                    // Guardar el documento principal del paciente 'source' como vinculado en 'target'
-                    // AHORA SÍ: 'source' tiene el documento ANTIGUO restaurado.
-                    var sourceDocHistory = new LinkedDocument
+                    try
                     {
-                        PatientId = target.Id,
-                        DocumentType = source.DocumentType,
-                        DocumentNumber = source.DocumentNumber,
-                        // Guardamos una nota explicativa
-                        Notes = $"Fusión: {source.Name} {source.Surname} ({source.DocumentNumber}) - Original ID {source.Id}"
-                    };
-                    context.LinkedDocuments.Add(sourceDocHistory);
+                        // 1. Mover todos los registros relacionados a la ficha destino
+                        await context.Database.ExecuteSqlRawAsync("UPDATE Budgets SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                        await context.Database.ExecuteSqlRawAsync("UPDATE ClinicalEntries SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                        await context.Database.ExecuteSqlRawAsync("UPDATE Payments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                        await context.Database.ExecuteSqlRawAsync("UPDATE Prescriptions SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                        await context.Database.ExecuteSqlRawAsync("UPDATE TreatmentPlanItems SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
+                        await context.Database.ExecuteSqlRawAsync("UPDATE LinkedDocuments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
 
-                    // Archivar el paciente original
-                    var sourceEntity = await context.Patients.FindAsync(source.Id);
-                    if (sourceEntity != null)
-                    {
-                        sourceEntity.IsActive = false;
+                        // 2. Guardar el documento principal del paciente origen como un documento vinculado en el destino
+                        var sourceDocHistory = new LinkedDocument
+                        {
+                            PatientId = target.Id,
+                            DocumentType = source.DocumentType,
+                            DocumentNumber = source.DocumentNumber,
+                            // Guardamos una nota explicativa detallada
+                            Notes = $"Fusión: {source.Name} {source.Surname} ({source.DocumentNumber}) - Original ID {source.Id}"
+                        };
+                        context.LinkedDocuments.Add(sourceDocHistory);
 
-                        // --- CORRECCIÓN: FORMATO DETALLADO EN LA NOTA DE FUSIÓN ---
-                        sourceEntity.Notes = (sourceEntity.Notes ?? "") +
-                            $"\n[FUSIONADO a Paciente: {target.Name} {target.Surname} (Doc: {target.DocumentNumber}) - ID {target.Id} el {DateTime.Now}]";
-                        // ----------------------------------------------------------
+                        // 3. Archivar el paciente original (Soft Delete) y dejar constancia en notas
+                        var sourceEntity = await context.Patients.FindAsync(source.Id);
+                        if (sourceEntity != null)
+                        {
+                            sourceEntity.IsActive = false;
+                            sourceEntity.Notes = (sourceEntity.Notes ?? "") +
+                                $"\n[FUSIONADO a Paciente: {target.Name} {target.Surname} (Doc: {target.DocumentNumber}) - ID {target.Id} el {DateTime.Now}]";
+                        }
+
+                        // 4. Guardar cambios dentro de la transacción
+                        await context.SaveChangesAsync();
+
+                        // 5. Confirmar transacción
+                        await transaction.CommitAsync();
+                        return true;
                     }
-
-                    await context.SaveChangesAsync();
-                    return true;
+                    catch (Exception)
+                    {
+                        // Si algo falla, revertimos todo a su estado original
+                        await transaction.RollbackAsync();
+                        throw; // Re-lanzamos para que el catch exterior lo registre
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error en fusión: {ex.Message}", "Error Crítico");
+                _dialogService.ShowMessage($"Error CRÍTICO en la fusión de datos: {ex.Message}\nSe han revertido los cambios.", "Error de Fusión");
                 return false;
             }
         }
+        // ==================================================
 
-        // --- Gestión de Documentos Vinculados (CORREGIDA LA COMPROBACIÓN MANUAL) ---
+        // --- Gestión de Documentos Vinculados ---
         private async Task AddLinkedDocumentAsync()
         {
             if (CurrentPatient == null) return;
