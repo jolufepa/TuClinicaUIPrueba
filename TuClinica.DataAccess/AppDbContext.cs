@@ -35,10 +35,13 @@ namespace TuClinica.DataAccess
         public DbSet<PaymentAllocation> PaymentAllocations { get; set; }
 
         // --- INICIO DE LA MODIFICACIÓN ---
-        // 1. Añadir la nueva tabla
+        // 1. Añadir la nueva tabla de Plan de Tratamiento
         public DbSet<TreatmentPlanItem> TreatmentPlanItems { get; set; }
         // 2. Añadir la nueva tabla de documentos
         public DbSet<LinkedDocument> LinkedDocuments { get; set; }
+
+        // --- NUEVA TABLA DE PACKS (DE LA MEJORA ANTERIOR) ---
+        public DbSet<TreatmentPackItem> TreatmentPackItems { get; set; }
         // --- FIN DE LA MODIFICACIÓN ---
 
 
@@ -50,18 +53,40 @@ namespace TuClinica.DataAccess
         {
             _authService = authService; // Guardamos el servicio de autenticación
         }
+
+        // --- MÉTODO OnModelCreating (CORREGIDO) ---
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- AÑADIR ESTO ---
-            // Esto le dice a Entity Framework que la columna BudgetNumber
-            // en la tabla Budgets debe tener un índice único.
+            // Regla existente para que BudgetNumber sea único
             modelBuilder.Entity<Budget>()
                 .HasIndex(b => b.BudgetNumber)
                 .IsUnique();
 
-            // (Aquí puedes añadir más reglas en el futuro)
+            // --- INICIO DE LA CORRECCIÓN DE ERROR ---
+            // Aquí le decimos a EF cómo manejar las dos relaciones
+            // entre Treatment y TreatmentPackItem.
+
+            // 1. Relación "Pack" -> "Items"
+            // Un Tratamiento (Padre/Pack) tiene MUCHOS PackItems.
+            // La colección `t_parent.PackItems` se llena usando la clave `pi.ParentTreatmentId`.
+            modelBuilder.Entity<Treatment>()
+                .HasMany(t_parent => t_parent.PackItems)    // La colección ICollection<TreatmentPackItem> en Treatment
+                .WithOne(pi => pi.ParentTreatment)          // La propiedad de navegación 'ParentTreatment' en TreatmentPackItem
+                .HasForeignKey(pi => pi.ParentTreatmentId)  // La clave foránea que las une
+                .OnDelete(DeleteBehavior.Cascade); // Si borras el Pack, se borran sus filas de componentes.
+
+            // 2. Relación "Componente" -> "UsadoEnPacks"
+            // Un Tratamiento (Hijo/Componente) puede estar en MUCHOS PackItems.
+            // No tenemos una colección de vuelta en Treatment (lo cual está bien).
+            modelBuilder.Entity<TreatmentPackItem>()
+                .HasOne(pi => pi.ChildTreatment)            // La propiedad 'ChildTreatment' en TreatmentPackItem
+                .WithMany()                                 // No hay propiedad de colección de vuelta
+                .HasForeignKey(pi => pi.ChildTreatmentId)   // La clave foránea que las une
+                .OnDelete(DeleteBehavior.Restrict); // IMPIDE borrar un tratamiento (ej. "Limpieza") si está siendo usado en un pack.
+
+            // --- FIN DE LA CORRECCIÓN DE ERROR ---
         }
 
         // --- SOBRESCRIBIR SaveChangesAsync ---

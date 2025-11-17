@@ -273,8 +273,41 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand]
         private void AddPredefinedTreatment(Treatment? selectedTreatment)
         {
-            if (selectedTreatment != null)
+            if (selectedTreatment == null) return;
+
+            // --- LÓGICA DE PACKS ---
+            // Verificamos si el tratamiento seleccionado tiene componentes hijos
+            if (selectedTreatment.PackItems != null && selectedTreatment.PackItems.Any())
             {
+                // ES UN PACK: Desglosamos sus componentes
+                foreach (var packItem in selectedTreatment.PackItems)
+                {
+                    if (packItem.ChildTreatment != null)
+                    {
+                        var childItem = new BudgetLineItem
+                        {
+                            // Usamos el nombre del hijo (ej: "Limpieza")
+                            Description = packItem.ChildTreatment.Name,
+
+                            // Multiplicamos la cantidad base por la cantidad del pack
+                            // (Por defecto añadimos 1 pack, así que usamos la cantidad definida en el pack)
+                            Quantity = packItem.Quantity,
+
+                            // Precio unitario del hijo
+                            UnitPrice = packItem.ChildTreatment.DefaultPrice
+                        };
+
+                        // Opcional: Podrías añadir una nota a la descripción indicando que viene de un pack
+                        // childItem.Description += $" (Pack: {selectedTreatment.Name})";
+
+                        BudgetItems.Add(childItem);
+                        HookPropertyChanged(childItem);
+                    }
+                }
+            }
+            else
+            {
+                // ES UN TRATAMIENTO INDIVIDUAL (Lógica original)
                 var newItem = new BudgetLineItem
                 {
                     Description = selectedTreatment.Name,
@@ -284,6 +317,9 @@ namespace TuClinica.UI.ViewModels
                 BudgetItems.Add(newItem);
                 HookPropertyChanged(newItem);
             }
+
+            // Recalcular totales después de añadir todo
+            RecalculateTotalsOnItemChange();
         }
 
         [RelayCommand]
