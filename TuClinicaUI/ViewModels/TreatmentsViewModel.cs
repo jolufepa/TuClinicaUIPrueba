@@ -20,9 +20,9 @@ namespace TuClinica.UI.ViewModels
     {
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IDialogService _dialogService;
-        // --- INICIO DE MODIFICACIÓN ---
+        
         private readonly IRepository<TreatmentPackItem> _packItemRepository;
-        // --- FIN DE MODIFICACIÓN ---
+        
 
         [ObservableProperty]
         private ObservableCollection<Treatment> _treatments = new ObservableCollection<Treatment>();
@@ -68,21 +68,21 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private int _componentQuantity = 1;
 
-        // --- FIN DE MODIFICACIÓN ---
+        
 
         public TreatmentsViewModel(
             ITreatmentRepository treatmentRepository,
             IDialogService dialogService,
-            // --- INICIO DE MODIFICACIÓN ---
+            
             IRepository<TreatmentPackItem> packItemRepository // Inyectar el nuevo repositorio
-                                                              // --- FIN DE MODIFICACIÓN ---
+                                                              
             )
         {
             _treatmentRepository = treatmentRepository;
             _dialogService = dialogService;
-            // --- INICIO DE MODIFICACIÓN ---
+            
             _packItemRepository = packItemRepository;
-            // --- FIN DE MODIFICACIÓN ---
+            
 
             _ = LoadTreatmentsAsync();
         }
@@ -141,12 +141,12 @@ namespace TuClinica.UI.ViewModels
                 CurrentPackItems.Remove(itemToRemove);
             }
         }
-        // --- FIN DE MODIFICACIÓN ---
+        
 
         [RelayCommand]
         private async Task LoadTreatmentsAsync()
         {
-            // --- INICIO DE MODIFICACIÓN ---
+            
             // Usamos el repositorio que ya incluye los PackItems
             var treatmentsFromDb = await _treatmentRepository.GetAllAsync();
 
@@ -171,7 +171,7 @@ namespace TuClinica.UI.ViewModels
                 //     AvailableComponents.Add(treatment);
                 // }
             }
-            // --- FIN DE MODIFICACIÓN ---
+            
         }
 
         [RelayCommand]
@@ -218,7 +218,7 @@ namespace TuClinica.UI.ViewModels
                 }
             }
         }
-        // --- FIN DE MODIFICACIÓN ---
+        
 
 
         [RelayCommand(CanExecute = nameof(IsFormEnabled))]
@@ -311,7 +311,7 @@ namespace TuClinica.UI.ViewModels
                     }
                 }
             }
-            // --- FIN DE MODIFICACIÓN ---
+            
 
             await _packItemRepository.SaveChangesAsync(); // Guardar los cambios de los packs
             await LoadTreatmentsAsync(); // Recargar todo
@@ -326,7 +326,7 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedTreatment == null) return;
 
-            // --- INICIO DE MODIFICACIÓN ---
+            
             // Comprobación mejorada: AHORA SÍ tenemos la info de los packs cargada
             if (SelectedTreatment.PackItems != null && SelectedTreatment.PackItems.Any())
             {
@@ -336,7 +336,7 @@ namespace TuClinica.UI.ViewModels
             // (La restricción de borrado si es un *componente* de otro pack
             // la manejará la base de datos (OnDelete.Restrict) y
             // mostrará un error en el catch)
-            // --- FIN DE MODIFICACIÓN ---
+            
 
             var result = _dialogService.ShowConfirmation($"¿Eliminar PERMANENTEMENTE el tratamiento '{SelectedTreatment.Name}'? Esta acción no se puede deshacer.",
                                              "Confirmar Eliminación Permanente");
@@ -364,7 +364,7 @@ namespace TuClinica.UI.ViewModels
             {
                 _dialogService.ShowMessage($"Error al eliminar: {ex.Message}", "Error");
             }
-            // --- FIN DE MODIFICACIÓN ---
+            
 
             await LoadTreatmentsAsync();
             TreatmentFormModel = new Treatment { IsActive = true };

@@ -10,9 +10,8 @@ using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
-// --- INICIO DE LA MODIFICACIÓN ---
-using TuClinica.Core.Enums; // <-- AÑADIDO para poder usar PatientDocumentType
-// --- FIN DE LA MODIFICACIÓN ---
+using TuClinica.Core.Enums;
+using System.Threading; // Necesario para CancellationToken
 
 namespace TuClinica.Services.Tests
 {
@@ -31,14 +30,14 @@ namespace TuClinica.Services.Tests
         private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
         private Mock<IPaymentRepository> _paymentRepoMock;
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
-
-        // --- INICIO DE LA MODIFICACIÓN: authServiceMock AHORA SÍ ES NECESARIO ---
-        private Mock<IAuthService> _authServiceMock; // <-- AHORA ES NECESARIO
-        // --- FIN DE LA MODIFICACIÓN ---
-
+        private Mock<IAuthService> _authServiceMock;
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
+
+        // --- INICIO DE MODIFICACIÓN (Añadir mock de Alertas) ---
+        private Mock<IPatientAlertRepository> _alertRepoMock;
+        
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -57,25 +56,27 @@ namespace TuClinica.Services.Tests
             _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
             _paymentRepoMock = new Mock<IPaymentRepository>();
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
-
-            _authServiceMock = new Mock<IAuthService>(); // <-- INICIALIZAR EL MOCK
-
+            _authServiceMock = new Mock<IAuthService>();
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
-            // --- FIN MOCKS NUEVOS ---
+
+            
+            _alertRepoMock = new Mock<IPatientAlertRepository>(); // <-- Inicializar el nuevo mock
+            
 
 
             // 2. Creamos la instancia de PatientFileViewModel
-            // --- INICIO DE LA MODIFICACIÓN: Constructor de 5 argumentos (AHORA CORRECTO) ---
+            // --- INICIO DE MODIFICACIÓN (Constructor de 6 argumentos) ---
             _patientFileVM_Instance = new PatientFileViewModel(
-                _authServiceMock.Object, // <-- 1. IAuthService
-                _dialogServiceMock.Object, // <-- 2. IDialogService
-                _scopeFactoryMock.Object, // <-- 3. IServiceScopeFactory
-                _fileDialogServiceMock.Object, // <-- 4. IFileDialogService
-                _validationServiceMock.Object // <-- 5. IValidationService
+                _authServiceMock.Object,            // 1. IAuthService
+                _dialogServiceMock.Object,          // 2. IDialogService
+                _scopeFactoryMock.Object,           // 3. IServiceScopeFactory
+                _fileDialogServiceMock.Object,      // 4. IFileDialogService
+                _validationServiceMock.Object,      // 5. IValidationService
+                _alertRepoMock.Object               // 6. IPatientAlertRepository (Argumento añadido)
             );
-            // --- FIN DE LA MODIFICACIÓN ---
+            
 
             // 3. Creamos el ViewModel pasándole los Mocks
             _viewModel = new PatientsViewModel(
@@ -86,6 +87,12 @@ namespace TuClinica.Services.Tests
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
             );
+
+            // --- INICIO DE MODIFICACIÓN (Setup para Alertas) ---
+            // Configurar el mock de alertas para que devuelva una lista vacía y no falle
+            _alertRepoMock.Setup(r => r.GetActiveAlertsForPatientAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                          .ReturnsAsync(new List<PatientAlert>());
+            
         }
 
         [TestMethod]
@@ -123,7 +130,6 @@ namespace TuClinica.Services.Tests
             Assert.AreEqual(123, _viewModel.PatientFormModel.Id, "El Id no se copió al formulario.");
         }
 
-        // --- INICIO DE LA MODIFICACIÓN (TEST CORREGIDO) ---
         [TestMethod]
         public async Task SavePatientAsync_NoDebeGuardar_SiDocumentoEsInvalido()
         {
@@ -136,8 +142,8 @@ namespace TuClinica.Services.Tests
 
             // 2. Preparamos un paciente nuevo
             _viewModel.SetNewPatientFormCommand.Execute(null);
-            _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO"; // <-- CAMBIADO
-            _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI; // <-- AÑADIDO
+            _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO";
+            _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI;
 
             // Act
             await _viewModel.SavePatientCommand.ExecuteAsync(null);
@@ -149,7 +155,6 @@ namespace TuClinica.Services.Tests
                 Times.Never,
                 "Se llamó a AddAsync con un Documento inválido.");
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
 
         [TestMethod]
@@ -174,20 +179,33 @@ namespace TuClinica.Services.Tests
                 .Setup(repo => repo.GetByIdAsync(123))
                 .ReturnsAsync(pacienteConHistorial);
 
+            // 4. (Simular las llamadas de saldo que ahora hace DeletePatientAsync)
+            _clinicalEntryRepoMock.Setup(r => r.GetTotalChargedForPatientAsync(123)).ReturnsAsync(0);
+            _paymentRepoMock.Setup(r => r.GetTotalPaidForPatientAsync(123)).ReturnsAsync(0);
+
+            // 5. Simular la creación de scope
+            var scopeMock = new Mock<IServiceScope>();
+            var serviceProviderMock = new Mock<IServiceProvider>();
+            scopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
+            _scopeFactoryMock.Setup(f => f.CreateScope()).Returns(scopeMock.Object);
+            serviceProviderMock.Setup(sp => sp.GetService(typeof(IClinicalEntryRepository))).Returns(_clinicalEntryRepoMock.Object);
+            serviceProviderMock.Setup(sp => sp.GetService(typeof(IPaymentRepository))).Returns(_paymentRepoMock.Object);
+
+
             // Act
             await _viewModel.DeletePatientAsyncCommand.ExecuteAsync(null);
 
             // Assert
-            // 4. Verificamos que el paciente se marcó como Inactivo
+            // 6. Verificamos que el paciente se marcó como Inactivo
             Assert.IsFalse(pacienteConHistorial.IsActive, "El paciente no se marcó como IsActive = false.");
 
-            // 5. Verificamos que NO se llamó a Remove (Hard-Delete)
+            // 7. Verificamos que NO se llamó a Remove (Hard-Delete)
             _patientRepoMock.Verify(
                 repo => repo.Remove(It.IsAny<Patient>()),
                 Times.Never,
                 "Se llamó a Remove() en un paciente con historial (debía ser Soft-Delete).");
 
-            // 6. Verificamos que SÍ se guardaron los cambios (para el IsActive = false)
+            // 8. Verificamos que SÍ se guardaron los cambios (para el IsActive = false)
             _patientRepoMock.Verify(
                 repo => repo.SaveChangesAsync(),
                 Times.Once,

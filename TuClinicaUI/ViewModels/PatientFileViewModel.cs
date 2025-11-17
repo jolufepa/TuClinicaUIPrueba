@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading; 
 using System.Threading.Tasks;
 using System.Windows;
 using TuClinica.Core.Enums;
@@ -34,6 +35,10 @@ namespace TuClinica.UI.ViewModels
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IFileDialogService _fileDialogService;
         private readonly IValidationService _validationService;
+        
+        private readonly IPatientAlertRepository _alertRepository;
+        private CancellationTokenSource? _loadPatientCts;
+        
 
         private Patient? _originalPatientState;
 
@@ -50,6 +55,20 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private ObservableCollection<HistorialEventBase> _historialCombinado = new();
 
+     
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasActiveAlerts))]
+        private ObservableCollection<PatientAlert> _activeAlerts = new();
+        public bool HasActiveAlerts => ActiveAlerts.Any();
+
+        [ObservableProperty]
+        private string _newAlertMessage = string.Empty;
+
+        [ObservableProperty]
+        private AlertLevel _newAlertLevel = AlertLevel.Warning;
+        
+
+
         // --- Propiedades de Facturación ---
         [ObservableProperty]
         private decimal _totalCharged;
@@ -63,14 +82,16 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private ObservableCollection<Payment> _unallocatedPayments = new();
 
+       
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(AllocatePaymentCommand))]
         private ClinicalEntry? _selectedCharge;
+
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(AllocatePaymentCommand))]
         private Payment? _selectedPayment;
+
         [ObservableProperty]
         private decimal _amountToAllocate;
+        
 
         public ObservableCollection<Treatment> AvailableTreatments { get; } = new();
 
@@ -80,17 +101,19 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private int _pendingTaskCount = 0;
 
+        // --- INICIO CORRECCIÓN: Eliminar [NotifyCanExecuteChangedFor] ---
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(AddPlanItemAsyncCommand))]
         private string _newPlanItemDescription = string.Empty;
+        
 
         // --- Propiedades de Documentos Vinculados ---
         [ObservableProperty]
         private ObservableCollection<LinkedDocument> _linkedDocuments = new();
 
+        // --- INICIO CORRECCIÓN: Eliminar [NotifyCanExecuteChangedFor] ---
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(DeleteLinkedDocumentCommand))]
         private LinkedDocument? _selectedLinkedDocument;
+        
 
         [ObservableProperty]
         private bool _canManageDocuments = false;
@@ -105,20 +128,23 @@ namespace TuClinica.UI.ViewModels
         public IRelayCommand NewBudgetCommand { get; }
         public IAsyncRelayCommand PrintHistoryCommand { get; }
         public IAsyncRelayCommand OpenRegisterChargeDialogCommand { get; }
-
         public IAsyncRelayCommand AddPlanItemAsyncCommand { get; }
         public IAsyncRelayCommand<TreatmentPlanItem> TogglePlanItemAsyncCommand { get; }
         public IAsyncRelayCommand<TreatmentPlanItem> DeletePlanItemAsyncCommand { get; }
         public IAsyncRelayCommand CheckPendingTasksCommand { get; }
-
         public IAsyncRelayCommand AddLinkedDocumentCommand { get; }
         public IAsyncRelayCommand DeleteLinkedDocumentCommand { get; }
+        public IAsyncRelayCommand AddAlertCommand { get; }
+        public IAsyncRelayCommand<PatientAlert> DeleteAlertCommand { get; }
 
         public IEnumerable<PatientDocumentType> DocumentTypes => Enum.GetValues(typeof(PatientDocumentType)).Cast<PatientDocumentType>();
+        public IEnumerable<AlertLevel> AlertLevels => Enum.GetValues(typeof(AlertLevel)).Cast<AlertLevel>();
 
+
+        // --- INICIO CORRECCIÓN: Eliminar [NotifyCanExecuteChangedFor] ---
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(SavePatientDataAsyncCommand))]
         private bool _isPatientDataReadOnly = true;
+        
 
         [ObservableProperty]
         private OdontogramPreviewViewModel _odontogramPreviewVM = new();
@@ -132,13 +158,20 @@ namespace TuClinica.UI.ViewModels
           IDialogService dialogService,
           IServiceScopeFactory scopeFactory,
           IFileDialogService fileDialogService,
-          IValidationService validationService)
+          IValidationService validationService,
+          
+          IPatientAlertRepository alertRepository // Nueva dependencia
+                                                  
+          )
         {
             _authService = authService;
             _dialogService = dialogService;
             _scopeFactory = scopeFactory;
             _fileDialogService = fileDialogService;
             _validationService = validationService;
+            
+            _alertRepository = alertRepository;
+            
 
             // Determinar permisos
             var user = _authService.CurrentUser;
@@ -166,61 +199,104 @@ namespace TuClinica.UI.ViewModels
             CheckPendingTasksCommand = new AsyncRelayCommand(CheckPendingTasksAsync);
             AddLinkedDocumentCommand = new AsyncRelayCommand(AddLinkedDocumentAsync);
             DeleteLinkedDocumentCommand = new AsyncRelayCommand(DeleteLinkedDocumentAsync, () => SelectedLinkedDocument != null);
+            AddAlertCommand = new AsyncRelayCommand(AddAlertAsync, CanAddAlert);
+            DeleteAlertCommand = new AsyncRelayCommand<PatientAlert>(DeleteAlertAsync);
 
             _unallocatedPayments.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
             _pendingCharges.CollectionChanged += (s, e) => AllocatePaymentCommand.NotifyCanExecuteChanged();
         }
 
+        // --- INICIO CORRECCIÓN: Añadir métodos parciales para notificar cambios de comandos ---
         partial void OnSelectedLinkedDocumentChanged(LinkedDocument? value)
         {
             DeleteLinkedDocumentCommand.NotifyCanExecuteChanged();
         }
 
-        // --- Carga de Datos ---
+        partial void OnNewPlanItemDescriptionChanged(string value)
+        {
+            AddPlanItemAsyncCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnIsPatientDataReadOnlyChanged(bool value)
+        {
+            SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnSelectedChargeChanged(ClinicalEntry? value)
+        {
+            AutoFillAmountToAllocate();
+            AllocatePaymentCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnSelectedPaymentChanged(Payment? value)
+        {
+            AutoFillAmountToAllocate();
+            AllocatePaymentCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnAmountToAllocateChanged(decimal value)
+        {
+            AllocatePaymentCommand.NotifyCanExecuteChanged();
+        }
+        
+
+
+        // --- Carga de Datos (CON LÓGICA DE CANCELACIÓN Y ALERTAS) ---
         public async Task LoadPatient(Patient patient)
         {
-            if (_isLoading) return;
+            // Cancelar cualquier carga anterior que aún esté en progreso
+            _loadPatientCts?.Cancel();
+            _loadPatientCts = new CancellationTokenSource();
+            var token = _loadPatientCts.Token;
+
+            if (_isLoading) return; // Evitar re-entrada simple
+
             try
             {
                 _isLoading = true;
+
+                // Limpiar la UI inmediatamente
                 SelectedCharge = null;
                 SelectedPayment = null;
                 AmountToAllocate = 0;
                 NewPlanItemDescription = string.Empty;
+                NewAlertMessage = string.Empty;
+                VisitHistory.Clear();
+                PaymentHistory.Clear();
+                HistorialCombinado.Clear();
+                PendingTasks.Clear();
+                ActiveAlerts.Clear();
+                LinkedDocuments.Clear();
+                CurrentPatient = null; // Limpiar el paciente actual
 
                 using (var scope = _scopeFactory.CreateScope())
                 {
-                    // 1. Cargar el paciente y sus datos vinculados (usando AppDbContext directamente para Include)
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     var freshPatient = await context.Patients
                                         .Include(p => p.LinkedDocuments)
-                                        .FirstOrDefaultAsync(p => p.Id == patient.Id);
+                                        .AsNoTracking() // Usar AsNoTracking para la carga inicial
+                                        .FirstOrDefaultAsync(p => p.Id == patient.Id, token);
 
-                    CurrentPatient = freshPatient ?? patient;
+                    if (freshPatient == null) return; // Paciente no encontrado
+                    token.ThrowIfCancellationRequested(); // Comprobar si se canceló
 
-                    // 2. Cargar el resto de los historiales
+                    CurrentPatient = freshPatient;
+
+                    // Cargar el resto de los historiales
                     var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
-                    var clinicalEntryRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
-                    var paymentRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
                     var treatmentRepo = scope.ServiceProvider.GetRequiredService<ITreatmentRepository>();
+                    var alertRepo = scope.ServiceProvider.GetRequiredService<IPatientAlertRepository>();
 
-                    var clinicalHistoryTask = clinicalEntryRepo.GetHistoryForPatientAsync(CurrentPatient.Id);
-                    var paymentHistoryTask = paymentRepo.GetPaymentsForPatientAsync(CurrentPatient.Id);
-                    var treatmentsTask = LoadAvailableTreatments(treatmentRepo);
-                    var pendingTasksTask = LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
+                    // Cargar tareas auxiliares en paralelo
+                    var treatmentsTask = LoadAvailableTreatments(treatmentRepo, token);
+                    var pendingTasksTask = LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id, token);
+                    var alertsTask = LoadAlertsAsync(alertRepo, CurrentPatient.Id, token);
 
-                    await Task.WhenAll(clinicalHistoryTask, paymentHistoryTask, treatmentsTask, pendingTasksTask);
+                    await Task.WhenAll(treatmentsTask, pendingTasksTask, alertsTask);
 
-                    var clinicalHistory = (await clinicalHistoryTask).ToList();
-                    var paymentHistory = (await paymentHistoryTask).ToList();
+                    token.ThrowIfCancellationRequested(); // Comprobar antes de actualizar UI
 
-                    VisitHistory.Clear();
-                    PaymentHistory.Clear();
-                    clinicalHistory.ForEach(VisitHistory.Add);
-                    paymentHistory.ForEach(PaymentHistory.Add);
-
-                    // 3. Llenar la lista de documentos vinculados
-                    LinkedDocuments.Clear();
+                    // Llenar la lista de documentos vinculados (ya cargados con el paciente)
                     if (CurrentPatient.LinkedDocuments != null)
                     {
                         foreach (var doc in CurrentPatient.LinkedDocuments.OrderBy(d => d.DocumentType).ThenBy(d => d.DocumentNumber))
@@ -231,9 +307,24 @@ namespace TuClinica.UI.ViewModels
                 }
 
                 IsPatientDataReadOnly = true;
-                await RefreshBillingCollections();
+
+                // Cargar facturación (con token)
+                await RefreshBillingCollections(token);
+                token.ThrowIfCancellationRequested();
+
+                // Cargar Odontograma (rápido, sin token)
                 LoadOdontogramStateFromJson();
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram);
+
+                // Mostrar Popup de Alertas Críticas (después de que todo ha cargado)
+                ShowCriticalAlertsPopup();
+            }
+            catch (OperationCanceledException)
+            {
+                // Carga cancelada. No hacer nada. Limpiar la UI.
+                CurrentPatient = null;
+                ActiveAlerts.Clear();
+                // ... (otras limpiezas si es necesario)
             }
             catch (Exception ex)
             {
@@ -258,8 +349,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage($"Error de validación: {firstError}", "Datos Inválidos");
                 return;
             }
-
-            // Limpieza
             CurrentPatient.Name = CurrentPatient.Name.ToTitleCase();
             CurrentPatient.Surname = CurrentPatient.Surname.ToTitleCase();
             CurrentPatient.DocumentNumber = CurrentPatient.DocumentNumber?.ToUpper().Trim() ?? string.Empty;
@@ -271,7 +360,6 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage("El número de documento no tiene un formato válido.", "Documento Inválido");
                 return;
             }
-
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -280,19 +368,15 @@ namespace TuClinica.UI.ViewModels
                     var linkedDocRepo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                    // 1. DETECTAR SI EL DOCUMENTO HA CAMBIADO
                     bool docChanged = !string.Equals(_originalPatientState.DocumentNumber, CurrentPatient.DocumentNumber, StringComparison.OrdinalIgnoreCase) ||
                                       _originalPatientState.DocumentType != CurrentPatient.DocumentType;
 
                     if (docChanged)
                     {
-                        // 2. BUSCAR SI EL NUEVO DOCUMENTO YA EXISTE (DUPLICADO)
-                        // Buscamos primero en pacientes principales
                         var duplicate = await context.Patients.AsNoTracking()
                                                 .FirstOrDefaultAsync(p => p.Id != CurrentPatient.Id &&
                                                                      p.DocumentNumber.ToLower() == CurrentPatient.DocumentNumber.ToLower());
 
-                        // Si no está en principales, buscamos en vinculados de OTROS pacientes
                         if (duplicate == null)
                         {
                             var linkedMatch = await context.LinkedDocuments.AsNoTracking()
@@ -304,49 +388,33 @@ namespace TuClinica.UI.ViewModels
 
                         if (duplicate != null)
                         {
-                            // === ESCENARIO FUSIÓN ===
                             var mergeResult = _dialogService.ShowConfirmation(
-                                $"EL DOCUMENTO YA EXISTE.\n\n" +
-                                $"El documento '{CurrentPatient.DocumentNumber}' pertenece a: {duplicate.PatientDisplayInfo}.\n\n" +
-                                $"¿Desea FUSIONAR este paciente con el existente?\n" +
-                                $"(Se moverá todo el historial al paciente existente y este se archivará)",
+                                $"EL DOCUMENTO YA EXISTE.\nEl documento '{CurrentPatient.DocumentNumber}' pertenece a: {duplicate.PatientDisplayInfo}.\n¿Desea FUSIONAR este paciente con el existente?",
                                 "Fusionar Pacientes");
 
                             if (mergeResult == CoreDialogResult.Yes)
                             {
-                                // === CORRECCIÓN CRÍTICA: RESTAURAR DATOS ANTIGUOS ANTES DE FUSIONAR ===
-                                // Guardamos temporalmente el DNI NUEVO que ha escrito el usuario
                                 var tempNewDocNumber = CurrentPatient.DocumentNumber;
                                 var tempNewDocType = CurrentPatient.DocumentType;
-
-                                // Restauramos el estado ORIGINAL (el NIE antiguo) en el objeto CurrentPatient.
-                                // Esto es vital para que la fusión guarde el documento ANTIGUO en el historial.
                                 CurrentPatient.DocumentNumber = _originalPatientState.DocumentNumber;
                                 CurrentPatient.DocumentType = _originalPatientState.DocumentType;
-                                // ---------------------------------------------------------------------
 
                                 bool success = await MergePatientHistoryAsync(CurrentPatient, duplicate);
                                 if (success)
                                 {
                                     _dialogService.ShowMessage("Fusión completada con éxito. Se le redirigirá al inicio.", "Listo");
-                                    // Navegar fuera para evitar errores
-                                    WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(null!)); // Truco para refrescar o salir
+                                    WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(null!));
                                     return;
                                 }
                                 else
                                 {
-                                    // Si falla la fusión, restauramos los valores nuevos en pantalla
                                     CurrentPatient.DocumentNumber = tempNewDocNumber;
                                     CurrentPatient.DocumentType = tempNewDocType;
                                 }
                             }
-
-                            // Si cancela la fusión, revertimos el cambio visual al original
                             CurrentPatient.CopyFrom(_originalPatientState);
                             return;
                         }
-
-                        // 3. SI NO ES DUPLICADO -> GUARDAR ANTIGUO EN HISTORIAL AUTOMÁTICAMENTE
                         if (!string.IsNullOrWhiteSpace(_originalPatientState.DocumentNumber))
                         {
                             var oldDoc = new LinkedDocument
@@ -356,43 +424,27 @@ namespace TuClinica.UI.ViewModels
                                 DocumentNumber = _originalPatientState.DocumentNumber,
                                 Notes = $"Documento anterior (Archivado el {DateTime.Now:dd/MM/yy})"
                             };
-
-                            // Lo añadimos al contexto (se guardará con el paciente)
                             context.LinkedDocuments.Add(oldDoc);
-                            // Actualizamos la UI inmediatamente
                             Application.Current.Dispatcher.Invoke(() => LinkedDocuments.Add(oldDoc));
                         }
                     }
 
-                    // 4. GUARDAR CAMBIOS DEL PACIENTE
                     var patientToUpdate = await context.Patients.FindAsync(CurrentPatient.Id);
                     if (patientToUpdate != null)
                     {
                         context.Entry(patientToUpdate).CurrentValues.SetValues(CurrentPatient);
                         await context.SaveChangesAsync();
-
-                        string msg = docChanged
-                            ? "Datos actualizados. El documento antiguo se ha guardado en 'Documentos Vinculados'."
-                            : "Datos del paciente actualizados.";
-
+                        string msg = docChanged ? "Datos actualizados. Documento antiguo archivado." : "Datos actualizados.";
                         _dialogService.ShowMessage(msg, "Éxito");
-
                         _originalPatientState = CurrentPatient.DeepCopy();
                         IsPatientDataReadOnly = true;
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                _dialogService.ShowMessage($"Error al guardar: {ex.Message}", "Error");
-            }
-            finally
-            {
-                SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
-            }
+            catch (Exception ex) { _dialogService.ShowMessage($"Error al guardar: {ex.Message}", "Error"); }
+            finally { SavePatientDataAsyncCommand.NotifyCanExecuteChanged(); }
         }
 
-        // === MEJORA CRÍTICA: TRANSACCIÓN PARA LA FUSIÓN ===
         private async Task<bool> MergePatientHistoryAsync(Patient source, Patient target)
         {
             if (source.Id == target.Id) return false;
@@ -401,13 +453,9 @@ namespace TuClinica.UI.ViewModels
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                    // Iniciamos la transacción. Si algo falla, todo se revierte.
                     using var transaction = await context.Database.BeginTransactionAsync();
-
                     try
                     {
-                        // 1. Mover todos los registros relacionados a la ficha destino
                         await context.Database.ExecuteSqlRawAsync("UPDATE Budgets SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
                         await context.Database.ExecuteSqlRawAsync("UPDATE ClinicalEntries SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
                         await context.Database.ExecuteSqlRawAsync("UPDATE Payments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
@@ -415,48 +463,38 @@ namespace TuClinica.UI.ViewModels
                         await context.Database.ExecuteSqlRawAsync("UPDATE TreatmentPlanItems SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
                         await context.Database.ExecuteSqlRawAsync("UPDATE LinkedDocuments SET PatientId = {0} WHERE PatientId = {1}", target.Id, source.Id);
 
-                        // 2. Guardar el documento principal del paciente origen como un documento vinculado en el destino
                         var sourceDocHistory = new LinkedDocument
                         {
                             PatientId = target.Id,
                             DocumentType = source.DocumentType,
                             DocumentNumber = source.DocumentNumber,
-                            // Guardamos una nota explicativa detallada
                             Notes = $"Fusión: {source.Name} {source.Surname} ({source.DocumentNumber}) - Original ID {source.Id}"
                         };
                         context.LinkedDocuments.Add(sourceDocHistory);
 
-                        // 3. Archivar el paciente original (Soft Delete) y dejar constancia en notas
                         var sourceEntity = await context.Patients.FindAsync(source.Id);
                         if (sourceEntity != null)
                         {
                             sourceEntity.IsActive = false;
-                            sourceEntity.Notes = (sourceEntity.Notes ?? "") +
-                                $"\n[FUSIONADO a Paciente: {target.Name} {target.Surname} (Doc: {target.DocumentNumber}) - ID {target.Id} el {DateTime.Now}]";
+                            sourceEntity.Notes = (sourceEntity.Notes ?? "") + $"\n[FUSIONADO a Paciente: {target.Name} {target.Surname} (Doc: {target.DocumentNumber}) - ID {target.Id} el {DateTime.Now}]";
                         }
-
-                        // 4. Guardar cambios dentro de la transacción
                         await context.SaveChangesAsync();
-
-                        // 5. Confirmar transacción
                         await transaction.CommitAsync();
                         return true;
                     }
                     catch (Exception)
                     {
-                        // Si algo falla, revertimos todo a su estado original
                         await transaction.RollbackAsync();
-                        throw; // Re-lanzamos para que el catch exterior lo registre
+                        throw;
                     }
                 }
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error CRÍTICO en la fusión de datos: {ex.Message}\nSe han revertido los cambios.", "Error de Fusión");
+                _dialogService.ShowMessage($"Error CRÍTICO en la fusión: {ex.Message}", "Error");
                 return false;
             }
         }
-        // ==================================================
 
         // --- Gestión de Documentos Vinculados ---
         private async Task AddLinkedDocumentAsync()
@@ -467,200 +505,190 @@ namespace TuClinica.UI.ViewModels
                 _dialogService.ShowMessage("No tiene permisos para gestionar documentos vinculados.", "Acceso Denegado");
                 return;
             }
-
-            // 1. Mostrar el diálogo de creación
             var (ok, docType, docNum, notes) = _dialogService.ShowLinkedDocumentDialog();
-
-            // 2. Si el usuario cancela o lo deja vacío, salir
-            if (!ok || string.IsNullOrWhiteSpace(docNum))
-            {
-                return;
-            }
-
-            // 3. Validar el formato del documento (para DNI/NIE)
+            if (!ok || string.IsNullOrWhiteSpace(docNum)) return;
             if (!_validationService.IsValidDocument(docNum, docType))
             {
-                _dialogService.ShowMessage($"El número de documento '{docNum}' no tiene un formato válido.", "Formato Inválido");
+                _dialogService.ShowMessage($"Documento inválido.", "Error");
                 return;
             }
-
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var patientRepo = scope.ServiceProvider.GetRequiredService<IPatientRepository>();
                     var linkedDocRepo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
-
-                    // 4. Comprobar duplicados
                     var duplicate = (await patientRepo.SearchByNameOrDniAsync(docNum, true, 1, 10)).FirstOrDefault();
 
                     if (duplicate != null)
                     {
-                        // --- CASO A: Si el duplicado es el MISMO paciente (actual), refrescamos y salimos
                         if (duplicate.Id == CurrentPatient.Id)
                         {
-                            _dialogService.ShowMessage($"Este documento ya consta como asignado a este paciente. Actualizando lista...", "Información");
-                            await LoadPatient(CurrentPatient); // RECARGAR FICHA PARA QUE APAREZCA
+                            _dialogService.ShowMessage($"Documento ya asignado.", "Info");
+                            await LoadPatient(CurrentPatient);
                             return;
                         }
-
-                        // --- CASO B: Si el duplicado es un paciente ARCHIVADO (Inactivo), permitimos recuperar
                         if (!duplicate.IsActive)
                         {
-                            var confirm = _dialogService.ShowConfirmation(
-                               $"El documento '{docNum}' pertenece a un paciente archivado ({duplicate.PatientDisplayInfo}).\n\n" +
-                               "¿Desea recuperar este documento y vincularlo a esta ficha activa?",
-                               "Recuperar Documento");
-
-                            if (confirm != CoreDialogResult.Yes) return;
-                            // Si dice SÍ, continuamos y creamos el LinkedDocument
+                            if (_dialogService.ShowConfirmation($"Documento en paciente archivado. ¿Recuperar?", "Recuperar") != CoreDialogResult.Yes) return;
                         }
                         else
                         {
-                            // --- CASO C: Es otro paciente ACTIVO distinto -> Bloqueo real
-                            _dialogService.ShowMessage($"El documento '{docNum}' ya está asignado al paciente activo: {duplicate.PatientDisplayInfo}.", "Documento Duplicado");
+                            _dialogService.ShowMessage($"Documento duplicado en paciente activo.", "Error");
                             return;
                         }
                     }
-
-                    // 5. Crear y guardar el nuevo documento
-                    var newDoc = new LinkedDocument
-                    {
-                        PatientId = CurrentPatient.Id,
-                        DocumentType = docType,
-                        DocumentNumber = docNum,
-                        Notes = notes
-                    };
-
+                    var newDoc = new LinkedDocument { PatientId = CurrentPatient.Id, DocumentType = docType, DocumentNumber = docNum, Notes = notes };
                     await linkedDocRepo.AddAsync(newDoc);
                     await linkedDocRepo.SaveChangesAsync();
-
-                    // 6. Añadirlo a la lista de la UI para verlo inmediatamente
                     LinkedDocuments.Add(newDoc);
                 }
             }
-            catch (Exception ex)
-            {
-                _dialogService.ShowMessage($"Error al guardar el documento: {ex.Message}", "Error BD");
-            }
+            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
         }
 
         private async Task DeleteLinkedDocumentAsync()
         {
             if (SelectedLinkedDocument == null || CurrentPatient == null) return;
-
-            var result = _dialogService.ShowConfirmation(
-                $"¿Está seguro de que desea eliminar el documento vinculado '{SelectedLinkedDocument.DocumentNumber}'?",
-                "Confirmar Eliminación");
-
-            if (result == CoreDialogResult.No) return;
-
+            if (_dialogService.ShowConfirmation($"¿Eliminar documento '{SelectedLinkedDocument.DocumentNumber}'?", "Confirmar") == CoreDialogResult.No) return;
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var repo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
-                    var docToDelete = await repo.GetByIdAsync(SelectedLinkedDocument.Id);
-                    if (docToDelete != null)
-                    {
-                        repo.Remove(docToDelete);
-                        await repo.SaveChangesAsync();
-                    }
+                    var doc = await repo.GetByIdAsync(SelectedLinkedDocument.Id);
+                    if (doc != null) { repo.Remove(doc); await repo.SaveChangesAsync(); }
                 }
-
-                // Eliminar de la lista visual
                 LinkedDocuments.Remove(SelectedLinkedDocument);
                 SelectedLinkedDocument = null;
             }
-            catch (Exception ex)
+            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
+        }
+
+        // --- Alertas Médicas ---
+        private async Task LoadAlertsAsync(IPatientAlertRepository repo, int patientId, CancellationToken token)
+        {
+            ActiveAlerts.Clear();
+            var alerts = await repo.GetActiveAlertsForPatientAsync(patientId, token);
+            token.ThrowIfCancellationRequested();
+            foreach (var alert in alerts)
             {
-                _dialogService.ShowMessage($"Error al eliminar el documento: {ex.Message}", "Error BD");
+                ActiveAlerts.Add(alert);
+            }
+            OnPropertyChanged(nameof(HasActiveAlerts)); // Notificar cambio
+        }
+
+        private void ShowCriticalAlertsPopup()
+        {
+            if (ActiveAlerts.Any(a => a.Level == AlertLevel.Critical))
+            {
+                var criticalMessages = ActiveAlerts
+                    .Where(a => a.Level == AlertLevel.Critical)
+                    .Select(a => $"- {a.Message.ToUpper()}");
+
+                var message = $"¡¡ALERTA CRÍTICA!!\n\nEl paciente tiene las siguientes condiciones vitales:\n\n{string.Join("\n", criticalMessages)}";
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _dialogService.ShowMessage(message, "¡¡ALERTA CRÍTICA!!");
+                });
             }
         }
 
-        // --- Otros Métodos Auxiliares (Sin Cambios) ---
-        private async Task LoadPendingTasksAsync(ITreatmentPlanItemRepository planItemRepo, int patientId)
+        private bool CanAddAlert() => !string.IsNullOrWhiteSpace(NewAlertMessage);
+
+        partial void OnNewAlertMessageChanged(string value)
+        {
+            AddAlertCommand.NotifyCanExecuteChanged();
+        }
+
+        private async Task AddAlertAsync()
+        {
+            if (CurrentPatient == null || !CanAddAlert()) return;
+
+            var newAlert = new PatientAlert
+            {
+                PatientId = CurrentPatient.Id,
+                Message = NewAlertMessage.Trim(),
+                Level = NewAlertLevel,
+                IsActive = true
+            };
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var repo = scope.ServiceProvider.GetRequiredService<IPatientAlertRepository>();
+                    await repo.AddAsync(newAlert);
+                    await repo.SaveChangesAsync();
+                }
+
+                ActiveAlerts.Add(newAlert);
+                var sortedAlerts = ActiveAlerts.OrderByDescending(a => a.Level).ToList();
+                ActiveAlerts.Clear();
+                sortedAlerts.ForEach(ActiveAlerts.Add);
+
+                NewAlertMessage = string.Empty;
+                NewAlertLevel = AlertLevel.Warning;
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al guardar la alerta: {ex.Message}", "Error BD");
+            }
+        }
+
+        private async Task DeleteAlertAsync(PatientAlert? alert)
+        {
+            if (alert == null) return;
+            if (_dialogService.ShowConfirmation($"¿Eliminar alerta '{alert.Message}'?", "Confirmar") == CoreDialogResult.No) return;
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var repo = scope.ServiceProvider.GetRequiredService<IPatientAlertRepository>();
+                    var dbAlert = await repo.GetByIdAsync(alert.Id);
+                    if (dbAlert != null)
+                    {
+                        repo.Remove(dbAlert);
+                        await repo.SaveChangesAsync();
+                    }
+                }
+                ActiveAlerts.Remove(alert);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al eliminar la alerta: {ex.Message}", "Error BD");
+            }
+        }
+
+        // --- Carga con Token ---
+        private async Task LoadPendingTasksAsync(ITreatmentPlanItemRepository planItemRepo, int patientId, CancellationToken token)
         {
             PendingTasks.Clear();
             var tasks = await planItemRepo.GetTasksForPatientAsync(patientId);
-            foreach (var task in tasks.OrderBy(t => t.IsDone).ThenByDescending(t => t.DateAdded)) PendingTasks.Add(task);
+            token.ThrowIfCancellationRequested();
+            foreach (var task in tasks.OrderBy(t => t.IsDone).ThenByDescending(t => t.DateAdded))
+            {
+                token.ThrowIfCancellationRequested();
+                PendingTasks.Add(task);
+            }
             PendingTaskCount = PendingTasks.Count(t => !t.IsDone);
         }
 
-        private bool CanAddPlanItem() => !string.IsNullOrWhiteSpace(NewPlanItemDescription);
-
-        partial void OnNewPlanItemDescriptionChanged(string value) => AddPlanItemAsyncCommand.NotifyCanExecuteChanged();
-
-        private async Task AddPlanItemAsync()
+        private async Task LoadAvailableTreatments(ITreatmentRepository repo, CancellationToken token)
         {
-            if (CurrentPatient == null || !CanAddPlanItem()) return;
-            var newItem = new TreatmentPlanItem { PatientId = CurrentPatient.Id, Description = NewPlanItemDescription, IsDone = false, DateAdded = DateTime.Now };
-            try
+            AvailableTreatments.Clear();
+            var list = await repo.GetAllAsync();
+            token.ThrowIfCancellationRequested();
+            foreach (var t in list.Where(x => x.IsActive).OrderBy(x => x.Name))
             {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
-                    await planItemRepo.AddAsync(newItem);
-                    await planItemRepo.SaveChangesAsync();
-                    await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id);
-                }
-                NewPlanItemDescription = string.Empty;
-            }
-            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error BD"); }
-        }
-
-        private async Task TogglePlanItemAsync(TreatmentPlanItem? item)
-        {
-            if (item == null || CurrentPatient == null) return;
-            try
-            {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var repo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
-                    var dbItem = await repo.GetByIdAsync(item.Id);
-                    if (dbItem != null)
-                    {
-                        dbItem.IsDone = !dbItem.IsDone;
-                        repo.Update(dbItem);
-                        await repo.SaveChangesAsync();
-                        await LoadPendingTasksAsync(repo, CurrentPatient.Id);
-                    }
-                }
-            }
-            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
-        }
-
-        private async Task DeletePlanItemAsync(TreatmentPlanItem? item)
-        {
-            if (item == null || CurrentPatient == null) return;
-            if (_dialogService.ShowConfirmation("¿Eliminar tarea?", "Confirmar") == CoreDialogResult.No) return;
-            try
-            {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var repo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
-                    var dbItem = await repo.GetByIdAsync(item.Id);
-                    if (dbItem != null)
-                    {
-                        repo.Remove(dbItem);
-                        await repo.SaveChangesAsync();
-                        await LoadPendingTasksAsync(repo, CurrentPatient.Id);
-                    }
-                }
-            }
-            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
-        }
-
-        private async Task CheckPendingTasksAsync()
-        {
-            await Task.Delay(50);
-            if (PendingTaskCount > 0)
-            {
-                var descs = string.Join("\n- ", PendingTasks.Where(t => !t.IsDone).Select(t => t.Description));
-                _dialogService.ShowMessage($"Tareas pendientes:\n\n- {descs}", "Aviso");
+                token.ThrowIfCancellationRequested();
+                AvailableTreatments.Add(t);
             }
         }
 
+        // --- Notificaciones de Propiedades ---
         partial void OnCurrentPatientChanged(Patient? oldValue, Patient? newValue)
         {
             if (oldValue != null) { oldValue.PropertyChanged -= CurrentPatient_PropertyChanged; oldValue.ErrorsChanged -= CurrentPatient_ErrorsChanged; }
@@ -680,14 +708,7 @@ namespace TuClinica.UI.ViewModels
             IsPatientDataReadOnly = !IsPatientDataReadOnly;
             if (!IsPatientDataReadOnly && CurrentPatient != null) { _originalPatientState = CurrentPatient.DeepCopy(); CurrentPatient.ForceValidation(); }
             else if (CurrentPatient != null && _originalPatientState != null) { CurrentPatient.CopyFrom(_originalPatientState); _originalPatientState = null; }
-            SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
-        }
-
-        private async Task LoadAvailableTreatments(ITreatmentRepository repo)
-        {
-            AvailableTreatments.Clear();
-            var list = await repo.GetAllAsync();
-            foreach (var t in list.Where(x => x.IsActive).OrderBy(x => x.Name)) AvailableTreatments.Add(t);
+            // SavePatientDataAsyncCommand.NotifyCanExecuteChanged() se llama desde OnIsPatientDataReadOnlyChanged
         }
 
         private bool CanSavePatientData() => !IsPatientDataReadOnly && HasPatientDataChanged() && CurrentPatient != null && !CurrentPatient.HasErrors;
@@ -701,7 +722,7 @@ namespace TuClinica.UI.ViewModels
                    _originalPatientState.Notes != CurrentPatient.Notes;
         }
 
-        // --- Métodos de Facturación ---
+        // --- Métodos de Facturación (Optimizados y con Token) ---
         private async Task AllocatePayment()
         {
             if (SelectedCharge == null || SelectedPayment == null || AmountToAllocate <= 0) return;
@@ -726,41 +747,64 @@ namespace TuClinica.UI.ViewModels
         }
         private bool CanAllocate() => SelectedCharge != null && SelectedPayment != null && AmountToAllocate > 0;
 
-        partial void OnSelectedChargeChanged(ClinicalEntry? value) => AutoFillAmountToAllocate();
-        partial void OnSelectedPaymentChanged(Payment? value) => AutoFillAmountToAllocate();
         private void AutoFillAmountToAllocate()
         {
             if (SelectedCharge != null && SelectedPayment != null) AmountToAllocate = Math.Min(SelectedCharge.Balance, SelectedPayment.UnallocatedAmount);
             else AmountToAllocate = 0;
         }
 
-        private async Task RefreshBillingCollections()
+        private async Task RefreshBillingCollections(CancellationToken token = default)
         {
             if (CurrentPatient == null) return;
+
+            decimal charged = 0;
+            decimal paid = 0;
+            IEnumerable<ClinicalEntry> clinicalHistory = Enumerable.Empty<ClinicalEntry>();
+            IEnumerable<Payment> paymentHistory = Enumerable.Empty<Payment>();
+
             using (var scope = _scopeFactory.CreateScope())
             {
                 var cRepo = scope.ServiceProvider.GetRequiredService<IClinicalEntryRepository>();
                 var pRepo = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-                var cTask = cRepo.GetHistoryForPatientAsync(CurrentPatient.Id);
-                var pTask = pRepo.GetPaymentsForPatientAsync(CurrentPatient.Id);
-                await Task.WhenAll(cTask, pTask);
 
-                VisitHistory.Clear(); PaymentHistory.Clear();
-                (await cTask).ToList().ForEach(VisitHistory.Add);
-                (await pTask).ToList().ForEach(PaymentHistory.Add);
+                var historyTask = cRepo.GetHistoryForPatientAsync(CurrentPatient.Id);
+                var paymentsTask = pRepo.GetPaymentsForPatientAsync(CurrentPatient.Id);
+                var totalChargedTask = cRepo.GetTotalChargedForPatientAsync(CurrentPatient.Id);
+                var totalPaidTask = pRepo.GetTotalPaidForPatientAsync(CurrentPatient.Id);
+
+                await Task.WhenAll(historyTask, paymentsTask, totalChargedTask, totalPaidTask);
+                token.ThrowIfCancellationRequested();
+
+                clinicalHistory = await historyTask;
+                paymentHistory = await paymentsTask;
+                charged = await totalChargedTask;
+                paid = await totalPaidTask;
             }
-            TotalCharged = VisitHistory.Sum(c => c.TotalCost);
-            TotalPaid = PaymentHistory.Sum(p => p.Amount);
+
+            token.ThrowIfCancellationRequested();
+
+            VisitHistory.Clear();
+            PaymentHistory.Clear();
+            clinicalHistory.ToList().ForEach(VisitHistory.Add);
+            paymentHistory.ToList().ForEach(PaymentHistory.Add);
+
+            TotalCharged = charged;
+            TotalPaid = paid;
             CurrentBalance = TotalCharged - TotalPaid;
 
-            PendingCharges.Clear(); VisitHistory.Where(c => c.Balance > 0).OrderBy(c => c.VisitDate).ToList().ForEach(PendingCharges.Add);
-            UnallocatedPayments.Clear(); PaymentHistory.Where(p => p.UnallocatedAmount > 0).OrderBy(p => p.PaymentDate).ToList().ForEach(UnallocatedPayments.Add);
+            PendingCharges.Clear();
+            VisitHistory.Where(c => c.Balance > 0).OrderBy(c => c.VisitDate).ToList().ForEach(PendingCharges.Add);
+
+            UnallocatedPayments.Clear();
+            PaymentHistory.Where(p => p.UnallocatedAmount > 0).OrderBy(p => p.PaymentDate).ToList().ForEach(UnallocatedPayments.Add);
 
             HistorialCombinado.Clear();
             foreach (var c in VisitHistory) HistorialCombinado.Add(new CargoEvent(c, this));
             foreach (var p in PaymentHistory) HistorialCombinado.Add(new AbonoEvent(p));
+
             var sorted = HistorialCombinado.OrderByDescending(x => x.Timestamp).ToList();
-            HistorialCombinado.Clear(); sorted.ForEach(HistorialCombinado.Add);
+            HistorialCombinado.Clear();
+            sorted.ForEach(HistorialCombinado.Add);
         }
 
         private async Task OpenRegisterChargeDialog()
@@ -964,6 +1008,79 @@ namespace TuClinica.UI.ViewModels
                 }
             }
             catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
+        }
+
+        // --- MÉTODOS DE PLAN DE TRATAMIENTO (QUE FALTABAN) ---
+        private bool CanAddPlanItem() => !string.IsNullOrWhiteSpace(NewPlanItemDescription);
+
+        private async Task AddPlanItemAsync()
+        {
+            if (CurrentPatient == null || !CanAddPlanItem()) return;
+            var newItem = new TreatmentPlanItem { PatientId = CurrentPatient.Id, Description = NewPlanItemDescription, IsDone = false, DateAdded = DateTime.Now };
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var planItemRepo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+                    await planItemRepo.AddAsync(newItem);
+                    await planItemRepo.SaveChangesAsync();
+                    await LoadPendingTasksAsync(planItemRepo, CurrentPatient.Id, CancellationToken.None); // Usar CancellationToken.None
+                }
+                NewPlanItemDescription = string.Empty;
+            }
+            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error BD"); }
+        }
+
+        private async Task TogglePlanItemAsync(TreatmentPlanItem? item)
+        {
+            if (item == null || CurrentPatient == null) return;
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var repo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+                    var dbItem = await repo.GetByIdAsync(item.Id);
+                    if (dbItem != null)
+                    {
+                        dbItem.IsDone = !dbItem.IsDone;
+                        repo.Update(dbItem);
+                        await repo.SaveChangesAsync();
+                        await LoadPendingTasksAsync(repo, CurrentPatient.Id, CancellationToken.None); // Usar CancellationToken.None
+                    }
+                }
+            }
+            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
+        }
+
+        private async Task DeletePlanItemAsync(TreatmentPlanItem? item)
+        {
+            if (item == null || CurrentPatient == null) return;
+            if (_dialogService.ShowConfirmation("¿Eliminar tarea?", "Confirmar") == CoreDialogResult.No) return;
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var repo = scope.ServiceProvider.GetRequiredService<ITreatmentPlanItemRepository>();
+                    var dbItem = await repo.GetByIdAsync(item.Id);
+                    if (dbItem != null)
+                    {
+                        repo.Remove(dbItem);
+                        await repo.SaveChangesAsync();
+                        await LoadPendingTasksAsync(repo, CurrentPatient.Id, CancellationToken.None); // Usar CancellationToken.None
+                    }
+                }
+            }
+            catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
+        }
+
+        private async Task CheckPendingTasksAsync()
+        {
+            await Task.Delay(50);
+            if (PendingTaskCount > 0)
+            {
+                var descs = string.Join("\n- ", PendingTasks.Where(t => !t.IsDone).Select(t => t.Description));
+                _dialogService.ShowMessage($"Tareas pendientes:\n\n- {descs}", "Aviso");
+            }
         }
     }
 }

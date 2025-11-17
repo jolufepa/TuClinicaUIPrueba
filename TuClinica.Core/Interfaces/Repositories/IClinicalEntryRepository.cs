@@ -8,5 +8,11 @@ namespace TuClinica.Core.Interfaces.Repositories
     {
         Task<IEnumerable<ClinicalEntry>> GetHistoryForPatientAsync(int patientId);
         Task<bool> DeleteEntryAndAllocationsAsync(int entryId);
+
+        // --- NUEVO MÉTODO ---
+        /// <summary>
+        /// Calcula la suma total de los cargos del paciente directamente en la BD.
+        /// </summary>
+        Task<decimal> GetTotalChargedForPatientAsync(int patientId);
     }
 }

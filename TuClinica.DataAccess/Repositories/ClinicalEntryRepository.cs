@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System; // Necesario para Exception
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,10 +23,23 @@ namespace TuClinica.DataAccess.Repositories
                 .Include(c => c.Allocations)
                 .Include(c => c.Doctor)
                 .OrderByDescending(c => c.VisitDate)
-                .AsSplitQuery() 
+                .AsSplitQuery()
                 .AsNoTracking()
                 .ToListAsync();
         }
+
+        // --- IMPLEMENTACIÓN DE LA MEJORA (CORREGIDA PARA SQLITE) ---
+        public async Task<decimal> GetTotalChargedForPatientAsync(int patientId)
+        {
+            // 1. Convertimos el 'decimal' (TotalCost) a 'double' DENTRO de la consulta.
+            var total = await _context.ClinicalEntries
+                .Where(c => c.PatientId == patientId)
+                .SumAsync(c => (double)c.TotalCost); // SQLite sí puede sumar 'double'
+
+            // 2. Convertimos el resultado 'double' de vuelta a 'decimal'
+            return (decimal)total;
+        }
+
         public async Task<bool> DeleteEntryAndAllocationsAsync(int entryId)
         {
             // Iniciar una transacción para asegurar que todo se haga o nada se haga

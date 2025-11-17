@@ -240,6 +240,8 @@ namespace TuClinica.UI
 
                     services.AddScoped<IRepository<PaymentAllocation>, Repository<PaymentAllocation>>();
                     services.AddScoped<ITreatmentPlanItemRepository, TreatmentPlanItemRepository>();
+                    services.AddScoped<IRepository<TreatmentPackItem>, Repository<TreatmentPackItem>>(); // Para Packs
+                    services.AddScoped<IPatientAlertRepository, PatientAlertRepository>();
 
                     // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
@@ -282,7 +284,8 @@ namespace TuClinica.UI
                             sp.GetRequiredService<IDialogService>(),
                             sp.GetRequiredService<IServiceScopeFactory>(),
                             sp.GetRequiredService<IFileDialogService>(),
-                            sp.GetRequiredService<IValidationService>()
+                            sp.GetRequiredService<IValidationService>(),
+                            sp.GetRequiredService<IPatientAlertRepository>()
                         ));
 
                     services.AddTransient<OdontogramViewModel>();

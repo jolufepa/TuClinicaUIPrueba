@@ -23,5 +23,17 @@ namespace TuClinica.DataAccess.Repositories
                 .AsNoTracking()
                 .ToListAsync();
         }
+
+        // --- IMPLEMENTACIÓN DE LA MEJORA (CORREGIDA PARA SQLITE) ---
+        public async Task<decimal> GetTotalPaidForPatientAsync(int patientId)
+        {
+            // 1. Convertimos 'Amount' (decimal) a 'double' DENTRO de la consulta.
+            var total = await _context.Payments
+                .Where(p => p.PatientId == patientId)
+                .SumAsync(p => (double)p.Amount); // SQLite suma 'double'
+
+            // 2. Convertimos el resultado 'double' de vuelta a 'decimal'
+            return (decimal)total;
+        }
     }
 }

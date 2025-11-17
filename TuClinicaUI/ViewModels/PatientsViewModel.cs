@@ -38,7 +38,7 @@ namespace TuClinica.UI.ViewModels
 
         [ObservableProperty]
         private string _pageInfo = "Página 1 de 1";
-        // --- FIN DE MODIFICACIÓN ---
+        
 
         private readonly IPatientRepository _patientRepository;
         private readonly IValidationService _validationService;
@@ -93,7 +93,7 @@ namespace TuClinica.UI.ViewModels
         // --- INICIO DE MODIFICACIÓN: Comandos de Paginación ---
         public IAsyncRelayCommand NextPageCommand { get; }
         public IAsyncRelayCommand PreviousPageCommand { get; }
-        // --- FIN DE MODIFICACIÓN ---
+        
         public IEnumerable<PatientDocumentType> DocumentTypes => Enum.GetValues(typeof(PatientDocumentType)).Cast<PatientDocumentType>();
 
         public PatientsViewModel(IPatientRepository patientRepository,
@@ -126,7 +126,7 @@ namespace TuClinica.UI.ViewModels
             // --- INICIO DE MODIFICACIÓN: Inicialización Comandos Paginación ---
             NextPageCommand = new AsyncRelayCommand(NextPageAsync, CanGoNext);
             PreviousPageCommand = new AsyncRelayCommand(PreviousPageAsync, CanGoPrevious);
-            // --- FIN DE MODIFICACIÓN ---
+            
 
             _ = SearchPatientsAsync(); // Carga inicial
         }

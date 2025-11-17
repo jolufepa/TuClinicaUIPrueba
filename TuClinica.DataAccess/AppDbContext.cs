@@ -42,12 +42,13 @@ namespace TuClinica.DataAccess
 
         // --- NUEVA TABLA DE PACKS (DE LA MEJORA ANTERIOR) ---
         public DbSet<TreatmentPackItem> TreatmentPackItems { get; set; }
+
+        // --- NUEVA TABLA DE ALERTAS (ESTA ES LA QUE FALTA) ---
+        public DbSet<PatientAlert> PatientAlerts { get; set; }
         // --- FIN DE LA MODIFICACIÓN ---
 
 
         // --- CONSTRUCTOR MODIFICADO ---
-        // La inyección de dependencias es suficientemente inteligente
-        // para pasar DbContextOptions Y TAMBIÉN IAuthService.
         public AppDbContext(DbContextOptions<AppDbContext> options, IAuthService authService)
             : base(options)
         {
@@ -64,29 +65,27 @@ namespace TuClinica.DataAccess
                 .HasIndex(b => b.BudgetNumber)
                 .IsUnique();
 
-            // --- INICIO DE LA CORRECCIÓN DE ERROR ---
-            // Aquí le decimos a EF cómo manejar las dos relaciones
-            // entre Treatment y TreatmentPackItem.
-
-            // 1. Relación "Pack" -> "Items"
-            // Un Tratamiento (Padre/Pack) tiene MUCHOS PackItems.
-            // La colección `t_parent.PackItems` se llena usando la clave `pi.ParentTreatmentId`.
+            // --- Relaciones de TreatmentPackItem (de la mejora anterior) ---
             modelBuilder.Entity<Treatment>()
                 .HasMany(t_parent => t_parent.PackItems)    // La colección ICollection<TreatmentPackItem> en Treatment
                 .WithOne(pi => pi.ParentTreatment)          // La propiedad de navegación 'ParentTreatment' en TreatmentPackItem
                 .HasForeignKey(pi => pi.ParentTreatmentId)  // La clave foránea que las une
                 .OnDelete(DeleteBehavior.Cascade); // Si borras el Pack, se borran sus filas de componentes.
 
-            // 2. Relación "Componente" -> "UsadoEnPacks"
-            // Un Tratamiento (Hijo/Componente) puede estar en MUCHOS PackItems.
-            // No tenemos una colección de vuelta en Treatment (lo cual está bien).
             modelBuilder.Entity<TreatmentPackItem>()
                 .HasOne(pi => pi.ChildTreatment)            // La propiedad 'ChildTreatment' en TreatmentPackItem
                 .WithMany()                                 // No hay propiedad de colección de vuelta
                 .HasForeignKey(pi => pi.ChildTreatmentId)   // La clave foránea que las une
                 .OnDelete(DeleteBehavior.Restrict); // IMPIDE borrar un tratamiento (ej. "Limpieza") si está siendo usado en un pack.
 
-            // --- FIN DE LA CORRECCIÓN DE ERROR ---
+            // --- INICIO DE NUEVA RELACIÓN (ALERTAS) ---
+            // Añadir la relación para PatientAlerts
+            modelBuilder.Entity<Patient>()
+                .HasMany(p => p.Alerts)                 // Un paciente tiene muchas alertas
+                .WithOne(a => a.Patient)                // Cada alerta pertenece a un paciente
+                .HasForeignKey(a => a.PatientId)        // La clave foránea es PatientId
+                .OnDelete(DeleteBehavior.Cascade); // Si borras al paciente, borras sus alertas
+            // --- FIN DE NUEVA RELACIÓN ---
         }
 
         // --- SOBRESCRIBIR SaveChangesAsync ---
@@ -124,11 +123,11 @@ namespace TuClinica.DataAccess
                     continue;
 
                 // --- ¡FILTRO DE ENTIDADES! ---
-                // Aquí decides qué entidades auditar. Empezamos con Patient.
-                // Puedes añadir: || entry.Entity is Budget || entry.Entity is Prescription
                 // --- INICIO DE LA MODIFICACIÓN ---
-                // 2. Añadir TreatmentPlanItem y LinkedDocument al filtro de auditoría
-                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget || entry.Entity is ClinicalEntry || entry.Entity is TreatmentPlanItem || entry.Entity is LinkedDocument))
+                // 2. Añadir TreatmentPlanItem, LinkedDocument y PatientAlert al filtro de auditoría
+                if (!(entry.Entity is Patient || entry.Entity is User || entry.Entity is Budget ||
+                      entry.Entity is ClinicalEntry || entry.Entity is TreatmentPlanItem ||
+                      entry.Entity is LinkedDocument || entry.Entity is PatientAlert)) // <-- AÑADIDO
                     continue;
                 // --- FIN DE LA MODIFICACIÓN ---
 
