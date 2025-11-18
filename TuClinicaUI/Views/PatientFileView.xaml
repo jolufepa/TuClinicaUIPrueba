@@ -17,10 +17,8 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Merged Dictionaries (si los tienes) -->
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Conversores existentes -->
             <converters:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
@@ -28,7 +26,6 @@
             <converters:SaldoColorConverter x:Key="SaldoColorConverter"/>
             <converters:FirstErrorConverter x:Key="FirstErrorConverter"/>
 
-            <!-- Estilos existentes -->
             <Style x:Key="ValidationErrorTextBlock" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="Red"/>
                 <Setter Property="FontSize" Value="12"/>
@@ -45,121 +42,6 @@
                 </Style.Triggers>
             </Style>
 
-            <!-- DataProvider para el Enum AlertLevel (NUEVO) -->
-            <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="AlertLevelProvider">
-                <ObjectDataProvider.MethodParameters>
-                    <x:Type TypeName="enums:AlertLevel" />
-                </ObjectDataProvider.MethodParameters>
-            </ObjectDataProvider>
-
-            <!-- DataTemplate para mostrar las Alertas en la lista (NUEVO) -->
-            <DataTemplate x:Key="AlertItemTemplate" DataType="{x:Type models:PatientAlert}">
-                <Border x:Name="AlertBorder" CornerRadius="3" BorderThickness="1" BorderBrush="#DDDDDD" Padding="8,5" Margin="2,2,5,2">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconModern Kind="Warning" VerticalAlignment="Center" Margin="0,0,5,0" />
-                            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                        </StackPanel>
-
-                        <Button Grid.Column="1" 
-                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
-                                Command="{Binding DataContext.DeleteAlertCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                ToolTip="Eliminar esta alerta">
-                            <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
-                        </Button>
-                    </Grid>
-                </Border>
-                <DataTemplate.Triggers>
-                    <!-- Trigger para Alertas Críticas (Rojo) -->
-                    <DataTrigger Binding="{Binding Level}" Value="Critical">
-                        <Setter TargetName="AlertBorder" Property="Background" Value="#FFF9E0E0" />
-                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#FFD9534F" />
-                        <Setter Property="TextBlock.Foreground" Value="#D9534F" />
-                    </DataTrigger>
-                    <!-- Trigger para Alertas Warning (Amarillo) -->
-                    <DataTrigger Binding="{Binding Level}" Value="Warning">
-                        <Setter TargetName="AlertBorder" Property="Background" Value="#FFFFF4DE" />
-                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#FFF0AD4E" />
-                        <Setter Property="TextBlock.Foreground" Value="#C28723" />
-                    </DataTrigger>
-                    <!-- Trigger para Alertas Info (Azul) -->
-                    <DataTrigger Binding="{Binding Level}" Value="Info">
-                        <Setter TargetName="AlertBorder" Property="Background" Value="#E6F7FF" />
-                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#B3E0FF" />
-                        <Setter Property="TextBlock.Foreground" Value="#005691" />
-                    </DataTrigger>
-                </DataTemplate.Triggers>
-            </DataTemplate>
-
-            <!-- DataTemplates existentes (Cargo, Abono) -->
-            <DataTemplate x:Key="CargoTemplate" DataType="{x:Type events:CargoEvent}">
-                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconModern Kind="Clipboard" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#D32F2F" Width="20" Height="20" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Cargo.Diagnosis, TargetNullValue='Cargo Manual'}" />
-                            <TextBlock FontSize="12" Foreground="#D32F2F" FontStyle="Italic"
-                                       Text="{Binding Cargo.Notes}"
-                                       Visibility="{Binding Cargo.Notes, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
-                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Cargo.VisitDate, StringFormat='dd/MM/yyyy'}" />
-                        </StackPanel>
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#D32F2F" Padding="5"
-                                   Text="{Binding Cargo.TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
-                                   HorizontalAlignment="Right" />
-                        <Button Grid.Column="4" 
-                                Command="{Binding DeleteCommand}"
-                                CommandParameter="{Binding Cargo}"
-                                ToolTip="Eliminar este cargo"
-                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
-                                Margin="5,0,0,0">
-                            <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
-                        </Button>
-                    </Grid>
-                </Border>
-            </DataTemplate>
-
-            <DataTemplate x:Key="AbonoTemplate" DataType="{x:Type events:AbonoEvent}">
-                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconModern Kind="CurrencyEuro" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#388E3C" Width="20" Height="20" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Abono.Method, TargetNullValue='Abono'}" />
-                            <TextBlock FontSize="12" Foreground="#388E3C" FontStyle="Italic"
-                                        Text="{Binding Abono.Observaciones}"
-                                        Visibility="{Binding Abono.Observaciones, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
-                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Abono.PaymentDate, StringFormat='dd/MM/yyyy'}" />
-                        </StackPanel>
-                        <TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#388E3C" Padding="5"
-                                   Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
-                                   HorizontalAlignment="Right" />
-                    </Grid>
-                </Border>
-            </DataTemplate>
-
-            <selectors:HistorialTemplateSelector x:Key="HistorialSelector"
-                                                 CargoTemplate="{StaticResource CargoTemplate}"
-                                                 AbonoTemplate="{StaticResource AbonoTemplate}" />
-
-            <!-- Estilos Ficha (existentes) -->
             <Style x:Key="FichaLabelStyle" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="#FF5D4037" />
                 <Setter Property="FontWeight" Value="Bold" />
@@ -218,40 +100,133 @@
                 </Setter>
             </Style>
 
+            <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="AlertLevelProvider">
+                <ObjectDataProvider.MethodParameters>
+                    <x:Type TypeName="enums:AlertLevel" />
+                </ObjectDataProvider.MethodParameters>
+            </ObjectDataProvider>
+
+            <DataTemplate x:Key="AlertItemTemplate" DataType="{x:Type models:PatientAlert}">
+                <Border x:Name="AlertBorder" CornerRadius="3" BorderThickness="1" BorderBrush="#DDDDDD" Padding="8,5" Margin="2,2,5,2">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconModern Kind="Warning" VerticalAlignment="Center" Margin="0,0,5,0" />
+                            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <Button Grid.Column="1" 
+                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                                Command="{Binding DataContext.DeleteAlertCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"
+                                ToolTip="Eliminar esta alerta">
+                            <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
+                        </Button>
+                    </Grid>
+                </Border>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Level}" Value="Critical">
+                        <Setter TargetName="AlertBorder" Property="Background" Value="#FFF9E0E0" />
+                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#FFD9534F" />
+                        <Setter Property="TextBlock.Foreground" Value="#D9534F" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Level}" Value="Warning">
+                        <Setter TargetName="AlertBorder" Property="Background" Value="#FFFFF4DE" />
+                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#FFF0AD4E" />
+                        <Setter Property="TextBlock.Foreground" Value="#C28723" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Level}" Value="Info">
+                        <Setter TargetName="AlertBorder" Property="Background" Value="#E6F7FF" />
+                        <Setter TargetName="AlertBorder" Property="BorderBrush" Value="#B3E0FF" />
+                        <Setter Property="TextBlock.Foreground" Value="#005691" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+
+            <DataTemplate x:Key="CargoTemplate" DataType="{x:Type events:CargoEvent}">
+                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconModern Kind="Clipboard" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#D32F2F" Width="20" Height="20" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Cargo.Diagnosis, TargetNullValue='Cargo Manual'}" />
+                            <TextBlock FontSize="12" Foreground="#D32F2F" FontStyle="Italic"
+                                       Text="{Binding Cargo.Notes}"
+                                       Visibility="{Binding Cargo.Notes, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
+                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Cargo.VisitDate, StringFormat='dd/MM/yyyy'}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#D32F2F" Padding="5"
+                                   Text="{Binding Cargo.TotalCost, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
+                                   HorizontalAlignment="Right" />
+                        <Button Grid.Column="4" 
+                                Command="{Binding DeleteCommand}"
+                                CommandParameter="{Binding Cargo}"
+                                ToolTip="Eliminar este cargo"
+                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                                Margin="5,0,0,0">
+                            <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+
+            <DataTemplate x:Key="AbonoTemplate" DataType="{x:Type events:AbonoEvent}">
+                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="10, 12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="DebeCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconModern Kind="CurrencyEuro" VerticalAlignment="Center" Margin="5,0,15,0" Foreground="#388E3C" Width="20" Height="20" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Abono.Method, TargetNullValue='Abono'}" />
+                            <TextBlock FontSize="12" Foreground="#388E3C" FontStyle="Italic"
+                                       Text="{Binding Abono.Observaciones}"
+                                       Visibility="{Binding Abono.Observaciones, Converter={StaticResource NullOrEmptyToVisibilityConverter}}"/>
+                            <TextBlock FontSize="12" Foreground="Gray" Text="{Binding Abono.PaymentDate, StringFormat='dd/MM/yyyy'}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#388E3C" Padding="5"
+                                   Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                </Border>
+            </DataTemplate>
+
+            <selectors:HistorialTemplateSelector x:Key="HistorialSelector"
+                                                 CargoTemplate="{StaticResource CargoTemplate}"
+                                                 AbonoTemplate="{StaticResource AbonoTemplate}" />
         </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
-        <!-- Grid de Carga -->
         <Grid Background="#80000000" 
               Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
-               Panel.ZIndex="99">
+              Panel.ZIndex="99">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <mah:ProgressRing IsActive="True"
-                                  Width="50" Height="50"
-                                  Foreground="White"/>
-                <TextBlock 
-                    Text="Cargando ficha del paciente..." 
-                   Foreground="White" 
-                    Margin="0,10,0,0" 
-                     HorizontalAlignment="Center"/>
+                <mah:ProgressRing IsActive="True" Width="50" Height="50" Foreground="White"/>
+                <TextBlock Text="Cargando ficha del paciente..." Foreground="White" Margin="0,10,0,0" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
-        <!-- Contenido Principal -->
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <!-- Cabecera Azul -->
                 <RowDefinition Height="Auto"/>
-                <!-- NUEVA SECCIÓN DE ALERTAS -->
                 <RowDefinition Height="*"/>
-                <!-- TabControl principal -->
                 <RowDefinition Height="Auto"/>
-                <!-- StatusBar -->
             </Grid.RowDefinitions>
 
-            <!-- Cabecera Azul -->
             <Grid Grid.Row="0" Background="#007ACC" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -288,27 +263,17 @@
                     <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}', ConverterCulture='es-ES'}"
                                Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
                                FontSize="20" 
-                                FontWeight="Bold"/>
+                               FontWeight="Bold"/>
                 </StackPanel>
             </Grid>
 
-            <!-- === INICIO DE NUEVA SECCIÓN: ALERTAS MÉDICAS === -->
-            <!-- 
-                LA LÍNEA 'Visibility' ESTÁ AHORA COMENTADA. 
-                Esto fuerza a que la sección sea SIEMPRE visible, 
-                incluso si no hay alertas. 
-            -->
-            <GroupBox Grid.Row="1" Header="Alertas Médicas" Margin="5,0,5,10" Padding="10"
-                      BorderBrush="Red" BorderThickness="1.5"
-                      >
-                <!-- Visibility="{Binding HasActiveAlerts, Converter={StaticResource BooleanToVisibilityConverter}}" -->
+            <GroupBox Grid.Row="1" Header="Alertas Médicas" Margin="5,0,5,10" Padding="10" BorderBrush="Red" BorderThickness="1.5">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" MinWidth="250" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Columna 1: Lista de Alertas Activas -->
                     <ItemsControl Grid.Column="0" 
                                   ItemsSource="{Binding ActiveAlerts}"
                                   ItemTemplate="{StaticResource AlertItemTemplate}"
@@ -321,10 +286,7 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <!-- Columna 2: Añadir Nueva Alerta -->
-                    <StackPanel Grid.Column="1" Margin="15,0,0,0"
-                                IsEnabled="{Binding CanManageDocuments}">
-                        <!-- Reutilizamos el permiso de Doctor/Admin -->
+                    <StackPanel Grid.Column="1" Margin="15,0,0,0" IsEnabled="{Binding CanManageDocuments}">
                         <Label Content="Añadir Nueva Alerta:" Padding="0,0,0,2"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -346,9 +308,7 @@
                     </StackPanel>
                 </Grid>
             </GroupBox>
-            <!-- === FIN DE NUEVA SECCIÓN === -->
 
-            <!-- TabControl (ahora en Grid.Row="2") -->
             <mah:MetroTabControl Grid.Row="2" Margin="5,0">
 
                 <mah:MetroTabItem Padding="20">
@@ -371,15 +331,8 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0"
-                                    Background="White"
-                                    CornerRadius="3"
-                                    BorderBrush="#DDDDDD"
-                                    BorderThickness="1"
-                                    VerticalAlignment="Top"
-                                    HorizontalAlignment="Stretch"
-                                    Effect="{StaticResource ShadowZ2}"
-                                    Margin="0,0,10,0">
+                            <Border Grid.Row="0" Background="White" CornerRadius="3" BorderBrush="#DDDDDD" BorderThickness="1"
+                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Effect="{StaticResource ShadowZ2}" Margin="0,0,10,0">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -401,73 +354,39 @@
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding CurrentPatient.Name}" Style="{StaticResource FichaTextBoxStyle}" 
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding CurrentPatient.Name}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}"/>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Apellidos:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding CurrentPatient.Surname}" Style="{StaticResource FichaTextBoxStyle}" 
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding CurrentPatient.Surname}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}"/>
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Tipo Documento:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,10,20,10"/>
                                         <Grid Grid.Row="2" Grid.Column="1" Margin="0,10,0,10">
-                                            <TextBlock Text="{Binding CurrentPatient.DocumentType}" 
-                                                       Style="{StaticResource FichaTextBlockStyle}" 
-                                                       Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            <ComboBox ItemsSource="{Binding DocumentTypes}"
-                                                      SelectedItem="{Binding CurrentPatient.DocumentType, UpdateSourceTrigger=PropertyChanged}"
-                                                      Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
-                                                      VerticalAlignment="Center"
-                                                      FontSize="18"
-                                                      MinHeight="38"/>
+                                            <TextBlock Text="{Binding CurrentPatient.DocumentType}" Style="{StaticResource FichaTextBlockStyle}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <ComboBox ItemsSource="{Binding DocumentTypes}" SelectedItem="{Binding CurrentPatient.DocumentType, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}" VerticalAlignment="Center" FontSize="18" MinHeight="38"/>
                                         </Grid>
 
                                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Nº Documento:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   Grid.Row="3" Grid.Column="1" 
-                                                   Text="{Binding CurrentPatient.DocumentNumber, UpdateSourceTrigger=PropertyChanged}" 
-                                                   Style="{StaticResource FichaTextBoxStyle}" 
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding CurrentPatient.DocumentNumber, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}"/>
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="Fecha Nacimiento:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
                                         <Grid Grid.Row="4" Grid.Column="1">
-                                            <TextBlock Text="{Binding CurrentPatient.DateOfBirth, StringFormat='dd/MM/yyyy'}" 
-                                                       Style="{StaticResource FichaTextBlockStyle}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            <DatePicker x:Name="DatePickerNacimiento" 
-                                                        SelectedDate="{Binding CurrentPatient.DateOfBirth, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"
-                                                        Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"
-                                                        VerticalAlignment="Center"
-                                                        Margin="0,0,0,10"/>
+                                            <TextBlock Text="{Binding CurrentPatient.DateOfBirth, StringFormat='dd/MM/yyyy'}" Style="{StaticResource FichaTextBlockStyle}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <DatePicker x:Name="DatePickerNacimiento" SelectedDate="{Binding CurrentPatient.DateOfBirth, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}" VerticalAlignment="Center" Margin="0,0,0,10"/>
                                         </Grid>
-
-                                        <TextBlock Grid.Row="5" Style="{StaticResource ValidationErrorTextBlock}"
-                                                   Text="{Binding Path=(Validation.Errors), ElementName=DatePickerNacimiento, Converter={StaticResource FirstErrorConverter}}"
-                                                   Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
+                                        <TextBlock Grid.Row="5" Style="{StaticResource ValidationErrorTextBlock}" Text="{Binding Path=(Validation.Errors), ElementName=DatePickerNacimiento, Converter={StaticResource FirstErrorConverter}}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
 
                                         <TextBlock Grid.Row="6" Grid.Column="0" Text="Teléfono:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding CurrentPatient.Phone, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"
-                                                   TextWrapping="Wrap"/>
+                                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding CurrentPatient.Phone, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}" TextWrapping="Wrap"/>
 
                                         <TextBlock Grid.Row="7" Grid.Column="0" Text="Email:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   x:Name="TextBoxEmail"
-                                                   Grid.Row="7" Grid.Column="1" Text="{Binding CurrentPatient.Email, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" Style="{StaticResource FichaTextBoxStyle}"
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"
-                                                   TextWrapping="Wrap"/>
-
-                                        <TextBlock Grid.Row="8" Style="{StaticResource ValidationErrorTextBlock}"
-                                                   Text="{Binding Path=(Validation.Errors), ElementName=TextBoxEmail, Converter={StaticResource FirstErrorConverter}}"
-                                                   Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
+                                        <TextBox   x:Name="TextBoxEmail" Grid.Row="7" Grid.Column="1" Text="{Binding CurrentPatient.Email, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="8" Style="{StaticResource ValidationErrorTextBlock}" Text="{Binding Path=(Validation.Errors), ElementName=TextBoxEmail, Converter={StaticResource FirstErrorConverter}}" Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
 
                                         <TextBlock Grid.Row="9" Grid.Column="0" Text="Dirección:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Center" Margin="0,0,20,10"/>
-                                        <TextBox   Grid.Row="9" Grid.Column="1" Text="{Binding CurrentPatient.Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}"
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"
-                                                   TextWrapping="Wrap" MinHeight="60" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                                        <TextBox   Grid.Row="9" Grid.Column="1" Text="{Binding CurrentPatient.Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}" IsReadOnly="{Binding IsPatientDataReadOnly}" TextWrapping="Wrap" MinHeight="60" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
 
                                         <TextBlock Grid.Row="10" Grid.Column="0" Text="Notas Clínicas:" Style="{StaticResource FichaLabelStyle}" VerticalAlignment="Top" Margin="0,10,20,0"/>
-                                        <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding CurrentPatient.Notes, UpdateSourceTrigger=PropertyChanged}" 
-                                                   Style="{StaticResource FichaTextBoxStyle}"
-                                                   TextWrapping="Wrap" MinHeight="100" AcceptsReturn="True"
-                                                   VerticalScrollBarVisibility="Auto"
-                                                   IsReadOnly="{Binding IsPatientDataReadOnly}"/>
+                                        <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding CurrentPatient.Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FichaTextBoxStyle}" TextWrapping="Wrap" MinHeight="100" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="{Binding IsPatientDataReadOnly}"/>
                                     </Grid>
                                 </ScrollViewer>
                             </Border>
@@ -504,42 +423,21 @@
                             <TextBlock Text="Documentos Vinculados" />
                         </StackPanel>
                     </mah:MetroTabItem.Header>
-
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
-                        <DataGrid Grid.Row="0"
-                                  ItemsSource="{Binding LinkedDocuments}"
-                                  SelectedItem="{Binding SelectedLinkedDocument}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  CanUserAddRows="False"
-                                  FontSize="14"
-                                  GridLinesVisibility="Vertical"
-                                  VerticalGridLinesBrush="#EEEEEE"
-                                  HeadersVisibility="Column"
-                                  SelectionMode="Single">
+                        <DataGrid Grid.Row="0" ItemsSource="{Binding LinkedDocuments}" SelectedItem="{Binding SelectedLinkedDocument}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="#EEEEEE" HeadersVisibility="Column" SelectionMode="Single">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Tipo" Binding="{Binding DocumentType}" Width="Auto"/>
                                 <DataGridTextColumn Header="Número de Documento" Binding="{Binding DocumentNumber}" Width="*"/>
                                 <DataGridTextColumn Header="Notas" Binding="{Binding Notes}" Width="2*"/>
                             </DataGrid.Columns>
                         </DataGrid>
-
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0"
-                                    Visibility="{Binding CanManageDocuments, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <Button Content="Añadir Documento"
-                                    Command="{Binding AddLinkedDocumentCommand}"
-                                    ToolTip="Añadir manualmente un nuevo documento vinculado (ej. un pasaporte antiguo)."
-                                    Style="{StaticResource MahApps.Styles.Button.Square.Accent}"
-                                    Margin="0,0,10,0"/>
-                            <Button Content="Eliminar Vinculado"
-                                    Command="{Binding DeleteLinkedDocumentCommand}"
-                                    Background="IndianRed" 
-                                    Foreground="White"/>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Visibility="{Binding CanManageDocuments, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Button Content="Añadir Documento" Command="{Binding AddLinkedDocumentCommand}" Style="{StaticResource MahApps.Styles.Button.Square.Accent}" Margin="0,0,10,0"/>
+                            <Button Content="Eliminar Vinculado" Command="{Binding DeleteLinkedDocumentCommand}" Background="IndianRed" Foreground="White"/>
                         </StackPanel>
                     </Grid>
                 </mah:MetroTabItem>
@@ -551,17 +449,8 @@
                             <TextBlock Text="Historial Clínico (Visitas)" />
                         </StackPanel>
                     </mah:MetroTabItem.Header>
-
                     <Grid>
-                        <DataGrid ItemsSource="{Binding VisitHistory}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  CanUserAddRows="False"
-                                  FontSize="14"
-                                  GridLinesVisibility="Vertical"
-                                  VerticalGridLinesBrush="#EEEEEE"
-                                  HeadersVisibility="Column"
-                                  SelectionMode="Single">
+                        <DataGrid ItemsSource="{Binding VisitHistory}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="#EEEEEE" HeadersVisibility="Column" SelectionMode="Single">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Fecha" Binding="{Binding VisitDate, StringFormat='dd/MM/yyyy HH:mm'}" Width="Auto"/>
                                 <DataGridTextColumn Header="Doctor" Binding="{Binding DoctorName}" Width="Auto"/>
@@ -586,23 +475,16 @@
                             <TextBlock Text="Contabilidad (Cargos y Abonos)" />
                         </StackPanel>
                     </mah:MetroTabItem.Header>
-
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Nuevo Presupuesto" 
-                                     Command="{Binding NewBudgetCommand}"
-                                     Margin="0,0,8,0"/>
-                            <Button Content="Imprimir Historial (PDF)"
-                                     Command="{Binding PrintHistoryCommand}" 
-                                     Margin="0,0,8,0"/>
+                            <Button Content="Nuevo Presupuesto" Command="{Binding NewBudgetCommand}" Margin="0,0,8,0"/>
+                            <Button Content="Imprimir Historial (PDF)" Command="{Binding PrintHistoryCommand}" Margin="0,0,8,0"/>
                         </StackPanel>
-
                         <Grid Grid.Row="1" Margin="1,0,1,0" Background="#F0F0F0" Height="30">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="IconCol" />
@@ -611,22 +493,10 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="HaberCol" />
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="ActionCol" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="2" Text="Debe (Cargos)" FontWeight="SemiBold" Padding="5" 
-                                       FontSize="18" 
-                                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBlock Grid.Column="3" Text="Haber (Abonos)" FontWeight="SemiBold" Padding="5" 
-                                       FontSize="18" 
-                                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Grid.Column="2" Text="Debe (Cargos)" FontWeight="SemiBold" Padding="5" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Grid.Column="3" Text="Haber (Abonos)" FontWeight="SemiBold" Padding="5" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"/>
                         </Grid>
-
-                        <ListView Grid.Row="2"
-                                  Grid.IsSharedSizeScope="True" 
-                                  ItemsSource="{Binding HistorialCombinado}"
-                                  ItemTemplateSelector="{StaticResource HistorialSelector}"
-                                  BorderBrush="#DDDDDD"
-                                  BorderThickness="1"
-                                  HorizontalContentAlignment="Stretch"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView Grid.Row="2" Grid.IsSharedSizeScope="True" ItemsSource="{Binding HistorialCombinado}" ItemTemplateSelector="{StaticResource HistorialSelector}" BorderBrush="#DDDDDD" BorderThickness="1" HorizontalContentAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                                     <Setter Property="Focusable" Value="False"/>
@@ -644,81 +514,42 @@
                                 <iconPacks:PackIconModern Kind="Clipboard" VerticalAlignment="Center" Margin="0,0,5,0" />
                                 <TextBlock Text="Plan de Tratamiento" />
                             </StackPanel>
-                            <Border Background="Red"
-                                    CornerRadius="8"
-                                    Height="16"
-                                    MinWidth="16"
-                                    Padding="4,0"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Top"
-                                    Margin="0,-8,-8,0"
-                                    Visibility="{Binding PendingTaskCount, Converter={StaticResource IsGreaterThanZeroConverter}}">
-                                <TextBlock Text="{Binding PendingTaskCount}" 
-                                           Foreground="White" 
-                                           FontSize="10"
-                                           FontWeight="Bold"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                            <Border Background="Red" CornerRadius="8" Height="16" MinWidth="16" Padding="4,0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Visibility="{Binding PendingTaskCount, Converter={StaticResource IsGreaterThanZeroConverter}}">
+                                <TextBlock Text="{Binding PendingTaskCount}" Foreground="White" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                         </Grid>
                     </mah:MetroTabItem.Header>
-
                     <i:Interaction.Triggers>
                         <i:EventTrigger EventName="GotFocus">
                             <i:InvokeCommandAction Command="{Binding CheckPendingTasksCommand}"/>
                         </i:EventTrigger>
                     </i:Interaction.Triggers>
-
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
-                        <DataGrid Grid.Row="0"
-                                  ItemsSource="{Binding PendingTasks}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  GridLinesVisibility="Vertical"
-                                  VerticalGridLinesBrush="#EEEEEE"
-                                  FontSize="14"
-                                  HeadersVisibility="Column"
-                                  SelectionMode="Single"
-                                  IsReadOnly="True">
+                        <DataGrid Grid.Row="0" ItemsSource="{Binding PendingTasks}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Vertical" VerticalGridLinesBrush="#EEEEEE" FontSize="14" HeadersVisibility="Column" SelectionMode="Single" IsReadOnly="True">
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Header="Hecho" Width="Auto" IsReadOnly="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type models:TreatmentPlanItem}">
-                                            <CheckBox IsChecked="{Binding IsDone}"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center">
+                                            <CheckBox IsChecked="{Binding IsDone}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <i:Interaction.Triggers>
                                                     <i:EventTrigger EventName="Click">
-                                                        <i:InvokeCommandAction Command="{Binding DataContext.TogglePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                             CommandParameter="{Binding}"/>
+                                                        <i:InvokeCommandAction Command="{Binding DataContext.TogglePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                                     </i:EventTrigger>
                                                 </i:Interaction.Triggers>
                                             </CheckBox>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-
-                                <DataGridTextColumn Header="Descripción de Tarea" 
-                                                    Binding="{Binding Description}" 
-                                                    Width="*"
-                                                    IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Fecha Creación" 
-                                                    Binding="{Binding DateAdded, StringFormat='dd/MM/yyyy'}" 
-                                                    Width="Auto"
-                                                    IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Descripción de Tarea" Binding="{Binding Description}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Fecha Creación" Binding="{Binding DateAdded, StringFormat='dd/MM/yyyy'}" Width="Auto" IsReadOnly="True"/>
                                 <DataGridTemplateColumn Width="Auto" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type models:TreatmentPlanItem}">
-                                            <Button Style="{StaticResource MahApps.Styles.Button.Chromeless}"
-                                                    ToolTip="Eliminar tarea"
-                                                   Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
+                                            <Button Style="{StaticResource MahApps.Styles.Button.Chromeless}" ToolTip="Eliminar tarea" Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
                                             </Button>
                                         </DataTemplate>
@@ -726,34 +557,20 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-
-                        <Border Grid.Row="1" 
-                                BorderBrush="#DDDDDD" 
-                                BorderThickness="0,1,0,0"
-                                Padding="10"
-                                Margin="0,10,0,0">
+                        <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="0,1,0,0" Padding="10" Margin="0,10,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0"
-                                         Text="{Binding NewPlanItemDescription, UpdateSourceTrigger=PropertyChanged}"
-                                         mah:TextBoxHelper.Watermark="Escriba aquí la nueva tarea pendiente..."
-                                         Margin="0,0,10,0"
-                                         VerticalContentAlignment="Center"
-                                         FontSize="14"/>
-                                <Button Grid.Column="1"
-                                        Content="Añadir Tarea"
-                                        Command="{Binding AddPlanItemAsyncCommand}"
-                                        Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
+                                <TextBox Grid.Column="0" Text="{Binding NewPlanItemDescription, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="Escriba aquí la nueva tarea pendiente..." Margin="0,0,10,0" VerticalContentAlignment="Center" FontSize="14"/>
+                                <Button Grid.Column="1" Content="Añadir Tarea" Command="{Binding AddPlanItemAsyncCommand}" Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
                             </Grid>
                         </Border>
                     </Grid>
                 </mah:MetroTabItem>
             </mah:MetroTabControl>
 
-            <!-- StatusBar (ahora en Grid.Row="3") -->
             <StatusBar Grid.Row="3" Background="#F8F9FA" Padding="10,5">
                 <StatusBarItem>
                     <TextBlock Text="Listo" FontWeight="SemiBold"/>

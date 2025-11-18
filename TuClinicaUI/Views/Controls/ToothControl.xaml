@@ -16,15 +16,9 @@
             </ResourceDictionary.MergedDictionaries>
 
             <converters:ToothNumberToGeometryConverter x:Key="ToothToGeoConverter"/>
-            <converters:BooleanToVisibilityConverter x:Key="BoolToVis"/>
-            <converters:ConditionIsAusenteToVisibilityConverter x:Key="AusenteToVis"/>
-            <converters:ConditionIsAusenteToVisibilityInverseConverter x:Key="AusenteToVisInverse"/>
             <converters:AndBooleanToVisibilityConverter x:Key="AndBoolToVis"/>
-            <converters:ConditionToColorConverter x:Key="CondToColor"/>
-            <converters:RestorationToColorConverter x:Key="RestToColor"/>
-            <converters:RestorationToVisibilityConverter x:Key="RestToVis"/>
+            <converters:ConditionIsAusenteToVisibilityInverseConverter x:Key="AusenteToVisInverse"/>
             <converters:RestorationToVisibilityInverseConverter x:Key="RestToVisInverse"/>
-
             <Style x:Key="SurfacePathStyle" TargetType="Path">
                 <Setter Property="Stroke" Value="#333333"/>
                 <Setter Property="StrokeThickness" Value="0.5"/>
@@ -33,16 +27,52 @@
                 <Style.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
                         <Setter Property="Fill" Value="#DDDDDD"/>
-                        <Setter Property="Stroke" Value="Black"/>
                         <Setter Property="Panel.ZIndex" Value="10"/>
                     </Trigger>
+                    <DataTrigger Binding="{Binding VestibularCondition}" Value="Caries">
+                        <Setter Property="Fill" Value="#E74C3C"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding LingualCondition}" Value="Caries">
+                        <Setter Property="Fill" Value="#E74C3C"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding MesialCondition}" Value="Caries">
+                        <Setter Property="Fill" Value="#E74C3C"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding DistalCondition}" Value="Caries">
+                        <Setter Property="Fill" Value="#E74C3C"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding OclusalCondition}" Value="Caries">
+                        <Setter Property="Fill" Value="#E74C3C"/>
+                    </DataTrigger>
+
+                    <DataTrigger Binding="{Binding VestibularRestoration}" Value="Obturacion">
+                        <Setter Property="Fill" Value="#3498DB"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding LingualRestoration}" Value="Obturacion">
+                        <Setter Property="Fill" Value="#3498DB"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding MesialRestoration}" Value="Obturacion">
+                        <Setter Property="Fill" Value="#3498DB"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding DistalRestoration}" Value="Obturacion">
+                        <Setter Property="Fill" Value="#3498DB"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding OclusalRestoration}" Value="Obturacion">
+                        <Setter Property="Fill" Value="#3498DB"/>
+                    </DataTrigger>
+
+                    <DataTrigger Binding="{Binding VestibularRestoration}" Value="Corona">
+                        <Setter Property="Fill" Value="#F39C12"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding FullRestoration}" Value="Corona">
+                        <Setter Property="Fill" Value="#F39C12"/>
+                    </DataTrigger>
                 </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
-
         <Grid>
             <Grid.Visibility>
                 <MultiBinding Converter="{StaticResource AndBoolToVis}">
@@ -51,26 +81,8 @@
                 </MultiBinding>
             </Grid.Visibility>
 
-            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Vestibular'}"
-                  ToolTip="Vestibular">
-                <Path.Style>
-                    <Style TargetType="Path" BasedOn="{StaticResource SurfacePathStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding VestibularCondition}" Value="Caries">
-                                <Setter Property="Fill" Value="#E74C3C"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding VestibularCondition}" Value="Fractura">
-                                <Setter Property="Fill" Value="#F1C40F"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding VestibularRestoration}" Value="Obturacion">
-                                <Setter Property="Fill" Value="#3498DB"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding VestibularRestoration}" Value="Corona">
-                                <Setter Property="Fill" Value="#F39C12"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Path.Style>
+            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Vestibular'}" 
+                  ToolTip="Vestibular" Style="{StaticResource SurfacePathStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
                         <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Vestibular"/>
@@ -78,20 +90,8 @@
                 </i:Interaction.Triggers>
             </Path>
 
-            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Lingual'}"
-                  ToolTip="Lingual">
-                <Path.Style>
-                    <Style TargetType="Path" BasedOn="{StaticResource SurfacePathStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding LingualCondition}" Value="Caries">
-                                <Setter Property="Fill" Value="#E74C3C"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding LingualRestoration}" Value="Obturacion">
-                                <Setter Property="Fill" Value="#3498DB"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Path.Style>
+            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Lingual'}" 
+                  ToolTip="Lingual" Style="{StaticResource SurfacePathStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
                         <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Lingual"/>
@@ -99,20 +99,8 @@
                 </i:Interaction.Triggers>
             </Path>
 
-            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Mesial'}"
-                  ToolTip="Mesial">
-                <Path.Style>
-                    <Style TargetType="Path" BasedOn="{StaticResource SurfacePathStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding MesialCondition}" Value="Caries">
-                                <Setter Property="Fill" Value="#E74C3C"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding MesialRestoration}" Value="Obturacion">
-                                <Setter Property="Fill" Value="#3498DB"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Path.Style>
+            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Mesial'}" 
+                  ToolTip="Mesial" Style="{StaticResource SurfacePathStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
                         <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Mesial"/>
@@ -120,20 +108,8 @@
                 </i:Interaction.Triggers>
             </Path>
 
-            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Distal'}"
-                  ToolTip="Distal">
-                <Path.Style>
-                    <Style TargetType="Path" BasedOn="{StaticResource SurfacePathStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DistalCondition}" Value="Caries">
-                                <Setter Property="Fill" Value="#E74C3C"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding DistalRestoration}" Value="Obturacion">
-                                <Setter Property="Fill" Value="#3498DB"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Path.Style>
+            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Distal'}" 
+                  ToolTip="Distal" Style="{StaticResource SurfacePathStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
                         <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Distal"/>
@@ -141,20 +117,8 @@
                 </i:Interaction.Triggers>
             </Path>
 
-            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Oclusal'}"
-                  ToolTip="Oclusal">
-                <Path.Style>
-                    <Style TargetType="Path" BasedOn="{StaticResource SurfacePathStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding OclusalCondition}" Value="Caries">
-                                <Setter Property="Fill" Value="#E74C3C"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding OclusalRestoration}" Value="Obturacion">
-                                <Setter Property="Fill" Value="#3498DB"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Path.Style>
+            <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToGeoConverter}, ConverterParameter='Oclusal'}" 
+                  ToolTip="Oclusal" Style="{StaticResource SurfacePathStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
                         <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Oclusal"/>
@@ -168,6 +132,5 @@
                 <i:InvokeCommandAction Command="{Binding SurfaceClickCommand}" CommandParameter="Completo"/>
             </i:EventTrigger>
         </i:Interaction.Triggers>
-
     </Grid>
 </UserControl>
