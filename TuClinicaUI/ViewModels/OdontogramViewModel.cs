@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
+using System.Collections.Generic;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -34,11 +35,8 @@ namespace TuClinica.UI.ViewModels
         [ObservableProperty]
         private PatientDisplayModel _patient = new();
 
+        // Colección única para TODOS los dientes (el SVG los posiciona)
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
-        public ObservableCollection<ToothViewModel> TeethQuadrant1 { get; } = new();
-        public ObservableCollection<ToothViewModel> TeethQuadrant2 { get; } = new();
-        public ObservableCollection<ToothViewModel> TeethQuadrant3 { get; } = new();
-        public ObservableCollection<ToothViewModel> TeethQuadrant4 { get; } = new();
 
         [ObservableProperty]
         private bool? _dialogResult;
@@ -61,15 +59,10 @@ namespace TuClinica.UI.ViewModels
             Patient.FullName = currentPatient?.PatientDisplayInfo ?? "Paciente Desconocido";
 
             Odontogram.Clear();
-            TeethQuadrant1.Clear();
-            TeethQuadrant2.Clear();
-            TeethQuadrant3.Clear();
-            TeethQuadrant4.Clear();
 
-            // --- INICIO DE LA CORRECCIÓN DE ORDENACIÓN ---
-
-            // Creamos copias locales primero para poder ordenarlas
-            var copies = new List<ToothViewModel>();
+            // Copiamos los dientes del maestro a la colección local para la edición
+            // No hace falta ordenar ni separar en cuadrantes, las coordenadas absolutas del SVG 
+            // se encargan de colocar cada diente en su sitio visualmente.
             foreach (var tooth in masterOdontogram)
             {
                 var copy = new ToothViewModel(tooth.ToothNumber)
@@ -87,37 +80,8 @@ namespace TuClinica.UI.ViewModels
                     VestibularRestoration = tooth.VestibularRestoration,
                     LingualRestoration = tooth.LingualRestoration
                 };
-                Odontogram.Add(copy); // El odontograma maestro (para guardar) mantiene el orden original
-                copies.Add(copy); // La lista de copias se usará para la UI
+                Odontogram.Add(copy);
             }
-
-            // Ahora llenamos los cuadrantes para la UI con el orden visual correcto
-
-            // Cuadrante 1 (18 -> 11)
-            foreach (var tooth in copies.Where(t => t.ToothNumber >= 11 && t.ToothNumber <= 18).OrderByDescending(t => t.ToothNumber))
-            {
-                TeethQuadrant1.Add(tooth);
-            }
-
-            // Cuadrante 2 (21 -> 28)
-            foreach (var tooth in copies.Where(t => t.ToothNumber >= 21 && t.ToothNumber <= 28).OrderBy(t => t.ToothNumber))
-            {
-                TeethQuadrant2.Add(tooth);
-            }
-
-            // Cuadrante 4 (48 -> 41)
-            foreach (var tooth in copies.Where(t => t.ToothNumber >= 41 && t.ToothNumber <= 48).OrderByDescending(t => t.ToothNumber))
-            {
-                TeethQuadrant4.Add(tooth);
-            }
-
-            // Cuadrante 3 (31 -> 38)
-            foreach (var tooth in copies.Where(t => t.ToothNumber >= 31 && t.ToothNumber <= 38).OrderBy(t => t.ToothNumber))
-            {
-                TeethQuadrant3.Add(tooth);
-            }
-
-            // --- FIN DE LA CORRECCIÓN DE ORDENACIÓN ---
         }
 
         public void Receive(SurfaceClickedMessage message)
@@ -133,6 +97,7 @@ namespace TuClinica.UI.ViewModels
 
             (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
 
+            // Si el diente tiene una condición global (ej. Ausente), esa prevalece para mostrar en el diálogo
             if (tooth.FullCondition != ToothCondition.Sano)
             {
                 currentCond = tooth.FullCondition;
@@ -155,8 +120,10 @@ namespace TuClinica.UI.ViewModels
                 var newCond = dialog.NewCondition;
                 var newRest = dialog.NewRestoration;
 
+                // Lógica para aplicar cambios
                 if (newCond == ToothCondition.Ausente)
                 {
+                    // Si se marca ausente, afecta a todo el diente
                     UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Ausente);
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
                 }
@@ -165,22 +132,42 @@ namespace TuClinica.UI.ViewModels
                          newRest == ToothRestoration.ProtesisFija ||
                          newRest == ToothRestoration.ProtesisRemovible)
                 {
-                    UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
+                    // Restauraciones completas
+                    UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano); // Limpiar condiciones previas
                     UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, newRest);
                 }
                 else if (newCond == ToothCondition.Sano && newRest == ToothRestoration.Ninguna)
                 {
-                    UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
-                    UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
+                    // Si se "limpia" la superficie, y estaba marcado como completo antes, reseteamos el completo
+                    if (surface == ToothSurface.Completo || tooth.FullCondition != ToothCondition.Sano || tooth.FullRestoration != ToothRestoration.Ninguna)
+                    {
+                        UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
+                        UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
+                    }
+
+                    // Y limpiamos la superficie específica
+                    UpdateToothSurfaceCondition(tooth, surface, ToothCondition.Sano);
+                    UpdateToothSurfaceRestoration(tooth, surface, ToothRestoration.Ninguna);
                 }
                 else
                 {
-                    UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
-                    UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
+                    // Cambio puntual en una superficie
+                    // Primero aseguramos que no esté marcado como "Completo" (ej. Ausente) para que se vea la superficie
+                    if (tooth.FullCondition == ToothCondition.Ausente)
+                        UpdateToothSurfaceCondition(tooth, ToothSurface.Completo, ToothCondition.Sano);
+
+                    if (IsFullRestoration(tooth.FullRestoration))
+                        UpdateToothSurfaceRestoration(tooth, ToothSurface.Completo, ToothRestoration.Ninguna);
+
                     UpdateToothSurfaceCondition(tooth, surface, newCond);
                     UpdateToothSurfaceRestoration(tooth, surface, newRest);
                 }
             }
+        }
+
+        private bool IsFullRestoration(ToothRestoration r)
+        {
+            return r == ToothRestoration.Corona || r == ToothRestoration.Implante || r == ToothRestoration.ProtesisFija || r == ToothRestoration.ProtesisRemovible;
         }
 
         private (ToothCondition, ToothRestoration) GetSurfaceState(ToothViewModel tooth, ToothSurface surface)
@@ -269,6 +256,8 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 string jsonState = GetSerializedState();
+                // Nota: El método GenerateOdontogramPdfAsync en PdfService necesitará ser actualizado 
+                // para usar las nuevas geometrías si quieres que el PDF también sea anatómico.
                 string generatedFilePath = await _pdfService.GenerateOdontogramPdfAsync(_currentPatient, jsonState);
 
                 var result = _dialogService.ShowConfirmation(

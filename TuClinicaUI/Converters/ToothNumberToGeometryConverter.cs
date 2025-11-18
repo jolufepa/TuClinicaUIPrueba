@@ -6,43 +6,39 @@ using System.Windows.Media;
 
 namespace TuClinica.UI.Converters
 {
+    /// <summary>
+    /// Busca dinámicamente un recurso de Geometría (StreamGeometry) basado en el número de diente y la superficie.
+    /// Espera recursos con el formato de nombre: "Geo_{ToothNumber}_{Surface}" (ej: "Geo_18_Vestibular").
+    /// </summary>
     public class ToothNumberToGeometryConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            // value: El número de diente (int)
+            // parameter: El nombre de la superficie (string) enviado desde el XAML (ej: "Oclusal", "Vestibular")
+
             if (value is int toothNumber && parameter is string surfaceName)
             {
-                // --- LÓGICA DE MAPEO (ESPEJO) ---
-                // Solo tenemos dibujos para el Cuadrante 1 (1x) y 4 (4x).
-                // Para el 2 y el 3, usamos los del 1 y 4 respectivamente.
-
-                int targetToothNumber = toothNumber;
-
-                if (toothNumber >= 21 && toothNumber <= 28)
-                {
-                    // Cuadrante 2 usa geometrías del Cuadrante 1
-                    // Ej: 21 -> 11, 28 -> 18
-                    targetToothNumber = toothNumber - 10;
-                }
-                else if (toothNumber >= 31 && toothNumber <= 38)
-                {
-                    // Cuadrante 3 usa geometrías del Cuadrante 4
-                    // Ej: 31 -> 41, 38 -> 48
-                    targetToothNumber = toothNumber + 10;
-                }
-
-                // Construimos la clave (Ej: "Geo_11_Vestibular")
-                string resourceKey = $"Geo_{targetToothNumber}_{surfaceName}";
+                // Construimos la clave del recurso exacta. 
+                // Esto permite que cada diente tenga su propia anatomía única si el SVG lo provee.
+                string resourceKey = $"Geo_{toothNumber}_{surfaceName}";
 
                 try
                 {
+                    // Intentamos buscar el recurso en el diccionario de la aplicación
                     if (Application.Current.Resources.Contains(resourceKey))
                     {
-                        return Application.Current.Resources[resourceKey] as Geometry ?? Geometry.Empty;
+                        var geometry = Application.Current.Resources[resourceKey] as Geometry;
+                        return geometry ?? Geometry.Empty;
                     }
+
+                    // FALLBACK (Opcional): Lógica de espejo si no quieres dibujar los 32 dientes.
+                    // Si no encuentra "Geo_21_...", intenta buscar el del cuadrante 1 "Geo_11_..." y aplicar transformación.
+                    // Por ahora, asumiremos un odontograma profesional completo (32 definiciones).
                 }
                 catch
                 {
+                    // Si algo falla, no rompemos la UI, devolvemos vacío.
                     return Geometry.Empty;
                 }
             }
