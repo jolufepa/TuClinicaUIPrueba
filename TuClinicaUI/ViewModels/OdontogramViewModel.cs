@@ -15,9 +15,19 @@ using System.Threading.Tasks;
 using System.Windows;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 using System.Collections.Generic;
+using System.Windows.Media;
 
 namespace TuClinica.UI.ViewModels
 {
+    // DTO para el resumen lateral
+    public class ToothStateSummary
+    {
+        public int ToothNumber { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public Brush ColorIndicator { get; set; } = Brushes.Transparent;
+    }
+
     public partial class PatientDisplayModel : ObservableObject
     {
         [ObservableProperty]
@@ -36,6 +46,9 @@ namespace TuClinica.UI.ViewModels
         private PatientDisplayModel _patient = new();
 
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
+
+        [ObservableProperty]
+        private ObservableCollection<ToothStateSummary> _summaryList = new();
 
         [ObservableProperty]
         private bool? _dialogResult;
@@ -61,7 +74,6 @@ namespace TuClinica.UI.ViewModels
 
             foreach (var tooth in masterOdontogram)
             {
-                // Clonación manual para edición aislada
                 var copy = new ToothViewModel(tooth.ToothNumber)
                 {
                     FullCondition = tooth.FullCondition,
@@ -79,14 +91,13 @@ namespace TuClinica.UI.ViewModels
                 };
                 Odontogram.Add(copy);
             }
+            UpdateSummary();
         }
 
         public void Receive(SurfaceClickedMessage message)
         {
             var tooth = Odontogram.FirstOrDefault(t => t.ToothNumber == message.ToothNumber);
             if (tooth == null) return;
-
-            // Forzamos ejecución en UI Thread
             Application.Current.Dispatcher.Invoke(() => OpenStateDialog(tooth, message.Value));
         }
 
@@ -96,7 +107,7 @@ namespace TuClinica.UI.ViewModels
 
             (ToothCondition currentCond, ToothRestoration currentRest) = GetSurfaceState(tooth, surface);
 
-            // Lógica de visualización inicial en el diálogo
+            // Pre-cargar estado actual en el diálogo
             if (tooth.FullCondition == ToothCondition.Ausente)
             {
                 currentCond = ToothCondition.Ausente;
@@ -113,88 +124,156 @@ namespace TuClinica.UI.ViewModels
 
             if (dialog.ShowDialog() == true)
             {
-                // Aplicamos los cambios inmediatamente
                 ApplyChangesToTooth(tooth, surface, dialog.NewCondition, dialog.NewRestoration);
             }
         }
 
+        // --- LÓGICA PRINCIPAL CORREGIDA ---
         private void ApplyChangesToTooth(ToothViewModel tooth, ToothSurface surface, ToothCondition newCond, ToothRestoration newRest)
         {
-            // 1. SI ES AUSENTE
-            if (newCond == ToothCondition.Ausente)
-            {
-                // Reset y marcar globalmente
-                ResetToothToHealthy(tooth);
-                tooth.FullCondition = ToothCondition.Ausente;
-                // Propagar a las caras para asegurar que los triggers visuales reaccionen si es necesario
-                ApplyConditionToAllSurfaces(tooth, ToothCondition.Ausente);
-                return;
-            }
-
-            // 2. SI ES RESTAURACIÓN COMPLETA (Implante, Corona, Endodoncia...)
+            // 1. PRIORIDAD MÁXIMA: RESTAURACIÓN COMPLETA (IMPLANTE, CORONA, ETC.)
+            // Si eliges "Implante", esto gana a cualquier estado "Ausente" anterior.
             if (IsFullRestoration(newRest))
             {
+                // Limpiamos todo para evitar conflictos
                 ResetToothToHealthy(tooth);
-                tooth.FullRestoration = newRest;
 
-                // Si además hay una condición global (ej. Fractura), la aplicamos
-                if (newCond != ToothCondition.Ausente && newCond != ToothCondition.Sano)
+                // Aplicamos la restauración
+                tooth.FullRestoration = newRest;
+                ApplyRestorationToAllSurfaces(tooth, newRest);
+
+                // Opcional: Si el usuario marcó también una patología (ej. Fractura en corona), la aplicamos.
+                // PERO ignoramos "Ausente" porque un implante ocupa el lugar.
+                if (newCond != ToothCondition.Sano && newCond != ToothCondition.Ausente)
                 {
                     tooth.FullCondition = newCond;
                     ApplyConditionToAllSurfaces(tooth, newCond);
                 }
+
+                UpdateSummary();
                 return;
             }
 
-            // 3. SI ES UN RESET (Volver a Sano)
-            if (newCond == ToothCondition.Sano && newRest == ToothRestoration.Ninguna)
+            // 2. PRIORIDAD ALTA: DIENTE AUSENTE
+            // Si marcas "Ausente", borramos cualquier tratamiento previo.
+            if (newCond == ToothCondition.Ausente)
             {
-                if (surface == ToothSurface.Completo)
-                {
-                    ResetToothToHealthy(tooth);
-                }
-                else
-                {
-                    // Si limpiamos una cara individual, pero el diente estaba "Ausente" o "Corona",
-                    // debemos quitar ese estado global primero para poder editar la cara.
-                    if (tooth.FullCondition == ToothCondition.Ausente || IsFullRestoration(tooth.FullRestoration))
-                    {
-                        ResetToothToHealthy(tooth);
-                    }
-                    UpdateSurface(tooth, surface, ToothCondition.Sano, ToothRestoration.Ninguna);
-                }
+                ResetToothToHealthy(tooth); // Borra implantes o caries previos
+
+                tooth.FullCondition = ToothCondition.Ausente;
+                ApplyConditionToAllSurfaces(tooth, ToothCondition.Ausente);
+
+                UpdateSummary();
                 return;
             }
 
-            // 4. EDICIÓN ESTÁNDAR (Parcial o Global)
-            // Si estaba Ausente, lo recuperamos
-            if (tooth.FullCondition == ToothCondition.Ausente)
+            // 3. EDICIÓN ESTÁNDAR (CARIES, OBTURACIONES, SANO)
+            // Si llegamos aquí, NO es Implante NI Ausente.
+
+            // A. Si el diente ESTABA "Ausente" o tenía "Implante", debemos limpiarlo
+            // para poder aplicar el nuevo estado (ej. volver a Sano o poner una Caries).
+            if (tooth.FullCondition == ToothCondition.Ausente || IsFullRestoration(tooth.FullRestoration))
             {
-                tooth.FullCondition = ToothCondition.Sano;
-                ApplyConditionToAllSurfaces(tooth, ToothCondition.Sano);
+                ResetToothToHealthy(tooth);
             }
 
-            // Si tenía restauración completa, la quitamos
-            if (IsFullRestoration(tooth.FullRestoration))
-            {
-                tooth.FullRestoration = ToothRestoration.Ninguna;
-            }
-
+            // B. Aplicar cambios
             if (surface == ToothSurface.Completo)
             {
-                // CRÍTICO: Para "Fractura" o "Extracción", debemos setear CADA superficie
-                // para que el XAML (DataTriggers) sepa pintarlas todas.
+                // Cambio global
                 tooth.FullCondition = newCond;
                 tooth.FullRestoration = newRest;
-
                 ApplyConditionToAllSurfaces(tooth, newCond);
                 ApplyRestorationToAllSurfaces(tooth, newRest);
             }
             else
             {
-                // Edición de una sola cara
+                // Cambio solo en una cara
                 UpdateSurface(tooth, surface, newCond, newRest);
             }
+
+            UpdateSummary();
+        }
+
+        private void UpdateSummary()
+        {
+            SummaryList.Clear();
+            var teeth = Odontogram.OrderBy(t => t.ToothNumber);
+
+            foreach (var t in teeth)
+            {
+                // --- Resumen: Ausente ---
+                if (t.FullCondition == ToothCondition.Ausente)
+                {
+                    AddSummary(t.ToothNumber, "Diente Ausente", "Condición", Brushes.Black);
+                    continue;
+                }
+
+                // --- Resumen: Restauración Completa (Implante, etc.) ---
+                if (IsFullRestoration(t.FullRestoration))
+                {
+                    Brush color = Brushes.Gold; // Color por defecto
+                    if (t.FullRestoration == ToothRestoration.Implante) color = new SolidColorBrush(Color.FromRgb(149, 165, 166)); // Gris
+                    else if (t.FullRestoration == ToothRestoration.Endodoncia) color = new SolidColorBrush(Color.FromRgb(155, 89, 182)); // Morado
+
+                    AddSummary(t.ToothNumber, t.FullRestoration.ToString(), "Restauración", color);
+
+                    // Si tiene además una patología (ej. Fractura) la mostramos
+                    if (t.FullCondition == ToothCondition.Fractura)
+                        AddSummary(t.ToothNumber, "Fractura", "Condición", Brushes.Orange);
+
+                    continue; // No listamos caras si es completo
+                }
+
+                // --- Resumen: Extracción Indicada ---
+                if (t.FullCondition == ToothCondition.ExtraccionIndicada)
+                {
+                    AddSummary(t.ToothNumber, "Extracción Indicada", "Condición", Brushes.OrangeRed);
+                }
+
+                // --- Resumen Detallado por Caras ---
+                CheckSurfaceCondition(t.ToothNumber, "Oclusal", t.OclusalCondition);
+                CheckSurfaceCondition(t.ToothNumber, "Mesial", t.MesialCondition);
+                CheckSurfaceCondition(t.ToothNumber, "Distal", t.DistalCondition);
+                CheckSurfaceCondition(t.ToothNumber, "Vestibular", t.VestibularCondition);
+                CheckSurfaceCondition(t.ToothNumber, "Lingual", t.LingualCondition);
+
+                if (t.FullRestoration == ToothRestoration.Ninguna)
+                {
+                    CheckSurfaceRestoration(t.ToothNumber, "Oclusal", t.OclusalRestoration);
+                    CheckSurfaceRestoration(t.ToothNumber, "Mesial", t.MesialRestoration);
+                    CheckSurfaceRestoration(t.ToothNumber, "Distal", t.DistalRestoration);
+                    CheckSurfaceRestoration(t.ToothNumber, "Vestibular", t.VestibularRestoration);
+                    CheckSurfaceRestoration(t.ToothNumber, "Lingual", t.LingualRestoration);
+                }
+            }
+        }
+
+        private void CheckSurfaceCondition(int toothNum, string surface, ToothCondition cond)
+        {
+            if (cond == ToothCondition.Caries)
+                AddSummary(toothNum, $"Caries ({surface})", "Condición", Brushes.Red);
+            else if (cond == ToothCondition.Fractura)
+                AddSummary(toothNum, $"Fractura ({surface})", "Condición", Brushes.Orange);
+        }
+
+        private void CheckSurfaceRestoration(int toothNum, string surface, ToothRestoration rest)
+        {
+            if (rest == ToothRestoration.Obturacion)
+                AddSummary(toothNum, $"Obturación ({surface})", "Restauración", Brushes.RoyalBlue);
+            else if (rest == ToothRestoration.Sellador)
+                AddSummary(toothNum, $"Sellador ({surface})", "Restauración", Brushes.LightGreen);
+        }
+
+        private void AddSummary(int tooth, string desc, string type, Brush color)
+        {
+            SummaryList.Add(new ToothStateSummary
+            {
+                ToothNumber = tooth,
+                Description = desc,
+                Type = type,
+                ColorIndicator = color
+            });
         }
 
         private void ResetToothToHealthy(ToothViewModel tooth)
