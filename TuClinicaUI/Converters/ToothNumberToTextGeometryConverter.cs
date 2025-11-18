@@ -7,18 +7,17 @@ using System.Windows.Media;
 namespace TuClinica.UI.Converters
 {
     /// <summary>
-    /// Busca dinámicamente un recurso de Geometría basado en el número de diente y la superficie.
+    /// Busca el recurso vectorial del NÚMERO del diente (ej: "Num_12").
+    /// Esto permite usar dibujos exactos de Inkscape para los textos.
     /// </summary>
-    public class ToothNumberToGeometryConverter : IValueConverter
+    public class ToothNumberToTextGeometryConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // value: Número de diente (int)
-            // parameter: Superficie (string) - ej: "Vestibular"
-
-            if (value is int toothNumber && parameter is string surfaceName)
+            if (value is int toothNumber)
             {
-                string resourceKey = $"Geo_{toothNumber}_{surfaceName}";
+                // Busca un recurso llamado "Num_11", "Num_12", etc.
+                string resourceKey = $"Num_{toothNumber}";
 
                 try
                 {
@@ -27,10 +26,7 @@ namespace TuClinica.UI.Converters
                         return Application.Current.Resources[resourceKey] as Geometry ?? Geometry.Empty;
                     }
                 }
-                catch
-                {
-                    return Geometry.Empty;
-                }
+                catch { }
             }
             return Geometry.Empty;
         }
