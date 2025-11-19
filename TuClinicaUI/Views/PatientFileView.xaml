@@ -8,17 +8,18 @@
              xmlns:selectors="clr-namespace:TuClinica.UI.Selectors"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
              xmlns:events="clr-namespace:TuClinica.UI.ViewModels.Events" 
-             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:models="clr-namespace:TuClinica.Core.Models;assembly=TuClinica.Core"
              xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
-             Height="Auto" Width="Auto">
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             mc:Ignorable="d" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DataContext="{d:DesignInstance Type=viewmodels:PatientFileViewModel}"
+             d:DesignHeight="800" d:DesignWidth="1200">
 
     <UserControl.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-            </ResourceDictionary.MergedDictionaries>
-
             <converters:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
@@ -31,15 +32,6 @@
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Margin" Value="0,-8,0,10"/>
                 <Setter Property="Grid.Column" Value="1"/>
-            </Style>
-
-            <Style TargetType="{x:Type mah:MetroTabItem}" BasedOn="{StaticResource {x:Type mah:MetroTabItem}}">
-                <Style.Triggers>
-                    <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="#DCEAF7"/>
-                        <Setter Property="FontWeight" Value="Bold" />
-                    </Trigger>
-                </Style.Triggers>
             </Style>
 
             <Style x:Key="FichaLabelStyle" TargetType="TextBlock">
@@ -59,7 +51,7 @@
                 <Setter Property="MinHeight" Value="38"/>
             </Style>
 
-            <Style x:Key="FichaTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource MahApps.Styles.TextBox}">
+            <Style x:Key="FichaTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                 <Setter Property="IsReadOnly" Value="True" />
                 <Setter Property="Background" Value="#FFFBF8ED" />
                 <Setter Property="BorderBrush" Value="Transparent" />
@@ -70,41 +62,7 @@
                 <Setter Property="FontWeight" Value="Normal"/>
                 <Setter Property="MinHeight" Value="38"/>
                 <Setter Property="mah:TextBoxHelper.UseFloatingWatermark" Value="False" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type TextBoxBase}">
-                            <Grid>
-                                <Border x:Name="border"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="0"
-                                        SnapsToDevicePixels="True">
-                                    <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
-                                </Border>
-                                <Border Height="1" VerticalAlignment="Bottom" Background="#FFDEDAD0" Margin="0,0,0,0" />
-                            </Grid>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsReadOnly" Value="True">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
-                                </Trigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
-                                </Trigger>
-                                <Trigger Property="IsKeyboardFocused" Value="True">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
             </Style>
-
-            <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="AlertLevelProvider">
-                <ObjectDataProvider.MethodParameters>
-                    <x:Type TypeName="enums:AlertLevel" />
-                </ObjectDataProvider.MethodParameters>
-            </ObjectDataProvider>
 
             <DataTemplate x:Key="AlertItemTemplate" DataType="{x:Type models:PatientAlert}">
                 <Border x:Name="AlertBorder" CornerRadius="3" BorderThickness="1" BorderBrush="#DDDDDD" Padding="8,5" Margin="2,2,5,2">
@@ -118,7 +76,7 @@
                             <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontWeight="SemiBold" />
                         </StackPanel>
                         <Button Grid.Column="1" 
-                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                                Style="{DynamicResource MahApps.Styles.Button.Chromeless}"
                                 Command="{Binding DataContext.DeleteAlertCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}"
                                 ToolTip="Eliminar esta alerta">
@@ -170,7 +128,7 @@
                                 Command="{Binding DeleteCommand}"
                                 CommandParameter="{Binding Cargo}"
                                 ToolTip="Eliminar este cargo"
-                                Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                                Style="{DynamicResource MahApps.Styles.Button.Chromeless}"
                                 Margin="5,0,0,0">
                             <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
                         </Button>
@@ -245,14 +203,14 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20,0,0,0">
                     <Button Content="Registrar Cargo/Visita" 
                             Command="{Binding OpenRegisterChargeDialogCommand}"
-                            Style="{StaticResource MahApps.Styles.Button.Flat}"
+                            Style="{DynamicResource MahApps.Styles.Button.Flat}"
                             Foreground="White"
                             mah:ControlsHelper.FocusBorderBrush="White"
                             mah:ControlsHelper.MouseOverBorderBrush="White"
                             Margin="0,0,10,0"/>
                     <Button Content="Registrar Nuevo Pago (Abono)"
                             Command="{Binding RegisterNewPaymentCommand}"
-                            Style="{StaticResource MahApps.Styles.Button.Flat}"
+                            Style="{DynamicResource MahApps.Styles.Button.Flat}"
                             Foreground="#90EE90"
                             mah:ControlsHelper.FocusBorderBrush="White"
                             mah:ControlsHelper.MouseOverBorderBrush="White"/>
@@ -300,11 +258,10 @@
                             <Button Grid.Column="1" 
                                     Content="Añadir" 
                                     Command="{Binding AddAlertCommand}"
-                                    Style="{StaticResource MahApps.Styles.Button.Square.Accent}" />
+                                    Style="{DynamicResource MahApps.Styles.Button.Square.Accent}" />
                         </Grid>
-                        <ComboBox ItemsSource="{Binding Source={StaticResource AlertLevelProvider}}"
-                                  SelectedItem="{Binding NewAlertLevel}"
-                                  Margin="0,5,0,0" />
+                        <ComboBox SelectedItem="{Binding NewAlertLevel}" Margin="0,5,0,0">
+                        </ComboBox>
                     </StackPanel>
                 </Grid>
             </GroupBox>
@@ -332,7 +289,7 @@
                             </Grid.RowDefinitions>
 
                             <Border Grid.Row="0" Background="White" CornerRadius="3" BorderBrush="#DDDDDD" BorderThickness="1"
-                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Effect="{StaticResource ShadowZ2}" Margin="0,0,10,0">
+                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,0,10,0">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -400,7 +357,7 @@
                                     <Button Content="Guardar Cambios" 
                                             Command="{Binding SavePatientDataAsyncCommand}"
                                             IsDefault="True"
-                                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                                            Style="{DynamicResource MahApps.Styles.Button.Dialogs.Accent}"
                                             Visibility="{Binding IsPatientDataReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
                                     <Button Content="Cancelar Edición"
                                             Command="{Binding ToggleEditPatientDataCommand}"
@@ -436,7 +393,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Visibility="{Binding CanManageDocuments, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <Button Content="Añadir Documento" Command="{Binding AddLinkedDocumentCommand}" Style="{StaticResource MahApps.Styles.Button.Square.Accent}" Margin="0,0,10,0"/>
+                            <Button Content="Añadir Documento" Command="{Binding AddLinkedDocumentCommand}" Style="{DynamicResource MahApps.Styles.Button.Square.Accent}" Margin="0,0,10,0"/>
                             <Button Content="Eliminar Vinculado" Command="{Binding DeleteLinkedDocumentCommand}" Background="IndianRed" Foreground="White"/>
                         </StackPanel>
                     </Grid>
@@ -549,7 +506,7 @@
                                 <DataGridTemplateColumn Width="Auto" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type models:TreatmentPlanItem}">
-                                            <Button Style="{StaticResource MahApps.Styles.Button.Chromeless}" ToolTip="Eliminar tarea" Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                            <Button Style="{DynamicResource MahApps.Styles.Button.Chromeless}" ToolTip="Eliminar tarea" Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
                                             </Button>
                                         </DataTemplate>
@@ -564,7 +521,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Text="{Binding NewPlanItemDescription, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="Escriba aquí la nueva tarea pendiente..." Margin="0,0,10,0" VerticalContentAlignment="Center" FontSize="14"/>
-                                <Button Grid.Column="1" Content="Añadir Tarea" Command="{Binding AddPlanItemAsyncCommand}" Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
+                                <Button Grid.Column="1" Content="Añadir Tarea" Command="{Binding AddPlanItemAsyncCommand}" Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"/>
                             </Grid>
                         </Border>
                     </Grid>

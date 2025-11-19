@@ -6,19 +6,18 @@ namespace TuClinica.UI.Selectors
 {
     public class HistorialTemplateSelector : DataTemplateSelector
     {
-        // Estas propiedades se enlazarán en el XAML
-        public DataTemplate CargoTemplate { get; set; }
-        public DataTemplate AbonoTemplate { get; set; }
+        // Añade el ? después de DataTemplate
+        public DataTemplate? CargoTemplate { get; set; }
+        public DataTemplate? AbonoTemplate { get; set; }
 
         public override DataTemplate SelectTemplate(object item, DependencyObject container)
         {
-            // Apuntan a los tipos correctos (sin "PatientFileViewModel.")
-            if (item is CargoEvent)
+            if (item is CargoEvent && CargoTemplate != null) // Añade chequeo de null
             {
                 return CargoTemplate;
             }
 
-            if (item is AbonoEvent)
+            if (item is AbonoEvent && AbonoTemplate != null) // Añade chequeo de null
             {
                 return AbonoTemplate;
             }

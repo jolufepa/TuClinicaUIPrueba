@@ -7,14 +7,14 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
                 <ResourceDictionary Source="/Assets/ToothGeometries.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
             <converters:FirstErrorConverter x:Key="FirstErrorConverter"/>
-            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
             <converters:SaldoColorConverter x:Key="SaldoColorConverter" />
 
@@ -27,7 +27,6 @@
             <converters:ConditionIsAusenteToVisibilityInverseConverter x:Key="AusenteToVisInverse"/>
 
             <DropShadowEffect x:Key="ShadowZ2" ShadowDepth="2" Direction="270" Color="#CCCCCC" Opacity="0.4" BlurRadius="4"/>
-
             <DropShadowEffect x:Key="ShadowZ3" ShadowDepth="3" Direction="270" Color="#BBBBBB" Opacity="0.5" BlurRadius="5"/>
 
             <Style x:Key="FichaLabelStyle" TargetType="TextBlock">
@@ -51,7 +50,6 @@
                 <Setter Property="IsReadOnly" Value="True" />
                 <Setter Property="Background" Value="#FFFBF8ED" />
                 <Setter Property="BorderBrush" Value="Transparent" />
-
                 <Setter Property="BorderThickness" Value="0,0,0,1" />
                 <Setter Property="Padding" Value="8,5,8,5" />
                 <Setter Property="Margin" Value="0,0,0,10" />
@@ -59,12 +57,10 @@
                 <Setter Property="FontWeight" Value="Normal"/>
                 <Setter Property="MinHeight" Value="38"/>
                 <Setter Property="mah:TextBoxHelper.UseFloatingWatermark" Value="False" />
-
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type TextBoxBase}">
                             <Grid>
-
                                 <Border x:Name="border"
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
@@ -73,23 +69,18 @@
                                         SnapsToDevicePixels="True">
                                     <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
                                 </Border>
-
                                 <Border Height="1" VerticalAlignment="Bottom" Background="#FFDEDAD0" Margin="0,0,0,0" />
                             </Grid>
                             <ControlTemplate.Triggers>
-
                                 <Trigger Property="IsReadOnly" Value="True">
                                     <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
                                 </Trigger>
-
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
                                 </Trigger>
-
                                 <Trigger Property="IsKeyboardFocused" Value="True">
                                     <Setter TargetName="border" Property="BorderBrush" Value="Transparent"/>
                                 </Trigger>
-
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>

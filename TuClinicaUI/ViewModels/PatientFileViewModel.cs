@@ -249,11 +249,11 @@ namespace TuClinica.UI.ViewModels
             _loadPatientCts = new CancellationTokenSource();
             var token = _loadPatientCts.Token;
 
-            if (_isLoading) return; // Evitar re-entrada simple
+            if (IsLoading) return; // Evitar re-entrada simple
 
             try
             {
-                _isLoading = true;
+                IsLoading = true;
 
                 // Limpiar la UI inmediatamente
                 SelectedCharge = null;
@@ -332,7 +332,7 @@ namespace TuClinica.UI.ViewModels
             }
             finally
             {
-                _isLoading = false;
+                IsLoading = false;
                 SavePatientDataAsyncCommand.NotifyCanExecuteChanged();
             }
         }
