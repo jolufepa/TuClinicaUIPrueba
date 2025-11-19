@@ -59,20 +59,21 @@
 
   <ItemGroup>
     <Resource Include="Assets\ClinicPresentation.png" /> 
-    <Resource Include="Assets\Logo.png" />
+    
     <Resource Include="Assets\Logo2.png" />
     <Resource Include="Assets\Logo_login.png" />
   </ItemGroup>
-
+<ItemGroup>
+    <Content Include="Assets\Logo.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     
-    <None Update="Assets\PlantillaReceta.pdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
- 
-    </None>
+    
     
     <None Update="Assets\PlantillaRecetaBasica.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
