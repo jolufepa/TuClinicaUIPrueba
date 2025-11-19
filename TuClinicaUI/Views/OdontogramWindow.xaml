@@ -8,6 +8,7 @@
                  xmlns:ctrl="clr-namespace:TuClinica.UI.Views.Controls"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:converters="clr-namespace:TuClinica.UI.Converters"
                  mc:Ignorable="d"
                  Title="Odontograma"
                  Height="700" Width="1280"
@@ -35,6 +36,7 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <converters:ToothListToPathConverter x:Key="ToothListToPathConverter"/>
     </Window.Resources>
 
     <Grid Background="#F5F5F5">
@@ -91,6 +93,28 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <RadioButton Style="{StaticResource ToolButtonStyle}" Command="{Binding SelectToolCommand}" CommandParameter="Puente">
+                        <StackPanel>
+                            <Canvas Width="24" Height="24" HorizontalAlignment="Center">
+                                <Path Data="M2,12 L22,12" Stroke="#3498DB" StrokeThickness="3" StrokeEndLineCap="Round" StrokeStartLineCap="Round"/>
+                                <Ellipse Width="6" Height="6" Fill="#3498DB" Canvas.Left="0" Canvas.Top="9"/>
+                                <Ellipse Width="6" Height="6" Fill="#3498DB" Canvas.Left="18" Canvas.Top="9"/>
+                            </Canvas>
+                            <TextBlock Text="Puente" FontSize="11" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton Style="{StaticResource ToolButtonStyle}" Command="{Binding SelectToolCommand}" CommandParameter="Ortodoncia">
+                        <StackPanel>
+                            <Canvas Width="24" Height="24" HorizontalAlignment="Center">
+                                <Path Data="M2,12 Q12,2 22,12" Stroke="#2ECC71" StrokeThickness="2"/>
+                                <Rectangle Width="4" Height="4" Fill="#2ECC71" Canvas.Left="2" Canvas.Top="10"/>
+                                <Rectangle Width="4" Height="4" Fill="#2ECC71" Canvas.Left="18" Canvas.Top="10"/>
+                            </Canvas>
+                            <TextBlock Text="Ortodoncia" FontSize="11" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </RadioButton>
+
                     <Separator Margin="0,10"/>
 
                     <RadioButton Style="{StaticResource ToolButtonStyle}" Command="{Binding SelectToolCommand}" CommandParameter="Ausente">
@@ -113,6 +137,8 @@
                             <TextBlock Text="Borrador" FontSize="11"/>
                         </StackPanel>
                     </RadioButton>
+
+                    <Button Content="Limpiar Arcos" Command="{Binding ClearAllConnectorsCommand}" Margin="5,10" FontSize="10" Style="{StaticResource MahApps.Styles.Button.Flat}"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -129,6 +155,7 @@
 
             <Viewbox Grid.Row="1" Stretch="Uniform" Margin="20">
                 <Grid Width="300" Height="350">
+
                     <ItemsControl ItemsSource="{Binding Odontogram}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -141,6 +168,29 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding Connectors}" IsHitTestVisible="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Path Stroke="{Binding ColorHex}" 
+                                      StrokeThickness="{Binding Thickness}" 
+                                      StrokeLineJoin="Round" 
+                                      StrokeStartLineCap="Round" 
+                                      StrokeEndLineCap="Round"
+                                      Data="{Binding ToothSequence, Converter={StaticResource ToothListToPathConverter}}">
+                                    <Path.Effect>
+                                        <DropShadowEffect Color="Black" Opacity="0.3" BlurRadius="2" ShadowDepth="1"/>
+                                    </Path.Effect>
+                                </Path>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                 </Grid>
             </Viewbox>
 

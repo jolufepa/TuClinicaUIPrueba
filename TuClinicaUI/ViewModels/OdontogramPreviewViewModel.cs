@@ -2,23 +2,24 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
-using System.Linq; // Necesario para OrderBy
+using System.Linq;
+using TuClinica.Core.Models;
 using TuClinica.UI.Messages;
 
 namespace TuClinica.UI.ViewModels
 {
     public partial class OdontogramPreviewViewModel : ObservableObject
     {
-        // --- PROPIEDADES CAMBIADAS: De 4 cuadrantes a 2 arcos ---
-        // Esto simplifica el binding en la vista pequeña (Preview)
-
         [ObservableProperty]
         private ObservableCollection<ToothViewModel> _upperArch = new();
 
         [ObservableProperty]
         private ObservableCollection<ToothViewModel> _lowerArch = new();
 
-        // Comando para abrir el odontograma completo
+        // Colecciones separadas para poder mover los puentes de abajo junto con los dientes de abajo
+        public ObservableCollection<DentalConnector> UpperConnectors { get; } = new();
+        public ObservableCollection<DentalConnector> LowerConnectors { get; } = new();
+
         public IRelayCommand OpenFullOdontogramCommand { get; }
 
         public OdontogramPreviewViewModel()
@@ -28,46 +29,37 @@ namespace TuClinica.UI.ViewModels
 
         private void OpenFull()
         {
-            // Envía mensaje para abrir el odontograma completo (OdontogramWindow)
             WeakReferenceMessenger.Default.Send(new OpenOdontogramMessage());
         }
 
-        /// <summary>
-        /// Carga los dientes desde el odontograma maestro (PatientFileViewModel)
-        /// y los organiza visualmente en dos filas (arriba y abajo).
-        /// </summary>
-        public void LoadFromMaster(ObservableCollection<ToothViewModel> master)
+        public void LoadFromMaster(ObservableCollection<ToothViewModel> masterTeeth, ObservableCollection<DentalConnector> masterConnectors)
         {
-            // Limpiar arcos
             UpperArch.Clear();
             LowerArch.Clear();
+            UpperConnectors.Clear();
+            LowerConnectors.Clear();
 
-            // --- LÓGICA DE ORDENACIÓN VISUAL (FDI) ---
+            // 1. Cargar Dientes Superiores (11-18, 21-28)
+            foreach (var t in masterTeeth.Where(x => (x.ToothNumber >= 11 && x.ToothNumber <= 18) || (x.ToothNumber >= 21 && x.ToothNumber <= 28)).OrderBy(x => x.ToothNumber))
+                UpperArch.Add(t);
 
-            // FILA SUPERIOR:
-            // 1. Cuadrante 1 (Derecha paciente -> Izquierda pantalla): 18 a 11
-            foreach (var tooth in master.Where(t => t.ToothNumber >= 11 && t.ToothNumber <= 18).OrderByDescending(t => t.ToothNumber))
+            // 2. Cargar Dientes Inferiores (31-38, 41-48)
+            foreach (var t in masterTeeth.Where(x => (x.ToothNumber >= 31 && x.ToothNumber <= 38) || (x.ToothNumber >= 41 && x.ToothNumber <= 48)).OrderBy(x => x.ToothNumber))
+                LowerArch.Add(t);
+
+            // 3. Cargar Conectores
+            if (masterConnectors != null)
             {
-                UpperArch.Add(tooth);
-            }
+                foreach (var conn in masterConnectors)
+                {
+                    if (!conn.ToothSequence.Any()) continue;
 
-            // 2. Cuadrante 2 (Izquierda paciente -> Derecha pantalla): 21 a 28
-            foreach (var tooth in master.Where(t => t.ToothNumber >= 21 && t.ToothNumber <= 28).OrderBy(t => t.ToothNumber))
-            {
-                UpperArch.Add(tooth);
-            }
-
-            // FILA INFERIOR:
-            // 3. Cuadrante 4 (Derecha paciente -> Izquierda pantalla): 48 a 41
-            foreach (var tooth in master.Where(t => t.ToothNumber >= 41 && t.ToothNumber <= 48).OrderByDescending(t => t.ToothNumber))
-            {
-                LowerArch.Add(tooth);
-            }
-
-            // 4. Cuadrante 3 (Izquierda paciente -> Derecha pantalla): 31 a 38
-            foreach (var tooth in master.Where(t => t.ToothNumber >= 31 && t.ToothNumber <= 38).OrderBy(t => t.ToothNumber))
-            {
-                LowerArch.Add(tooth);
+                    // Si el primer diente es < 30 (1x o 2x), es superior
+                    if (conn.ToothSequence.First() < 30)
+                        UpperConnectors.Add(conn);
+                    else
+                        LowerConnectors.Add(conn);
+                }
             }
         }
     }
