@@ -19,6 +19,9 @@
             <converters:ToothNumberToTextGeometryConverter x:Key="ToothToTextConverter"/>
             <converters:SurfaceColorConverter x:Key="SurfaceColorConverter"/>
 
+            <converters:EndodonciaToVisibilityConverter x:Key="EndoToVisConverter"/>
+            <converters:ToothCenterConverter x:Key="ToothCenterConverter"/>
+
             <DrawingBrush x:Key="AbsentPattern" TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                 <DrawingBrush.Drawing>
                     <GeometryDrawing>
@@ -56,7 +59,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid ClipToBounds="False" VerticalAlignment="Top" HorizontalAlignment="Left">
+    <Grid ClipToBounds="False">
 
         <i:Interaction.Triggers>
             <i:EventTrigger EventName="MouseRightButtonDown">
@@ -165,6 +168,16 @@
                 </i:Interaction.Triggers>
             </Path>
         </Grid>
+
+        <Ellipse Width="5" Height="5"
+                 Fill="#9B59B6"
+                 Stroke="#333333" StrokeThickness="0.5"
+                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                 IsHitTestVisible="False"
+                 Panel.ZIndex="500"
+                 Visibility="{Binding FullRestoration, Converter={StaticResource EndoToVisConverter}}"
+                 ToolTip="Endodoncia Realizada"
+                 RenderTransform="{Binding ToothNumber, Converter={StaticResource ToothCenterConverter}, ConverterParameter=5}"/>
 
         <Path Data="{Binding ToothNumber, Converter={StaticResource ToothToTextConverter}}"
               Fill="#34495E"
