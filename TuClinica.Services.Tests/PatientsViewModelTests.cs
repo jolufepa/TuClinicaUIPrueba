@@ -26,7 +26,7 @@ namespace TuClinica.Services.Tests
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
 
-        // --- MOCKS NUEVOS (para PatientFileViewModel) ---
+        // --- MOCKS (para PatientFileViewModel y sus hijos) ---
         private Mock<IClinicalEntryRepository> _clinicalEntryRepoMock;
         private Mock<IPaymentRepository> _paymentRepoMock;
         private Mock<IRepository<PaymentAllocation>> _allocationRepoMock;
@@ -50,7 +50,7 @@ namespace TuClinica.Services.Tests
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
 
-            // --- MOCKS NUEVOS ---
+            // --- MOCKS DE SERVICIOS ---
             _clinicalEntryRepoMock = new Mock<IClinicalEntryRepository>();
             _paymentRepoMock = new Mock<IPaymentRepository>();
             _allocationRepoMock = new Mock<IRepository<PaymentAllocation>>();
@@ -60,20 +60,61 @@ namespace TuClinica.Services.Tests
             _pdfServiceMock = new Mock<IPdfService>();
             _alertRepoMock = new Mock<IPatientAlertRepository>();
 
-            // 2. Creamos la instancia de PatientFileViewModel
-            // *** CORRECCIÓN: AÑADIDO EL ÚLTIMO ARGUMENTO _pdfServiceMock.Object ***
+            // Configurar el mock de alertas para que devuelva una lista vacía
+            _alertRepoMock.Setup(r => r.GetActiveAlertsForPatientAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                          .ReturnsAsync(new List<PatientAlert>());
+
+            // --- CREAR VIEWMODELS HIJOS (usando los mocks existentes) ---
+
+            var patientInfoVM = new PatientInfoViewModel(
+                _scopeFactoryMock.Object,
+                _dialogServiceMock.Object,
+                _validationServiceMock.Object
+            );
+
+            var patientDocsVM = new PatientDocumentsViewModel(
+                _scopeFactoryMock.Object,
+                _dialogServiceMock.Object,
+                _authServiceMock.Object
+            );
+
+            var patientAlertsVM = new PatientAlertsViewModel(
+                _scopeFactoryMock.Object,
+                _dialogServiceMock.Object
+            );
+
+            // Crear el hijo Financiero
+            var patientFinancialVM = new PatientFinancialViewModel(
+                _scopeFactoryMock.Object,
+                _dialogServiceMock.Object,
+                _authServiceMock.Object,
+                _pdfServiceMock.Object
+            );
+
+            // Crear el hijo Plan de Tratamiento
+            var patientTreatmentPlanVM = new PatientTreatmentPlanViewModel(
+                 _scopeFactoryMock.Object,
+                 _dialogServiceMock.Object
+            );
+
+            // 2. Creamos la instancia del Padre (PatientFileViewModel)
+            // Ahora le pasamos TODOS los hijos requeridos
             _patientFileVM_Instance = new PatientFileViewModel(
-                _authServiceMock.Object,            // 1. IAuthService
-                _dialogServiceMock.Object,          // 2. IDialogService
-                _scopeFactoryMock.Object,           // 3. IServiceScopeFactory
-                _fileDialogServiceMock.Object,      // 4. IFileDialogService
-                _validationServiceMock.Object,      // 5. IValidationService
-                _alertRepoMock.Object,              // 6. IPatientAlertRepository
-                _pdfServiceMock.Object              // 7. IPdfService (¡ESTE FALTABA!)
+                _authServiceMock.Object,
+                _dialogServiceMock.Object,
+                _scopeFactoryMock.Object,
+                _fileDialogServiceMock.Object,
+                _pdfServiceMock.Object,
+                // Hijos inyectados:
+                patientInfoVM,
+                patientDocsVM,
+                patientAlertsVM,
+                patientFinancialVM,
+                patientTreatmentPlanVM // <--- ¡ARGUMENTO FINAL!
             );
 
 
-            // 3. Creamos el ViewModel pasándole los Mocks
+            // 3. Creamos el ViewModel principal a testear (PatientsViewModel)
             _viewModel = new PatientsViewModel(
                 _patientRepoMock.Object,
                 _validationServiceMock.Object,
@@ -82,10 +123,6 @@ namespace TuClinica.Services.Tests
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object
             );
-
-            // Configurar el mock de alertas para que devuelva una lista vacía y no falle en la carga inicial
-            _alertRepoMock.Setup(r => r.GetActiveAlertsForPatientAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                          .ReturnsAsync(new List<PatientAlert>());
         }
 
         [TestMethod]

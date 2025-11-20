@@ -138,16 +138,28 @@ namespace TuClinica.UI
                     services.AddSingleton<HomeViewModel>();
                     services.AddTransient<FinancialSummaryViewModel>();
 
-                    // *** AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA ***
+                    // Sub-ViewModels
+                    services.AddTransient<PatientInfoViewModel>();
+                    
+                    services.AddTransient<PatientDocumentsViewModel>();
+                    services.AddTransient<PatientAlertsViewModel>();
+                    services.AddTransient<PatientFinancialViewModel>();
+                    services.AddTransient<PatientTreatmentPlanViewModel>();
+
+                    // ViewModel Padre (Conductor) - INYECCIÓN ACTUALIZADA
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
                             sp.GetRequiredService<IAuthService>(),
                             sp.GetRequiredService<IDialogService>(),
                             sp.GetRequiredService<IServiceScopeFactory>(),
                             sp.GetRequiredService<IFileDialogService>(),
-                            sp.GetRequiredService<IValidationService>(),
-                            sp.GetRequiredService<IPatientAlertRepository>(),
-                            sp.GetRequiredService<IPdfService>() 
+                            sp.GetRequiredService<IPdfService>(),
+                            // Hijos
+                            sp.GetRequiredService<PatientInfoViewModel>(),
+                            sp.GetRequiredService<PatientDocumentsViewModel>(),
+                            sp.GetRequiredService<PatientAlertsViewModel>(),
+                            sp.GetRequiredService<PatientFinancialViewModel>(),
+                            sp.GetRequiredService<PatientTreatmentPlanViewModel>()
                         ));
 
                     // Vistas
@@ -177,7 +189,6 @@ namespace TuClinica.UI
                 using (var scope = AppHost.Services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    // Intentar crear admin si no existe (simplificado para este paso)
                     if (!db.Users.Any()) { db.Users.Add(new User { Username = "admin", HashedPassword = BCrypt.Net.BCrypt.HashPassword("admin123"), Role = UserRole.Administrador, IsActive = true, Name = "Admin" }); db.SaveChanges(); }
                 }
             }

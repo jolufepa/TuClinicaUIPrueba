@@ -1,5 +1,4 @@
-﻿// En: TuClinicaUI/ViewModels/TreatmentsViewModel.cs
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -10,9 +9,9 @@ using System.ComponentModel;
 using System.Windows.Input;
 using TuClinica.Core.Interfaces.Services;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-using System.Linq; // <-- AÑADIR
-using TuClinica.Core.Interfaces; // <-- AÑADIR
-using System.Collections.Generic; // <-- AÑADIR
+using System.Linq;
+using TuClinica.Core.Interfaces;
+using System.Collections.Generic;
 
 namespace TuClinica.UI.ViewModels
 {
@@ -20,9 +19,7 @@ namespace TuClinica.UI.ViewModels
     {
         private readonly ITreatmentRepository _treatmentRepository;
         private readonly IDialogService _dialogService;
-        
         private readonly IRepository<TreatmentPackItem> _packItemRepository;
-        
 
         [ObservableProperty]
         private ObservableCollection<Treatment> _treatments = new ObservableCollection<Treatment>();
@@ -37,57 +34,35 @@ namespace TuClinica.UI.ViewModels
         private Treatment _treatmentFormModel = new Treatment { IsActive = true };
 
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(SaveTreatmentCommand))] // Habilitar/Deshabilitar Guardar
+        [NotifyCanExecuteChangedFor(nameof(SaveTreatmentCommand))]
         private bool _isFormEnabled = false;
 
         public bool IsTreatmentSelected => SelectedTreatment != null;
 
-        // --- INICIO DE MODIFICACIÓN (Nuevas propiedades para Packs) ---
-
-        /// <summary>
-        /// Lista de todos los tratamientos para el ComboBox "Añadir Componente".
-        /// </summary>
         [ObservableProperty]
         private ObservableCollection<Treatment> _availableComponents = new ObservableCollection<Treatment>();
 
-        /// <summary>
-        /// Lista de componentes del pack *actualmente seleccionado*.
-        /// </summary>
         [ObservableProperty]
         private ObservableCollection<TreatmentPackItemViewModel> _currentPackItems = new ObservableCollection<TreatmentPackItemViewModel>();
 
-        /// <summary>
-        /// Componente (Tratamiento) seleccionado en el ComboBox para añadir al pack.
-        /// </summary>
         [ObservableProperty]
         private Treatment? _selectedComponentToAdd;
 
-        /// <summary>
-        /// Cantidad del componente a añadir.
-        /// </summary>
         [ObservableProperty]
         private int _componentQuantity = 1;
-
-        
 
         public TreatmentsViewModel(
             ITreatmentRepository treatmentRepository,
             IDialogService dialogService,
-            
-            IRepository<TreatmentPackItem> packItemRepository // Inyectar el nuevo repositorio
-                                                              
-            )
+            IRepository<TreatmentPackItem> packItemRepository)
         {
             _treatmentRepository = treatmentRepository;
             _dialogService = dialogService;
-            
             _packItemRepository = packItemRepository;
-            
 
             _ = LoadTreatmentsAsync();
         }
 
-        // --- INICIO DE MODIFICACIÓN (Nuevos Comandos para Packs) ---
         [RelayCommand]
         private void AddPackItem()
         {
@@ -109,26 +84,20 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // Comprobar si ya existe para evitar duplicados en la UI
             if (CurrentPackItems.Any(p => p.ChildTreatmentId == SelectedComponentToAdd.Id))
             {
                 _dialogService.ShowMessage("Este componente ya existe en el pack. Puede editar la cantidad.", "Componente Duplicado");
                 return;
             }
 
-            // Crear el modelo de datos
             var newPackItem = new TreatmentPackItem
             {
-                // El ID del padre (pack) se asignará al guardar
                 ChildTreatmentId = SelectedComponentToAdd.Id,
                 ChildTreatment = SelectedComponentToAdd,
                 Quantity = ComponentQuantity
             };
 
-            // Añadir el ViewModel a la lista de la UI
             CurrentPackItems.Add(new TreatmentPackItemViewModel(newPackItem));
-
-            // Resetear
             SelectedComponentToAdd = null;
             ComponentQuantity = 1;
         }
@@ -141,37 +110,25 @@ namespace TuClinica.UI.ViewModels
                 CurrentPackItems.Remove(itemToRemove);
             }
         }
-        
 
         [RelayCommand]
         private async Task LoadTreatmentsAsync()
         {
-            
-            // Usamos el repositorio que ya incluye los PackItems
             var treatmentsFromDb = await _treatmentRepository.GetAllAsync();
 
             Treatments.Clear();
-            AvailableComponents.Clear(); // Limpiar también la lista de componentes
+            AvailableComponents.Clear();
 
             if (treatmentsFromDb != null)
             {
-                // Ordenar por nombre al llenar la lista principal
                 var orderedTreatments = treatmentsFromDb.OrderBy(t => t.Name).ToList();
 
                 foreach (var treatment in orderedTreatments)
                 {
                     Treatments.Add(treatment);
-                    AvailableComponents.Add(treatment); // Llenar la lista de componentes con todos
+                    AvailableComponents.Add(treatment);
                 }
-
-                // Opcional: si no quieres que los packs aparezcan en la lista de "componentes"
-                // var nonPackTreatments = orderedTreatments.Where(t => t.PackItems == null || !t.PackItems.Any()).ToList();
-                // foreach (var treatment in nonPackTreatments)
-                // {
-                //     AvailableComponents.Add(treatment);
-                // }
             }
-            
         }
 
         [RelayCommand]
@@ -179,7 +136,7 @@ namespace TuClinica.UI.ViewModels
         {
             TreatmentFormModel = new Treatment { IsActive = true };
             IsFormEnabled = true;
-            SelectedTreatment = null; // Esto disparará OnSelectedTreatmentChanged
+            SelectedTreatment = null;
         }
 
         [RelayCommand(CanExecute = nameof(IsTreatmentSelected))]
@@ -193,33 +150,24 @@ namespace TuClinica.UI.ViewModels
                 Description = SelectedTreatment.Description,
                 DefaultPrice = SelectedTreatment.DefaultPrice,
                 IsActive = SelectedTreatment.IsActive
-                // No copiamos la colección, OnSelectedTreatmentChanged la cargará
             };
             IsFormEnabled = true;
         }
 
-        // --- MÉTODO OnSelectedTreatmentChanged (AÑADIDO CON 'partial') ---
-        // Este método se activa automáticamente cuando la propiedad SelectedTreatment cambia.
         partial void OnSelectedTreatmentChanged(Treatment? value)
         {
-            // Limpiar la lista de componentes del pack anterior
             CurrentPackItems.Clear();
-
             if (value != null)
             {
-                // Si el tratamiento seleccionado tiene ítems, los cargamos
                 if (value.PackItems != null)
                 {
                     foreach (var packItem in value.PackItems.OrderBy(p => p.ChildTreatment?.Name))
                     {
-                        // Creamos un ViewModel por cada ítem y lo añadimos a la lista de la UI
                         CurrentPackItems.Add(new TreatmentPackItemViewModel(packItem));
                     }
                 }
             }
         }
-        
-
 
         [RelayCommand(CanExecute = nameof(IsFormEnabled))]
         private async Task SaveTreatmentAsync()
@@ -235,24 +183,20 @@ namespace TuClinica.UI.ViewModels
                 return;
             }
 
-            // --- INICIO DE MODIFICACIÓN (Guardar Packs) ---
             bool isNew = (TreatmentFormModel.Id == 0);
-
-            // 1. Guardar el tratamiento principal (Pack o Individual)
             Treatment? savedTreatment;
+
             if (isNew)
             {
-                // Es un nuevo tratamiento
+                // Nuevo: Creamos y añadimos
                 savedTreatment = TreatmentFormModel;
                 await _treatmentRepository.AddAsync(savedTreatment);
             }
             else
             {
-                // Es una edición
-                // IMPORTANTE: NO usar GetByIdAsync. Necesitamos la entidad rastreada.
-                // Usamos el repositorio de packs para obtener la entidad con sus hijos.
-                savedTreatment = await _treatmentRepository.GetAllAsync()
-                                     .ContinueWith(t => t.Result.FirstOrDefault(tr => tr.Id == TreatmentFormModel.Id));
+                // Edición: Usamos el método que trae la entidad RASTREADA (Tracked)
+                // Esto evita el error "Instance already tracked"
+                savedTreatment = await _treatmentRepository.GetByIdWithPackItemsAsync(TreatmentFormModel.Id);
 
                 if (savedTreatment == null)
                 {
@@ -260,65 +204,63 @@ namespace TuClinica.UI.ViewModels
                     return;
                 }
 
+                // Actualizamos las propiedades de la entidad rastreada
                 savedTreatment.Name = TreatmentFormModel.Name;
                 savedTreatment.Description = TreatmentFormModel.Description;
                 savedTreatment.DefaultPrice = TreatmentFormModel.DefaultPrice;
                 savedTreatment.IsActive = TreatmentFormModel.IsActive;
+
+                // Nota: No es necesario llamar a _treatmentRepository.Update() si la entidad ya está rastreada y modificada,
+                // pero llamarlo no hace daño si es la misma instancia.
                 _treatmentRepository.Update(savedTreatment);
             }
-            // Guardamos el tratamiento principal para obtener su ID (si es nuevo)
-            await _treatmentRepository.SaveChangesAsync();
 
+            await _treatmentRepository.SaveChangesAsync(); // Guardamos cabecera para tener ID
 
-            // 2. Guardar los componentes del pack (si los hay)
+            // Guardar componentes del pack
             if (CurrentPackItems.Any() || !isNew)
             {
-                // 2a. Obtener los componentes antiguos (solo en modo Edición)
                 List<TreatmentPackItem> oldItems = new List<TreatmentPackItem>();
-                if (!isNew && savedTreatment != null)
+                if (!isNew && savedTreatment != null && savedTreatment.PackItems != null)
                 {
-                    // Usamos la colección ya cargada en la entidad 'savedTreatment'
                     oldItems = savedTreatment.PackItems.ToList();
                 }
 
-                // 2b. Sincronizar
                 var itemsInUi = CurrentPackItems.Select(vm => vm.Model).ToList();
 
-                // Eliminar los que ya no están en la UI
+                // Eliminar
                 var itemsToDelete = oldItems.Where(dbItem => !itemsInUi.Any(uiItem => uiItem.ChildTreatmentId == dbItem.ChildTreatmentId)).ToList();
                 if (itemsToDelete.Any())
                 {
                     _packItemRepository.RemoveRange(itemsToDelete);
                 }
 
-                // Añadir/Actualizar los que están en la UI
+                // Añadir/Actualizar
                 foreach (var uiItemVm in CurrentPackItems)
                 {
                     var dbItem = oldItems.FirstOrDefault(oi => oi.ChildTreatmentId == uiItemVm.ChildTreatmentId);
                     if (dbItem == null)
                     {
-                        // Es nuevo
-                        uiItemVm.Model.ParentTreatmentId = savedTreatment!.Id; // Asignar el ID del Padre
-                        // Asegurarnos de que el ChildTreatment no se intente insertar de nuevo
-                        uiItemVm.Model.ChildTreatment = null;
+                        // Nuevo item
+                        uiItemVm.Model.ParentTreatmentId = savedTreatment!.Id;
+                        uiItemVm.Model.ChildTreatment = null; // Evitar reinsertar hijo
                         await _packItemRepository.AddAsync(uiItemVm.Model);
                     }
                     else
                     {
-                        // Es existente, actualizar cantidad
+                        // Existente
                         dbItem.Quantity = uiItemVm.Quantity;
                         _packItemRepository.Update(dbItem);
                     }
                 }
             }
-            
 
-            await _packItemRepository.SaveChangesAsync(); // Guardar los cambios de los packs
-            await LoadTreatmentsAsync(); // Recargar todo
+            await _packItemRepository.SaveChangesAsync();
+            await LoadTreatmentsAsync();
 
             TreatmentFormModel = new Treatment { IsActive = true };
             IsFormEnabled = false;
-            SelectedTreatment = null; // Limpiar selección
+            SelectedTreatment = null;
         }
 
         [RelayCommand(CanExecute = nameof(IsTreatmentSelected))]
@@ -326,27 +268,20 @@ namespace TuClinica.UI.ViewModels
         {
             if (SelectedTreatment == null) return;
 
-            
-            // Comprobación mejorada: AHORA SÍ tenemos la info de los packs cargada
             if (SelectedTreatment.PackItems != null && SelectedTreatment.PackItems.Any())
             {
                 _dialogService.ShowMessage($"No se puede eliminar '{SelectedTreatment.Name}' porque es un Pack.\nPrimero debe eliminar todos sus componentes.", "Error al Eliminar");
                 return;
             }
-            // (La restricción de borrado si es un *componente* de otro pack
-            // la manejará la base de datos (OnDelete.Restrict) y
-            // mostrará un error en el catch)
-            
 
             var result = _dialogService.ShowConfirmation($"¿Eliminar PERMANENTEMENTE el tratamiento '{SelectedTreatment.Name}'? Esta acción no se puede deshacer.",
                                              "Confirmar Eliminación Permanente");
 
             if (result == CoreDialogResult.No) return;
 
-            try // --- AÑADIDO TRY-CATCH ---
+            try
             {
-                // No podemos borrar SelectedTreatment porque viene de una query AsNoTracking
-                // Tenemos que obtener la entidad rastreada por su ID
+                // Usamos GetByIdAsync para obtener la entidad rastreada antes de borrar
                 var treatmentToDelete = await _treatmentRepository.GetByIdAsync(SelectedTreatment.Id);
                 if (treatmentToDelete != null)
                 {
@@ -355,7 +290,6 @@ namespace TuClinica.UI.ViewModels
                     _dialogService.ShowMessage("Tratamiento eliminado.", "Eliminado");
                 }
             }
-            // --- INICIO DE MODIFICACIÓN (Capturar error de FK) ---
             catch (Microsoft.EntityFrameworkCore.DbUpdateException dbEx)
             {
                 _dialogService.ShowMessage($"No se pudo eliminar el tratamiento.\n\nCAUSA PROBABLE: Está siendo utilizado como componente en uno o más 'Packs' o en un historial clínico.\n\nError: {dbEx.InnerException?.Message ?? dbEx.Message}", "Error de Base de Datos");
@@ -364,7 +298,6 @@ namespace TuClinica.UI.ViewModels
             {
                 _dialogService.ShowMessage($"Error al eliminar: {ex.Message}", "Error");
             }
-            
 
             await LoadTreatmentsAsync();
             TreatmentFormModel = new Treatment { IsActive = true };

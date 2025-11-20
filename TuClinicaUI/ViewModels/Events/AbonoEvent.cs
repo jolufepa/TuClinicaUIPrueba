@@ -4,22 +4,19 @@ using System;
 
 namespace TuClinica.UI.ViewModels.Events
 {
-    /// <summary>
-    /// Representa un Abono (Pago) en la bitácora.
-    /// </summary>
     public class AbonoEvent : HistorialEventBase
     {
         public Payment Abono { get; }
-        private readonly PatientFileViewModel _parentVM; // Referencia al VM padre
+        // --- CAMBIO: Apunta al nuevo ViewModel Financiero ---
+        private readonly PatientFinancialViewModel _parentVM;
 
-        public AbonoEvent(Payment abono, PatientFileViewModel parentVM)
+        public AbonoEvent(Payment abono, PatientFinancialViewModel parentVM)
         {
             Abono = abono;
-            _parentVM = parentVM; // Guardamos la referencia
+            _parentVM = parentVM;
             Timestamp = abono.PaymentDate;
         }
 
-        // Exponemos el comando para eliminar el pago
         public IAsyncRelayCommand<Payment> DeleteCommand => _parentVM.DeletePaymentAsyncCommand;
     }
 }

@@ -87,7 +87,7 @@
                         </StackPanel>
                         <Button Grid.Column="1" 
                                 Style="{DynamicResource MahApps.Styles.Button.Chromeless}"
-                                Command="{Binding DataContext.DeleteAlertCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Command="{Binding DataContext.DeleteAlertCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}"
                                 ToolTip="Eliminar esta alerta">
                             <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
@@ -167,7 +167,6 @@
                         <TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" Foreground="#388E3C" Padding="5"
                                    Text="{Binding Abono.Amount, StringFormat='{}{0:C}', ConverterCulture='es-ES'}" 
                                    HorizontalAlignment="Right" />
-
                         <Button Grid.Column="4" 
                                 Command="{Binding DeleteCommand}"
                                 CommandParameter="{Binding Abono}"
@@ -221,7 +220,7 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20,0,0,0">
                     <Button Content="Registrar Cargo/Visita" 
-                            Command="{Binding OpenRegisterChargeDialogCommand}"
+                            Command="{Binding PatientFinancialVM.OpenRegisterChargeDialogCommand}"
                             Style="{DynamicResource MahApps.Styles.Button.Flat}"
                             Foreground="{StaticResource PrimaryBrandForeground}"
                             mah:ControlsHelper.FocusBorderBrush="White"
@@ -229,7 +228,7 @@
                             Margin="0,0,10,0"/>
 
                     <Button Content="Registrar Nuevo Pago (Abono)"
-                            Command="{Binding RegisterNewPaymentCommand}"
+                            Command="{Binding PatientFinancialVM.RegisterNewPaymentCommand}"
                             Style="{DynamicResource MahApps.Styles.Button.Flat}"
                             Foreground="{StaticResource PrimaryBrandForeground}"
                             mah:ControlsHelper.FocusBorderBrush="White"
@@ -238,14 +237,15 @@
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
                     <TextBlock Text="SALDO TOTAL:" Foreground="{StaticResource PrimaryBrandForeground}" FontWeight="SemiBold" Margin="0,0,5,0"/>
-                    <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:C}', ConverterCulture='es-ES'}"
-                               Foreground="{Binding CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
+                    <TextBlock Text="{Binding PatientFinancialVM.CurrentBalance, StringFormat='{}{0:C}', ConverterCulture='es-ES'}"
+                               Foreground="{Binding PatientFinancialVM.CurrentBalance, Converter={StaticResource SaldoColorConverter}}"
                                FontSize="20" 
                                FontWeight="Bold"/>
                 </StackPanel>
             </Grid>
 
-            <GroupBox Grid.Row="1" Header="Alertas Médicas" Margin="5,0,5,10" Padding="10" BorderBrush="Red" BorderThickness="1.5">
+            <GroupBox Grid.Row="1" Header="Alertas Médicas" Margin="5,0,5,10" Padding="10" BorderBrush="Red" BorderThickness="1.5"
+                      DataContext="{Binding PatientAlertsVM}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -264,7 +264,7 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <StackPanel Grid.Column="1" Margin="15,0,0,0" IsEnabled="{Binding CanManageDocuments}">
+                    <StackPanel Grid.Column="1" Margin="15,0,0,0">
                         <Label Content="Añadir Nueva Alerta:" Padding="0,0,0,2"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -290,7 +290,7 @@
 
             <mah:MetroTabControl Grid.Row="2" Margin="5,0">
 
-                <mah:MetroTabItem Padding="20">
+                <mah:MetroTabItem Padding="20" DataContext="{Binding PatientInfoVM}">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="PageText" VerticalAlignment="Center" Margin="0,0,5,0" />
@@ -390,12 +390,12 @@
                         </Grid>
 
                         <GroupBox Grid.Column="1" Header="Vista Rápida Odontograma" Margin="10,0,0,0" Padding="10">
-                            <controls:OdontogramPreviewControl DataContext="{Binding OdontogramPreviewVM}" />
+                            <controls:OdontogramPreviewControl DataContext="{Binding DataContext.OdontogramPreviewVM, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                         </GroupBox>
                     </Grid>
                 </mah:MetroTabItem>
 
-                <mah:MetroTabItem Padding="20">
+                <mah:MetroTabItem Padding="20" DataContext="{Binding PatientDocumentsVM}">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="Link" VerticalAlignment="Center" Margin="0,0,5,0" />
@@ -421,7 +421,7 @@
                     </Grid>
                 </mah:MetroTabItem>
 
-                <mah:MetroTabItem Padding="20">
+                <mah:MetroTabItem Padding="20" DataContext="{Binding PatientFinancialVM}">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="BookOpen" VerticalAlignment="Center" Margin="0,0,5,0" />
@@ -447,7 +447,7 @@
                     </Grid>
                 </mah:MetroTabItem>
 
-                <mah:MetroTabItem Padding="20">
+                <mah:MetroTabItem Padding="20" DataContext="{Binding PatientFinancialVM}">
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="Money" VerticalAlignment="Center" Margin="0,0,5,0" />
@@ -486,7 +486,7 @@
                     </Grid>
                 </mah:MetroTabItem>
 
-                <mah:MetroTabItem Padding="20">
+                <mah:MetroTabItem Padding="20" DataContext="{Binding PatientTreatmentPlanVM}">
                     <mah:MetroTabItem.Header>
                         <Grid>
                             <StackPanel Orientation="Horizontal">
@@ -516,7 +516,7 @@
                                             <CheckBox IsChecked="{Binding IsDone}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <i:Interaction.Triggers>
                                                     <i:EventTrigger EventName="Click">
-                                                        <i:InvokeCommandAction Command="{Binding DataContext.TogglePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                        <i:InvokeCommandAction Command="{Binding DataContext.TogglePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
                                                     </i:EventTrigger>
                                                 </i:Interaction.Triggers>
                                             </CheckBox>
@@ -528,7 +528,9 @@
                                 <DataGridTemplateColumn Width="Auto" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type models:TreatmentPlanItem}">
-                                            <Button Style="{DynamicResource MahApps.Styles.Button.Chromeless}" ToolTip="Eliminar tarea" Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                            <Button Style="{DynamicResource MahApps.Styles.Button.Chromeless}" ToolTip="Eliminar tarea" 
+                                                    Command="{Binding DataContext.DeletePlanItemAsyncCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                    CommandParameter="{Binding}">
                                                 <iconPacks:PackIconModern Kind="Delete" Foreground="Gray" />
                                             </Button>
                                         </DataTemplate>
