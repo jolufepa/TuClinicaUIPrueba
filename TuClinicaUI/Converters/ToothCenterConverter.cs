@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic; // Necesario para HashSet
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -7,11 +8,22 @@ using System.Windows.Media;
 namespace TuClinica.UI.Converters
 {
     /// <summary>
-    /// Calcula el centro geométrico de la cara Oclusal para posicionar la Endodoncia.
+    /// Calcula el centro geométrico de la cara Oclusal (o Lingual en dientes anteriores) 
+    /// para posicionar la Endodoncia.
     /// Devuelve un TranslateTransform que mueve el punto al lugar exacto.
     /// </summary>
     public class ToothCenterConverter : IValueConverter
     {
+        // Lista de dientes anteriores (Incisivos y Caninos) que no tienen cara Oclusal en el dibujo,
+        // por lo que usaremos la cara Lingual para centrar el punto.
+        private static readonly HashSet<int> AnteriorTeeth = new HashSet<int>
+        {
+            11, 12, 13,
+            21, 22, 23,
+            31, 32, 33,
+            41, 42, 43
+        };
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             // value es el ToothNumber (int)
@@ -19,7 +31,12 @@ namespace TuClinica.UI.Converters
 
             if (value is int toothNumber)
             {
-                string resourceKey = $"Geo_{toothNumber}_Oclusal";
+                // Lógica corregida: 
+                // Si es diente anterior -> Busca "Lingual". 
+                // Si es posterior -> Busca "Oclusal".
+                string surfaceName = AnteriorTeeth.Contains(toothNumber) ? "Lingual" : "Oclusal";
+                string resourceKey = $"Geo_{toothNumber}_{surfaceName}";
+
                 double circleSize = 0;
 
                 if (parameter != null && double.TryParse(parameter.ToString(), NumberStyles.Any, culture, out double size))
@@ -29,7 +46,7 @@ namespace TuClinica.UI.Converters
 
                 try
                 {
-                    // Buscamos la geometría real de la cara Oclusal en los recursos
+                    // Buscamos la geometría real en los recursos
                     if (Application.Current.Resources.Contains(resourceKey))
                     {
                         var geometry = Application.Current.Resources[resourceKey] as Geometry;
@@ -39,7 +56,7 @@ namespace TuClinica.UI.Converters
                             // Obtenemos los límites rectangulares del dibujo del diente
                             Rect bounds = geometry.Bounds;
 
-                            // Calculamos el centro exacto
+                            // Calculamos el centro exacto de la geometría encontrada
                             double centerX = bounds.X + (bounds.Width / 2);
                             double centerY = bounds.Y + (bounds.Height / 2);
 
