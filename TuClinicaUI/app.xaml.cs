@@ -136,6 +136,7 @@ namespace TuClinica.UI
                     services.AddTransient<PrescriptionViewModel>();
                     services.AddTransient<OdontogramViewModel>();
                     services.AddSingleton<HomeViewModel>();
+                    services.AddTransient<FinancialSummaryViewModel>();
 
                     // *** AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA ***
                     services.AddSingleton<PatientFileViewModel>(sp =>
@@ -146,7 +147,7 @@ namespace TuClinica.UI
                             sp.GetRequiredService<IFileDialogService>(),
                             sp.GetRequiredService<IValidationService>(),
                             sp.GetRequiredService<IPatientAlertRepository>(),
-                            sp.GetRequiredService<IPdfService>() // <--- ESTA LÍNEA FALTABA
+                            sp.GetRequiredService<IPdfService>() 
                         ));
 
                     // Vistas

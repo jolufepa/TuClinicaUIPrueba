@@ -66,6 +66,7 @@ namespace TuClinica.Services.Implementation
         private readonly IPatientRepository _patientRepository;
         private readonly string _basePrescriptionsPath;
         private readonly string _baseOdontogramsPath;
+        private readonly string _baseReportsPath; // Nueva ruta
 
         // Colores Definidos
         private static readonly string ColorTableHeaderBg = "#D9E5F6";
@@ -78,10 +79,12 @@ namespace TuClinica.Services.Implementation
             _baseBudgetsPath = baseBudgetsPath;
             _basePrescriptionsPath = basePrescriptionsPath;
             _baseOdontogramsPath = Path.Combine(GetDataFolderPath(), "odontogramas");
+            _baseReportsPath = Path.Combine(GetDataFolderPath(), "reportes"); // Nueva carpeta
 
             Directory.CreateDirectory(_baseBudgetsPath);
             Directory.CreateDirectory(_basePrescriptionsPath);
             Directory.CreateDirectory(_baseOdontogramsPath);
+            Directory.CreateDirectory(_baseReportsPath);
 
             _patientRepository = patientRepository;
             QuestPDF.Settings.License = LicenseType.Community;
@@ -1029,6 +1032,132 @@ namespace TuClinica.Services.Implementation
                     text.CurrentPageNumber();
                     text.Span(" de ");
                     text.TotalPages();
+                });
+            });
+        }
+
+        // =================================================================================================
+        // 6. GENERACIÓN DE REPORTE FINANCIERO (NUEVO)
+        // =================================================================================================
+        public async Task<string> GenerateFinancialReportPdfAsync(DateTime startDate, DateTime endDate, List<FinancialTransactionDto> transactions)
+        {
+            string fileName = $"Reporte_Economico_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}_{DateTime.Now:HHmmss}.pdf";
+            string filePath = Path.Combine(_baseReportsPath, fileName);
+
+            decimal totalCharges = transactions.Sum(t => t.ChargeAmount);
+            decimal totalPayments = transactions.Sum(t => t.PaymentAmount);
+            decimal balance = totalPayments - totalCharges; // Balance del periodo (Caja - Producción)
+
+            await Task.Run(() =>
+            {
+                QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(1.5f, Unit.Centimetre);
+                        page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
+
+                        page.Header().Element(c => ComposeFinancialHeader(c, startDate, endDate));
+                        page.Content().Element(c => ComposeFinancialContent(c, transactions, totalCharges, totalPayments, balance));
+                        page.Footer().Element(c => ComposeFooter(c));
+                    });
+                })
+                .GeneratePdf(filePath);
+            });
+
+            return filePath;
+        }
+
+        private void ComposeFinancialHeader(IContainer container, DateTime start, DateTime end)
+        {
+            container.Column(col =>
+            {
+                // Logo y Datos Clínica
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().Column(c =>
+                    {
+                        string logoPath = string.Empty;
+                        if (!string.IsNullOrEmpty(_settings.ClinicLogoPath))
+                            logoPath = Path.Combine(AppContext.BaseDirectory, _settings.ClinicLogoPath);
+
+                        if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+                        {
+                            try { c.Item().MaxHeight(2.0f, Unit.Centimetre).Image(logoPath); } catch { }
+                        }
+                        c.Item().Text(_settings.ClinicName).Bold();
+                    });
+
+                    row.RelativeItem().AlignRight().Column(c =>
+                    {
+                        c.Item().Text("REPORTE ECONÓMICO").FontSize(16).Bold();
+                        c.Item().Text($"Desde: {start:dd/MM/yyyy}");
+                        c.Item().Text($"Hasta: {end:dd/MM/yyyy}");
+                    });
+                });
+
+                col.Item().PaddingTop(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten2);
+            });
+        }
+
+        private void ComposeFinancialContent(IContainer container, List<FinancialTransactionDto> transactions, decimal totalCharges, decimal totalPayments, decimal balance)
+        {
+            container.PaddingVertical(10).Column(col =>
+            {
+                col.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.ConstantColumn(80); // Fecha
+                        columns.RelativeColumn(2);  // Paciente
+                        columns.RelativeColumn(3);  // Detalle
+                        columns.RelativeColumn(1);  // Cargo
+                        columns.RelativeColumn(1);  // Abono
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Element(HeaderCellStyle).Text("Fecha/Hora");
+                        header.Cell().Element(HeaderCellStyle).Text("Paciente");
+                        header.Cell().Element(HeaderCellStyle).Text("Detalle");
+                        header.Cell().Element(HeaderCellStyle).AlignRight().Text("Cargo");
+                        header.Cell().Element(HeaderCellStyle).AlignRight().Text("Abono");
+                    });
+
+                    foreach (var t in transactions)
+                    {
+                        table.Cell().Element(BodyCellStyle).Text($"{t.Date:dd/MM HH:mm}");
+                        table.Cell().Element(BodyCellStyle).Text(t.PatientName);
+                        table.Cell().Element(BodyCellStyle).Text(t.Description);
+
+                        // Lógica visual de "- €"
+                        string chargeText = t.ChargeAmount == 0 ? "- €" : $"{t.ChargeAmount:N2} €";
+                        string payText = t.PaymentAmount == 0 ? "- €" : $"{t.PaymentAmount:N2} €";
+
+                        // Colores
+                        var chargeColor = t.ChargeAmount > 0 ? Colors.Red.Medium : Colors.Grey.Medium;
+                        var payColor = t.PaymentAmount > 0 ? Colors.Green.Medium : Colors.Grey.Medium;
+
+                        table.Cell().Element(c => BodyCellStyle(c, true)).Text(chargeText).FontColor(chargeColor);
+                        table.Cell().Element(c => BodyCellStyle(c, true)).Text(payText).FontColor(payColor);
+                    }
+                });
+
+                // Totales al final
+                col.Item().PaddingTop(10).AlignRight().Width(300).Table(t =>
+                {
+                    t.ColumnsDefinition(c =>
+                    {
+                        c.RelativeColumn();
+                        c.RelativeColumn();
+                    });
+
+                    t.Cell().Element(HeaderCellStyle).Text("Total Cargos (Producción):");
+                    t.Cell().Element(c => BodyCellStyle(c, true)).Text($"{totalCharges:C}").Bold();
+
+                    t.Cell().Element(HeaderCellStyle).Text("Total Abonos (Caja):");
+                    t.Cell().Element(c => BodyCellStyle(c, true)).Text($"{totalPayments:C}").Bold().FontColor(Colors.Green.Darken1);
                 });
             });
         }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System; // Añadido para DateTime
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,16 +25,26 @@ namespace TuClinica.DataAccess.Repositories
                 .ToListAsync();
         }
 
-        // --- IMPLEMENTACIÓN DE LA MEJORA (CORREGIDA PARA SQLITE) ---
         public async Task<decimal> GetTotalPaidForPatientAsync(int patientId)
         {
-            // 1. Convertimos 'Amount' (decimal) a 'double' DENTRO de la consulta.
             var total = await _context.Payments
                 .Where(p => p.PatientId == patientId)
-                .SumAsync(p => (double)p.Amount); // SQLite suma 'double'
+                .SumAsync(p => (double)p.Amount);
 
-            // 2. Convertimos el resultado 'double' de vuelta a 'decimal'
             return (decimal)total;
+        }
+
+        // --- IMPLEMENTACIÓN NUEVA ---
+        public async Task<IEnumerable<Payment>> GetByDateRangeAsync(DateTime start, DateTime end)
+        {
+            var actualEnd = end.Date.AddDays(1).AddTicks(-1);
+
+            return await _context.Payments
+                .Include(p => p.Patient) // Vital
+                .Where(p => p.PaymentDate >= start.Date && p.PaymentDate <= actualEnd)
+                .OrderBy(p => p.PaymentDate)
+                .AsNoTracking()
+                .ToListAsync();
         }
     }
 }

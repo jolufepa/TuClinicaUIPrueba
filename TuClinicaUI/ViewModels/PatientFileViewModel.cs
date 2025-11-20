@@ -91,6 +91,8 @@ namespace TuClinica.UI.ViewModels
 
         // --- Comandos ---
         public IAsyncRelayCommand<ClinicalEntry> DeleteClinicalEntryAsyncCommand { get; }
+        public IAsyncRelayCommand<Payment> DeletePaymentAsyncCommand { get; }
+
         public IRelayCommand ToggleEditPatientDataCommand { get; }
         public IAsyncRelayCommand SavePatientDataAsyncCommand { get; }
         public IAsyncRelayCommand AllocatePaymentCommand { get; }
@@ -141,15 +143,16 @@ namespace TuClinica.UI.ViewModels
             InitializeOdontogram();
             WeakReferenceMessenger.Default.Register<OpenOdontogramMessage>(this, (r, m) => OpenOdontogramWindow());
 
-            // Inicializar Comandos
             DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
+            DeletePaymentAsyncCommand = new AsyncRelayCommand<Payment>(DeletePaymentAsync, CanDeletePayment);
+
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
             SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData);
-            AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate); // CS0103 Resuelto: Método definido abajo
+            AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate);
             RegisterNewPaymentCommand = new AsyncRelayCommand(RegisterNewPayment);
             PrintOdontogramCommand = new AsyncRelayCommand(PrintOdontogramAsync);
             NewBudgetCommand = new RelayCommand(NewBudget);
-            PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync); // CS0103 Resuelto: Método definido abajo
+            PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync);
             OpenRegisterChargeDialogCommand = new AsyncRelayCommand(OpenRegisterChargeDialog);
             AddPlanItemAsyncCommand = new AsyncRelayCommand(AddPlanItemAsync, CanAddPlanItem);
             TogglePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(TogglePlanItemAsync);
@@ -263,7 +266,7 @@ namespace TuClinica.UI.ViewModels
 
         private void LoadOdontogramStateFromJson()
         {
-            // 1. Resetear estado visual
+            // 1. Limpiar estado actual (todo a Sano)
             foreach (var t in Odontogram)
             {
                 t.FullCondition = ToothCondition.Sano; t.OclusalCondition = ToothCondition.Sano; t.MesialCondition = ToothCondition.Sano;
@@ -278,18 +281,28 @@ namespace TuClinica.UI.ViewModels
             try
             {
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-                // Usamos el wrapper con los DTOs
                 var wrapper = JsonSerializer.Deserialize<OdontogramPersistenceWrapper>(CurrentPatient.OdontogramStateJson, options);
 
                 if (wrapper != null)
                 {
-                    if (wrapper.Teeth != null)
-                        ApplyTeethState(wrapper.Teeth);
-
-                    if (wrapper.Connectors != null)
+                    // --- LÓGICA DE VERSIONADO ---
+                    // Aquí puedes manejar diferencias de versiones.
+                    // Por ahora, la versión 1 (y 0/legacy) se cargan igual.
+                    if (wrapper.SchemaVersion <= 1)
                     {
-                        foreach (var c in wrapper.Connectors) MasterConnectors.Add(c);
+                        if (wrapper.Teeth != null)
+                            ApplyTeethState(wrapper.Teeth);
+
+                        if (wrapper.Connectors != null)
+                        {
+                            foreach (var c in wrapper.Connectors) MasterConnectors.Add(c);
+                        }
+                    }
+                    else
+                    {
+                        // Si encontramos un JSON de una versión futura (ej. v2) creado por una app más nueva,
+                        // mostramos aviso para evitar corrupción de datos al guardar.
+                        _dialogService.ShowMessage("El odontograma fue creado con una versión más reciente de la aplicación. Algunos datos podrían no mostrarse.", "Aviso de Versión");
                     }
                 }
             }
@@ -340,7 +353,11 @@ namespace TuClinica.UI.ViewModels
 
                     if (vm.DialogResult == true)
                     {
+                        // Nota: OdontogramViewModel genera el JSON. Asegúrate de que use 
+                        // OdontogramPersistenceWrapper internamente o que su salida sea compatible.
+                        // Al usar el DTO común en Core, garantizamos que SchemaVersion = 1 se guarde.
                         var json = vm.GetSerializedState();
+
                         if (CurrentPatient.OdontogramStateJson != json)
                         {
                             CurrentPatient.OdontogramStateJson = json;
@@ -476,7 +493,7 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
         }
 
-        // --- Facturación (CS7036 SOLUCIONADO: Método con valor por defecto) ---
+        // --- Facturación ---
         private async Task RefreshBillingCollections(CancellationToken token = default)
         {
             if (CurrentPatient == null) return;
@@ -517,7 +534,9 @@ namespace TuClinica.UI.ViewModels
 
             HistorialCombinado.Clear();
             foreach (var c in VisitHistory) HistorialCombinado.Add(new CargoEvent(c, this));
-            foreach (var p in PaymentHistory) HistorialCombinado.Add(new AbonoEvent(p));
+
+            foreach (var p in PaymentHistory) HistorialCombinado.Add(new AbonoEvent(p, this));
+
             var sorted = HistorialCombinado.OrderByDescending(x => x.Timestamp).ToList();
             HistorialCombinado.Clear();
             sorted.ForEach(HistorialCombinado.Add);
@@ -601,13 +620,14 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
         }
 
-        // --- Helpers y Otros (CS0103 SOLUCIONADOS: Métodos definidos completamente) ---
+        // --- Helpers y Otros ---
         private bool CanAllocate()
         {
             return SelectedCharge != null && SelectedPayment != null && AmountToAllocate > 0;
         }
 
         private void AutoFillAmountToAllocate() { if (SelectedCharge != null && SelectedPayment != null) AmountToAllocate = Math.Min(SelectedCharge.Balance, SelectedPayment.UnallocatedAmount); else AmountToAllocate = 0; }
+
         private bool CanDeleteClinicalEntry(ClinicalEntry? e) => e != null;
 
         private async Task DeleteClinicalEntryAsync(ClinicalEntry? e)
@@ -615,6 +635,36 @@ namespace TuClinica.UI.ViewModels
             if (e == null || _dialogService.ShowConfirmation("¿Eliminar cargo?", "Confirmar") == CoreDialogResult.No) return;
             try { using (var s = _scopeFactory.CreateScope()) { await s.ServiceProvider.GetRequiredService<IClinicalEntryRepository>().DeleteEntryAndAllocationsAsync(e.Id); } await RefreshBillingCollections(); }
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
+        }
+
+        private bool CanDeletePayment(Payment? p) => p != null;
+
+        private async Task DeletePaymentAsync(Payment? p)
+        {
+            if (p == null || _dialogService.ShowConfirmation("¿Eliminar este abono?\n\nSe anularán todas las asignaciones de pago correspondientes.", "Confirmar Eliminación de Pago") == CoreDialogResult.No) return;
+
+            try
+            {
+                using (var s = _scopeFactory.CreateScope())
+                {
+                    var r = s.ServiceProvider.GetRequiredService<IPaymentRepository>();
+                    var dbPayment = await r.GetByIdAsync(p.Id);
+                    if (dbPayment != null)
+                    {
+                        r.Remove(dbPayment);
+                        await r.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        _dialogService.ShowMessage("No se encontró el pago en la base de datos.", "Error");
+                    }
+                }
+                await RefreshBillingCollections();
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error al eliminar el pago: {ex.Message}", "Error");
+            }
         }
 
         private bool CanAddPlanItem() => !string.IsNullOrWhiteSpace(NewPlanItemDescription);
@@ -702,6 +752,7 @@ namespace TuClinica.UI.ViewModels
 
                 var wrapper = new OdontogramPersistenceWrapper
                 {
+                    SchemaVersion = 1, // Versión explícita al exportar
                     Teeth = teethDtos,
                     Connectors = MasterConnectors.ToList()
                 };

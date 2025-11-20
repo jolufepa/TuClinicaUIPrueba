@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TuClinica.Core.Models;
 
@@ -13,5 +14,8 @@ namespace TuClinica.Core.Interfaces.Repositories
         /// Calcula la suma total de los pagos del paciente directamente en la BD.
         /// </summary>
         Task<decimal> GetTotalPaidForPatientAsync(int patientId);
+
+        // --- NUEVO MÉTODO PARA REPORTE ---
+        Task<IEnumerable<Payment>> GetByDateRangeAsync(DateTime start, DateTime end);
     }
 }

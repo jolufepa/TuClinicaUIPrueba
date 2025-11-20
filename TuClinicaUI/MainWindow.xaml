@@ -4,14 +4,12 @@
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:TuClinica.UI"
-              
-   xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:views="clr-namespace:TuClinica.UI.Views"           
                  xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
                  mc:Ignorable="d"
                  Title="Gestión Clínica Dental PD" 
-              
-   WindowState="Maximized"
+                 WindowState="Maximized"
                  d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}" d:DesignHeight="309.96" d:DesignWidth="241">
 
     <mah:MetroWindow.Resources>
@@ -24,27 +22,25 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type viewmodels:HomeViewModel}">
                 <views:HomeView/>
-
             </DataTemplate>
             <DataTemplate DataType="{x:Type viewmodels:BudgetsViewModel}">
                 <views:BudgetsView/>
             </DataTemplate>
-
             <DataTemplate DataType="{x:Type viewmodels:TreatmentsViewModel}">
-
                 <views:TreatmentsView/>
             </DataTemplate>
-
             <DataTemplate DataType="{x:Type viewmodels:AdminViewModel}">
                 <views:AdminView/>
             </DataTemplate>
-
             <DataTemplate DataType="{x:Type viewmodels:PrescriptionViewModel}">
                 <views:PrescriptionView/>
             </DataTemplate>
-
             <DataTemplate DataType="{x:Type viewmodels:PatientFileViewModel}">
                 <views:PatientFileView/>
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:FinancialSummaryViewModel}">
+                <views:FinancialSummaryView/>
             </DataTemplate>
 
         </ResourceDictionary>
@@ -63,20 +59,22 @@
 
                 <Button Content="Pacientes" Margin="0,5"
                         Command="{Binding NavigateToPatientsCommand}"
-  
-                      Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                         FontSize="14"/>
 
                 <Button Content="Presupuestos" Margin="0,5"
                         Command="{Binding NavigateToBudgetsCommand}"
-            
-            Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Visibility="{Binding IsReceptionMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        FontSize="14"/>
+
+                <Button Content="Resumen Financiero" Margin="0,5"
+                        Command="{Binding NavigateToFinancialSummaryCommand}"
+                        Visibility="{Binding IsFinancialMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                         FontSize="14"/>
 
                 <Button Content="Tratamientos" Margin="0,5"
                         Command="{Binding NavigateToTreatmentsCommand}"
-                      
-  Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Visibility="{Binding IsDoctorMenuVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                         FontSize="14"/>
 
                 <Button Content="Recetas" Margin="0,5"

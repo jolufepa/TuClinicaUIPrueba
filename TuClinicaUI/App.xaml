@@ -13,6 +13,8 @@
                 <ResourceDictionary Source="/Assets/ToothGeometries.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
+            <SolidColorBrush x:Key="PrimaryBrandColor" Color="#007ACC" />
+            <SolidColorBrush x:Key="PrimaryBrandForeground" Color="White" />
             <converters:FirstErrorConverter x:Key="FirstErrorConverter"/>
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>

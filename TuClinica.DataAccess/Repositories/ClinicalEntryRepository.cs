@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System; // Necesario para Exception
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -28,61 +28,60 @@ namespace TuClinica.DataAccess.Repositories
                 .ToListAsync();
         }
 
-        // --- IMPLEMENTACIÓN DE LA MEJORA (CORREGIDA PARA SQLITE) ---
         public async Task<decimal> GetTotalChargedForPatientAsync(int patientId)
         {
-            // 1. Convertimos el 'decimal' (TotalCost) a 'double' DENTRO de la consulta.
             var total = await _context.ClinicalEntries
                 .Where(c => c.PatientId == patientId)
-                .SumAsync(c => (double)c.TotalCost); // SQLite sí puede sumar 'double'
+                .SumAsync(c => (double)c.TotalCost);
 
-            // 2. Convertimos el resultado 'double' de vuelta a 'decimal'
             return (decimal)total;
+        }
+
+        // --- IMPLEMENTACIÓN NUEVA ---
+        public async Task<IEnumerable<ClinicalEntry>> GetByDateRangeAsync(DateTime start, DateTime end)
+        {
+            // Ajustamos 'end' para incluir todo el último día (hasta 23:59:59)
+            var actualEnd = end.Date.AddDays(1).AddTicks(-1);
+
+            return await _context.ClinicalEntries
+                .Include(c => c.Patient) // Vital para mostrar el nombre
+                .Where(c => c.VisitDate >= start.Date && c.VisitDate <= actualEnd)
+                .OrderBy(c => c.VisitDate)
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task<bool> DeleteEntryAndAllocationsAsync(int entryId)
         {
-            // Iniciar una transacción para asegurar que todo se haga o nada se haga
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // 1. Encontrar el cargo que se va a eliminar
                 var entryToDelete = await _context.ClinicalEntries
                     .FirstOrDefaultAsync(c => c.Id == entryId);
 
                 if (entryToDelete == null)
                 {
-                    // No se encontró nada que borrar
                     await transaction.RollbackAsync();
                     return false;
                 }
 
-                // 2. Encontrar TODAS las asignaciones de pago para este cargo
                 var allocationsToDelete = await _context.PaymentAllocations
                     .Where(a => a.ClinicalEntryId == entryId)
                     .ToListAsync();
 
-                // 3. Eliminar las asignaciones
-                // (Esto "devuelve" el dinero a los pagos originales)
                 if (allocationsToDelete.Any())
                 {
                     _context.PaymentAllocations.RemoveRange(allocationsToDelete);
                 }
 
-                // 4. Eliminar el cargo en sí
                 _context.ClinicalEntries.Remove(entryToDelete);
-
-                // 5. Guardar todos los cambios (borrado de cargo Y asignaciones)
                 await _context.SaveChangesAsync();
-
-                // 6. Confirmar la transacción
                 await transaction.CommitAsync();
                 return true;
             }
             catch (Exception)
             {
-                // Si algo sale mal, deshacer todo
                 await transaction.RollbackAsync();
                 return false;
             }

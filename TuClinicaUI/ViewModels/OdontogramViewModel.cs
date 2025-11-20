@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Media;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces.Services;
-using TuClinica.Core.Models;
+using TuClinica.Core.Models; // <--- Ahora usará las clases de aquí
 using TuClinica.UI.Messages;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
 
@@ -31,33 +31,9 @@ namespace TuClinica.UI.ViewModels
         public Brush ColorIndicator { get; set; } = Brushes.Transparent;
     }
 
-    // --- DTOs DE SERIALIZACIÓN ---
-    public class ToothStateDto
-    {
-        public int ToothNumber { get; set; }
-        public ToothCondition FullCondition { get; set; }
-        public ToothCondition OclusalCondition { get; set; }
-        public ToothCondition MesialCondition { get; set; }
-        public ToothCondition DistalCondition { get; set; }
-        public ToothCondition VestibularCondition { get; set; }
-        public ToothCondition LingualCondition { get; set; }
-
-        public ToothRestoration FullRestoration { get; set; }
-        public ToothRestoration OclusalRestoration { get; set; }
-        public ToothRestoration MesialRestoration { get; set; }
-        public ToothRestoration DistalRestoration { get; set; }
-        public ToothRestoration VestibularRestoration { get; set; }
-        public ToothRestoration LingualRestoration { get; set; }
-    }
-
-    public class OdontogramPersistenceWrapper
-    {
-        public List<ToothStateDto> Teeth { get; set; } = new();
-        // IMPORTANTE: PdfService ahora espera que 'Connectors' use ConnectorType (Enum) y no string.
-        // Al usar DentalConnector aquí (que usa Enum), System.Text.Json serializará como entero.
-        // PdfService ahora está preparado para leer ese entero.
-        public List<DentalConnector> Connectors { get; set; } = new();
-    }
+    // --- DTOs DE SERIALIZACIÓN ELIMINADOS ---
+    // (Se han borrado ToothStateDto y OdontogramPersistenceWrapper de aquí 
+    // porque ya existen en TuClinica.Core.Models y causaban conflicto)
 
     public partial class PatientDisplayModel : ObservableObject
     {
@@ -276,6 +252,7 @@ namespace TuClinica.UI.ViewModels
         {
             try
             {
+                // Usamos ToothStateDto del Core
                 var teethDtos = Odontogram.Select(t => new ToothStateDto
                 {
                     ToothNumber = t.ToothNumber,
@@ -293,8 +270,10 @@ namespace TuClinica.UI.ViewModels
                     LingualRestoration = t.LingualRestoration
                 }).ToList();
 
+                // Usamos OdontogramPersistenceWrapper del Core (ahora con SchemaVersion)
                 var wrapper = new OdontogramPersistenceWrapper
                 {
+                    SchemaVersion = 1,
                     Teeth = teethDtos,
                     Connectors = Connectors.ToList()
                 };
