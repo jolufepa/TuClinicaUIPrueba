@@ -36,9 +36,10 @@ namespace TuClinica.Services.Implementation
         public ToothRestoration LingualRestoration { get; set; }
     }
 
+    // *** CORRECCIÓN ODONTOGRAMA: Usar ConnectorType en lugar de string ***
     internal class DentalConnectorDto
     {
-        public string Type { get; set; }
+        public ConnectorType Type { get; set; }
         public List<int> ToothSequence { get; set; } = new();
         public string ColorHex { get; set; }
     }
@@ -93,7 +94,7 @@ namespace TuClinica.Services.Implementation
         }
 
         // =================================================================================================
-        // 1. GENERACIÓN DE PRESUPUESTO PDF
+        // 1. GENERACIÓN DE PRESUPUESTO PDF (LÓGICA RESTAURADA COMPLETA)
         // =================================================================================================
         public async Task<string> GenerateBudgetPdfAsync(Budget budget)
         {
@@ -345,7 +346,7 @@ namespace TuClinica.Services.Implementation
         }
 
         // =================================================================================================
-        // 2. GENERACIÓN DE RECETA PDF (OFICIAL)
+        // 2. GENERACIÓN DE RECETA PDF (OFICIAL) - RESTAURADA
         // =================================================================================================
         public async Task<string> GeneratePrescriptionPdfAsync(Prescription prescription)
         {
@@ -458,7 +459,7 @@ namespace TuClinica.Services.Implementation
         }
 
         // =================================================================================================
-        // 3. GENERACIÓN DE RECETA PDF (BÁSICA)
+        // 3. GENERACIÓN DE RECETA PDF (BÁSICA) - RESTAURADA
         // =================================================================================================
         public async Task<string> GenerateBasicPrescriptionPdfAsync(Prescription prescription)
         {
@@ -563,7 +564,7 @@ namespace TuClinica.Services.Implementation
         }
 
         // =================================================================================================
-        // 4. GENERACIÓN DE ODONTOGRAMA PDF (CORREGIDO Y COMPLETO)
+        // 4. GENERACIÓN DE ODONTOGRAMA PDF (CORREGIDO CON ENUM)
         // =================================================================================================
         public async Task<string> GenerateOdontogramPdfAsync(Patient patient, string odontogramJsonState)
         {
@@ -573,14 +574,13 @@ namespace TuClinica.Services.Implementation
             string filePath = Path.Combine(yearFolder, fileName);
 
             List<OdontogramToothState> teeth = new List<OdontogramToothState>();
-            // Aunque no dibujemos conectores en PDF aún, deserializamos el wrapper para obtener los dientes correctamente
-            List<DentalConnectorDto> connectors = new List<DentalConnectorDto>();
 
             try
             {
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
                 // INTENTAR DESERIALIZAR WRAPPER
+                // Ahora DentalConnectorDto usa el Enum correcto, por lo que no fallará.
                 try
                 {
                     var wrapper = JsonSerializer.Deserialize<OdontogramPersistenceWrapperDto>(odontogramJsonState, options);
@@ -596,6 +596,7 @@ namespace TuClinica.Services.Implementation
                 }
                 catch
                 {
+                    // Si falla el wrapper, intentamos la lista directa (formato antiguo)
                     teeth = JsonSerializer.Deserialize<List<OdontogramToothState>>(odontogramJsonState, options) ?? new List<OdontogramToothState>();
                 }
             }
@@ -645,24 +646,30 @@ namespace TuClinica.Services.Implementation
         {
             container.Column(mainCol =>
             {
+                // Superior
                 mainCol.Item().Row(row =>
                 {
                     row.RelativeItem().AlignCenter().Row(r =>
                     {
+                        // Cuadrante 1 (18-11) -> isUpper = true
                         for (int i = 18; i >= 11; i--) AddGeometricTooth(r, GetTooth(teeth, i), true);
                         r.ConstantItem(15);
+                        // Cuadrante 2 (21-28) -> isUpper = true
                         for (int i = 21; i <= 28; i++) AddGeometricTooth(r, GetTooth(teeth, i), true);
                     });
                 });
 
                 mainCol.Item().Height(30);
 
+                // Inferior
                 mainCol.Item().Row(row =>
                 {
                     row.RelativeItem().AlignCenter().Row(r =>
                     {
+                        // Cuadrante 4 (48-41) -> isUpper = false
                         for (int i = 48; i >= 41; i--) AddGeometricTooth(r, GetTooth(teeth, i), false);
                         r.ConstantItem(15);
+                        // Cuadrante 3 (31-38) -> isUpper = false
                         for (int i = 31; i <= 38; i++) AddGeometricTooth(r, GetTooth(teeth, i), false);
                     });
                 });
@@ -671,6 +678,7 @@ namespace TuClinica.Services.Implementation
 
         private OdontogramToothState GetTooth(List<OdontogramToothState> teeth, int number)
         {
+            // Si la lista está vacía o no se encuentra, devolvemos uno nuevo "Sano" (blanco)
             return teeth.FirstOrDefault(t => t.ToothNumber == number) ?? new OdontogramToothState { ToothNumber = number };
         }
 
@@ -712,17 +720,20 @@ namespace TuClinica.Services.Implementation
             SKPaint GetPaint(ToothCondition c, ToothRestoration r)
             {
                 SKColor color = SKColors.White;
-                if (r == ToothRestoration.Obturacion) color = SKColor.Parse("#3498DB");
-                else if (r == ToothRestoration.Sellador) color = SKColor.Parse("#2ECC71");
-                else if (r == ToothRestoration.ProtesisFija) color = SKColor.Parse("#C0392B");
-                else if (r == ToothRestoration.Corona) color = SKColor.Parse("#F1C40F");
-                else if (c == ToothCondition.Caries) color = SKColor.Parse("#E74C3C");
-                else if (c == ToothCondition.Fractura) color = SKColor.Parse("#F1C40F");
+                // Prioridad Restauraciones
+                if (r == ToothRestoration.Obturacion) color = SKColor.Parse("#3498DB"); // Azul
+                else if (r == ToothRestoration.Sellador) color = SKColor.Parse("#2ECC71"); // Verde
+                else if (r == ToothRestoration.ProtesisFija) color = SKColor.Parse("#C0392B"); // Rojo oscuro
+                else if (r == ToothRestoration.Corona) color = SKColor.Parse("#F1C40F"); // Dorado
+                // Prioridad Condiciones
+                else if (c == ToothCondition.Caries) color = SKColor.Parse("#E74C3C"); // Rojo
+                else if (c == ToothCondition.Fractura) color = SKColor.Parse("#F1C40F"); // Amarillo/Naranja
 
+                // Importante: IsStroke = false para rellenar
                 return new SKPaint { Color = color, IsStroke = false, IsAntialias = true };
             }
 
-            // Geometría básica
+            // Geometría básica (Cuadrado con trapecios)
             float m = 1;
             var tl = new SKPoint(m, m); var tr = new SKPoint(w - m, m);
             var bl = new SKPoint(m, h - m); var br = new SKPoint(w - m, h - m);
@@ -735,8 +746,10 @@ namespace TuClinica.Services.Implementation
             using var pathLeft = new SKPath(); pathLeft.MoveTo(tl); pathLeft.LineTo(bl); pathLeft.LineTo(c_bl); pathLeft.LineTo(c_tl); pathLeft.Close();
             using var pathRight = new SKPath(); pathRight.MoveTo(tr); pathRight.LineTo(br); pathRight.LineTo(c_br); pathRight.LineTo(c_tr); pathRight.Close();
 
+            // Mapeo de caras
             var condTop = isUpper ? tooth.VestibularCondition : tooth.LingualCondition;
             var restTop = isUpper ? tooth.VestibularRestoration : tooth.LingualRestoration;
+
             var condBot = isUpper ? tooth.LingualCondition : tooth.VestibularCondition;
             var restBot = isUpper ? tooth.LingualRestoration : tooth.VestibularRestoration;
 
@@ -746,16 +759,18 @@ namespace TuClinica.Services.Implementation
             var condRight = isRightQuadrant ? tooth.MesialCondition : tooth.DistalCondition;
             var restRight = isRightQuadrant ? tooth.MesialRestoration : tooth.DistalRestoration;
 
+            // Dibujar Rellenos y Bordes
             canvas.DrawPath(pathTop, GetPaint(condTop, restTop)); canvas.DrawPath(pathTop, paintStroke);
             canvas.DrawPath(pathBot, GetPaint(condBot, restBot)); canvas.DrawPath(pathBot, paintStroke);
             canvas.DrawPath(pathLeft, GetPaint(condLeft, restLeft)); canvas.DrawPath(pathLeft, paintStroke);
             canvas.DrawPath(pathRight, GetPaint(condRight, restRight)); canvas.DrawPath(pathRight, paintStroke);
 
+            // Centro (Oclusal)
             using var paintCenter = GetPaint(tooth.OclusalCondition, tooth.OclusalRestoration);
             canvas.DrawCircle(cx, cy, radius, paintCenter);
             canvas.DrawCircle(cx, cy, radius, paintStroke);
 
-            // Estados especiales
+            // Restauraciones Completas
             if (IsFullRestoration(tooth.FullRestoration))
             {
                 using var paintFull = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill };
@@ -764,9 +779,11 @@ namespace TuClinica.Services.Implementation
                 else if (tooth.FullRestoration == ToothRestoration.Implante) paintFull.Color = SKColor.Parse("#808080");
                 else paintFull.Color = SKColors.Gray;
 
-                canvas.DrawCircle(cx, cy, w / 2 - 4, paintFull);
+                // Dibujar círculo grande sobre todo
+                canvas.DrawCircle(cx, cy, w / 2 - 2, paintFull);
             }
 
+            // Extracción (X roja)
             if (tooth.FullCondition == ToothCondition.ExtraccionIndicada)
             {
                 using var paintEx = new SKPaint { Color = SKColor.Parse("#E74C3C"), IsStroke = true, StrokeWidth = 2.5f, IsAntialias = true };
@@ -774,6 +791,7 @@ namespace TuClinica.Services.Implementation
                 canvas.DrawLine(w, 0, 0, h, paintEx);
             }
 
+            // Ausente (X negra)
             if (tooth.FullCondition == ToothCondition.Ausente)
             {
                 using var paintAbsent = new SKPaint { Color = SKColor.Parse("#333333"), IsStroke = true, StrokeWidth = 2, IsAntialias = true };
@@ -792,7 +810,6 @@ namespace TuClinica.Services.Implementation
             container.AlignCenter().Row(row =>
             {
                 row.Spacing(15);
-
                 void AddItem(string text, string type)
                 {
                     row.AutoItem().Row(r =>
@@ -802,7 +819,6 @@ namespace TuClinica.Services.Implementation
                         r.AutoItem().PaddingLeft(4).Text(text).FontSize(9);
                     });
                 }
-
                 AddItem("Sano", "white");
                 AddItem("Caries", "red");
                 AddItem("Obturación", "blue");
@@ -811,8 +827,7 @@ namespace TuClinica.Services.Implementation
                 AddItem("Extracción", "x_red");
                 AddItem("Endodoncia", "purple");
                 AddItem("Implante", "grey");
-                AddItem("Puente", "line_blue");
-                AddItem("Ortodoncia", "line_green");
+                // AddItem("Puente", "line_blue"); // Opcional si no se dibujan
             });
         }
 
@@ -823,14 +838,7 @@ namespace TuClinica.Services.Implementation
             {
                 var stroke = new SKPaint { Color = SKColors.Black, IsStroke = true, StrokeWidth = 1 };
 
-                if (type == "line_blue" || type == "line_green")
-                {
-                    var color = type == "line_blue" ? SKColor.Parse("#3498DB") : SKColor.Parse("#2ECC71");
-                    var paintLine = new SKPaint { Color = color, IsStroke = true, StrokeWidth = 3 };
-                    float midY = height / 2;
-                    canvas.DrawLine(0, midY, width, midY, paintLine);
-                }
-                else if (type == "x_red" || type == "x_black")
+                if (type == "x_red" || type == "x_black")
                 {
                     var color = type == "x_red" ? SKColor.Parse("#E74C3C") : SKColor.Parse("#333333");
                     var paintX = new SKPaint { Color = color, IsStroke = true, StrokeWidth = 2 };
@@ -857,7 +865,7 @@ namespace TuClinica.Services.Implementation
         }
 
         // =================================================================================================
-        // 5. GENERACIÓN DE HISTORIAL PDF
+        // 5. GENERACIÓN DE HISTORIAL PDF (LÓGICA RESTAURADA)
         // =================================================================================================
         public async Task<byte[]> GenerateHistoryPdfAsync(Patient patient, List<ClinicalEntry> entries, List<Payment> payments, decimal totalBalance)
         {
@@ -870,13 +878,11 @@ namespace TuClinica.Services.Implementation
                         page.Size(PageSizes.A4);
                         page.Margin(1.5f, Unit.Centimetre);
                         page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
-
                         page.Header().Element(c => ComposeHistoryHeader(c, patient));
                         page.Content().Element(c => ComposeHistoryContent(c, entries, payments, totalBalance));
                         page.Footer().Element(c => ComposeHistoryFooter(c));
                     });
-                })
-                .GeneratePdf();
+                }).GeneratePdf();
             });
         }
 

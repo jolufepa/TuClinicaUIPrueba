@@ -31,8 +31,7 @@ namespace TuClinica.UI.ViewModels
         public Brush ColorIndicator { get; set; } = Brushes.Transparent;
     }
 
-    // --- DTO LIMPIO PARA SERIALIZACIÓN ---
-    // Usamos este objeto simple para asegurar que 'ToothNumber' y los estados se guarden correctamente
+    // --- DTOs DE SERIALIZACIÓN ---
     public class ToothStateDto
     {
         public int ToothNumber { get; set; }
@@ -53,8 +52,10 @@ namespace TuClinica.UI.ViewModels
 
     public class OdontogramPersistenceWrapper
     {
-        // Cambiamos la lista para usar el DTO en lugar del ViewModel
         public List<ToothStateDto> Teeth { get; set; } = new();
+        // IMPORTANTE: PdfService ahora espera que 'Connectors' use ConnectorType (Enum) y no string.
+        // Al usar DentalConnector aquí (que usa Enum), System.Text.Json serializará como entero.
+        // PdfService ahora está preparado para leer ese entero.
         public List<DentalConnector> Connectors { get; set; } = new();
     }
 
@@ -267,19 +268,14 @@ namespace TuClinica.UI.ViewModels
         private async Task Print()
         {
             if (_currentPatient == null) return;
-            // Generamos el string serializado CORRECTAMENTE antes de enviarlo al PDF
             string path = await _pdfService.GenerateOdontogramPdfAsync(_currentPatient, GetSerializedState());
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
 
-        // --- CORRECCIÓN PRINCIPAL AQUÍ ---
         public string GetSerializedState()
         {
             try
             {
-                // Mapeamos manualmente los ViewModel a los DTOs
-                // Esto asegura que propiedades como ToothNumber (que es ReadOnly en el ViewModel)
-                // se copien y serialicen correctamente en el JSON.
                 var teethDtos = Odontogram.Select(t => new ToothStateDto
                 {
                     ToothNumber = t.ToothNumber,

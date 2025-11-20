@@ -6,7 +6,6 @@
              xmlns:local="clr-namespace:TuClinica.UI.Views"
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:viewmodels="clr-namespace:TuClinica.UI.ViewModels"
-       
              xmlns:converters="clr-namespace:TuClinica.UI.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:BudgetsViewModel}"
@@ -19,8 +18,6 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-
-
     <mah:MetroTabControl>
 
         <mah:MetroTabItem Header="Crear Presupuesto">
@@ -28,14 +25,12 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="1" Padding="10" Margin="0,0,0,15">
-
                     <StackPanel Orientation="Horizontal">
                         <Button Content="Seleccionar Paciente..."
                                  Command="{Binding SelectPatientCommand}"
@@ -45,79 +40,65 @@
 
                         <TextBlock Text="{Binding CurrentPatientDisplay}" 
                                    VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" />
-
-
                     </StackPanel>
                 </Border>
 
                 <GroupBox Grid.Row="1" Header="Añadir Tratamientos" Margin="0,0,0,15">
                     <Grid>
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
-
                         </Grid.ColumnDefinitions>
 
                         <ComboBox Grid.Column="0" Margin="0,0,10,0"
                                   ItemsSource="{Binding AvailableTreatments}"
                                   DisplayMemberPath="Name"
-  
-                                 mah:TextBoxHelper.Watermark="Seleccionar tratamiento predefinido..."
+                                  SelectedItem="{Binding SelectedPredefinedTreatment, Mode=TwoWay}"
+                                  mah:TextBoxHelper.Watermark="Seleccionar para AÑADIR al presupuesto..."
                                   x:Name="PredefinedTreatmentComboBox"
-                                
-   FontSize="21"          
+                                  FontSize="21"
                                   MinWidth="300"/>
+
                         <Button Grid.Column="1" Content="Añadir Predefinido" Margin="0,0,10,0"
-                          
-       Command="{Binding AddPredefinedTreatmentCommand}"
+                                Command="{Binding AddPredefinedTreatmentCommand}"
                                 CommandParameter="{Binding ElementName=PredefinedTreatmentComboBox, Path=SelectedItem}"/>
+
                         <Button Grid.Column="2" Content="Añadir Manual"
-                                
- Command="{Binding AddManualTreatmentCommand}"/>
+                                Command="{Binding AddManualTreatmentCommand}"/>
                     </Grid>
                 </GroupBox>
 
                 <DataGrid Grid.Row="2" Margin="0,0,0,15" ItemsSource="{Binding BudgetItems}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray">
                     <DataGrid.Columns>
-
                         <DataGridTextColumn Header="Descripción" Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Width="3*">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
-
                                     <Setter Property="TextWrapping" Value="Wrap" />
                                     <Setter Property="VerticalAlignment" Value="Center" />
                                     <Setter Property="Margin" Value="4" />
-
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                             <DataGridTextColumn.EditingElementStyle>
-
                                 <Style TargetType="TextBox">
                                     <Setter Property="TextWrapping" Value="Wrap" />
                                     <Setter Property="AcceptsReturn" Value="True" />
-
                                 </Style>
                             </DataGridTextColumn.EditingElementStyle>
                         </DataGridTextColumn>
 
-                        <DataGridTemplateColumn Header="Cantidad" Width="Auto" 
- MinWidth="70">
+                        <DataGridTemplateColumn Header="Cantidad" Width="Auto" MinWidth="70">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <mah:NumericUpDown Value="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" 
- Minimum="1" Interval="1"/>
+                                    <mah:NumericUpDown Value="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Minimum="1" Interval="1"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="P.
- Unit (€)" Width="*" MinWidth="100">
+                        <DataGridTemplateColumn Header="P. Unit (€)" Width="*" MinWidth="100">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <mah:NumericUpDown 
- Value="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" Minimum="0" StringFormat="C" Culture="es-ES"/>
+                                    <mah:NumericUpDown Value="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" Minimum="0" StringFormat="C" Culture="es-ES"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -125,34 +106,28 @@
                         <DataGridTextColumn Header="Total (€)" IsReadOnly="True" Width="*" MinWidth="100" Binding="{Binding LineTotal, StringFormat=C, ConverterCulture='es-ES'}"/>
                         <DataGridTemplateColumn Width="Auto">
                             <DataGridTemplateColumn.CellTemplate>
-
                                 <DataTemplate>
                                     <Button Content="X" ToolTip="Eliminar línea" Padding="5,2" Margin="5,0" Background="IndianRed" Foreground="White" Command="{Binding DataContext.RemoveBudgetItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
                                 </DataTemplate>
-
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
 
                 <Grid Grid.Row="3" Margin="0,0,0,15">
-
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-
                     <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right">
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                             <Label Content="Descuento (%):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right"/>
-                            <mah:NumericUpDown Value="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="1" 
- Width="80"/>
+                            <mah:NumericUpDown Value="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="1" Width="80"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                             <Label Content="IVA (%):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right"/>
-
                             <mah:NumericUpDown Value="{Binding VatPercent, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="1" Width="80"/>
                         </StackPanel>
 
@@ -161,78 +136,60 @@
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                     <Label Content="Plazos (meses):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right" FontWeight="SemiBold"/>
-
                                     <mah:NumericUpDown Value="{Binding NumberOfMonths, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="360" Interval="1" Width="80"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5"
-                 
-                             Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Label Content="Interés (TIN %):" VerticalAlignment="Center" MinWidth="100" HorizontalContentAlignment="Right" FontWeight="SemiBold"/>
-
                                     <mah:NumericUpDown Value="{Binding InterestRate, UpdateSourceTrigger=PropertyChanged}" Minimum="0" Maximum="100" Interval="0.1" StringFormat="N2" Width="80"/>
                                 </StackPanel>
                             </StackPanel>
-
                         </Border>
                         <Border BorderBrush="LightGray" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0">
                             <Grid MinWidth="250">
                                 <Grid.ColumnDefinitions>
-
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <Grid.RowDefinitions>
                                     <RowDefinition/>
-
                                     <RowDefinition/>
                                     <RowDefinition/>
                                     <RowDefinition/>
-
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Subtotal:" Margin="0,0,10,0"/>
-
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Subtotal, StringFormat=C, ConverterCulture='es-ES'}" HorizontalAlignment="Right"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Descuento:" Margin="0,0,10,0"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DiscountAmount, StringFormat='{}{0:N2} €'}" HorizontalAlignment="Right" Foreground="Red"/>
 
-
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="IVA:" Margin="0,0,10,0"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding VatAmount, StringFormat='{}{0:N2} €'}" HorizontalAlignment="Right"/>
 
-                                <TextBlock 
- Grid.Row="3" Grid.Column="0" Text="TOTAL (Contado):" FontWeight="Bold" FontSize="16" Margin="0,5,10,0"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="TOTAL (Contado):" FontWeight="Bold" FontSize="16" Margin="0,5,10,0"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalAmount, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="16" HorizontalAlignment="Right" Margin="0,5,0,0"/>
 
                                 <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="0,10,0,0"
-                 
-                             Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            Visibility="{Binding IsFinanced, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Separator/>
-
                                     <Grid Margin="0,5,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition/>
-
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-
                                         <TextBlock Grid.Column="0" Text="Cuota Mensual:" FontWeight="SemiBold" FontSize="14" Foreground="DarkBlue"/>
                                         <TextBlock Grid.Column="1" Text="{Binding MonthlyPayment, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right" Foreground="DarkBlue"/>
-
                                     </Grid>
                                     <Grid Margin="0,5,0,0">
                                         <Grid.ColumnDefinitions>
-
                                             <ColumnDefinition/>
                                             <ColumnDefinition Width="Auto"/>
-
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="Total Financiado:" FontWeight="SemiBold" FontSize="14"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding TotalFinanced, StringFormat=C, ConverterCulture='es-ES'}" 
- FontWeight="Bold" FontSize="14" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding TotalFinanced, StringFormat=C, ConverterCulture='es-ES'}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right"/>
                                     </Grid>
                                 </StackPanel>
                             </Grid>
@@ -243,8 +200,7 @@
 
 
                 <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Limpiar Presupuesto" 
- Margin="0,0,10,0" Command="{Binding ClearBudgetCommand}"/>
+                    <Button Content="Limpiar Presupuesto" Margin="0,0,10,0" Command="{Binding ClearBudgetCommand}"/>
                     <Button Content="Generar Presupuesto y PDF" Command="{Binding GenerateBudgetCommand}" IsDefault="True" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
                 </StackPanel>
             </Grid>
@@ -258,57 +214,45 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-
                     <Button Content="Refrescar Historial" Command="{Binding LoadBudgetHistoryCommand}" Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
                     <Button Content="Abrir PDF Seleccionado" Command="{Binding OpenPdfCommand}" Margin="10,0,0,0"/>
                 </StackPanel>
                 <DataGrid Grid.Row="1" ItemsSource="{Binding BudgetHistory}" SelectedItem="{Binding SelectedBudgetFromHistory, Mode=TwoWay}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray" SelectionMode="Single">
-
                     <DataGrid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Cambiar Estado" FontWeight="SemiBold" IsEnabled="False"/>
                             <Separator/>
-
                             <MenuItem Header="Marcar como Aceptado" Command="{Binding MarkAsAcceptedCommand}"/>
                             <MenuItem Header="Marcar como Rechazado" Command="{Binding MarkAsRejectedCommand}"/>
                             <MenuItem Header="Marcar como Pendiente" Command="{Binding MarkAsPendingCommand}"/>
-
                             <Separator/>
                             <MenuItem Header="Abrir PDF" Command="{Binding OpenPdfCommand}"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
-
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Número" Binding="{Binding BudgetNumber}" Width="Auto"/>
                         <DataGridTextColumn Header="Fecha" Binding="{Binding IssueDate, StringFormat='dd/MM/yyyy'}" Width="Auto"/>
                         <DataGridTemplateColumn Header="Paciente" Width="2*">
-
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock><Run Text="{Binding Patient.Name}"/> <Run Text="{Binding Patient.Surname}"/></TextBlock>
-
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-
                         <DataGridTextColumn Header="Tipo Doc." Binding="{Binding Patient.DocumentType}" Width="Auto"/>
                         <DataGridTextColumn Header="Nº Documento" Binding="{Binding Patient.DocumentNumber}" Width="*"/>
                         <DataGridTextColumn Header="Total" Binding="{Binding TotalAmount, StringFormat=C, ConverterCulture='es-ES'}" Width="*">
                             <DataGridTextColumn.ElementStyle>
-
                                 <Style TargetType="TextBlock">
                                     <Setter Property="HorizontalAlignment" Value="Right"/>
                                 </Style>
-
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
                         <DataGridTextColumn Header="Estado" Binding="{Binding Status}" Width="*"/>
-
                         <DataGridTemplateColumn Width="Auto">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Content="Abrir PDF" 
- Padding="5,2" Margin="5" Command="{Binding DataContext.OpenPdfCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
+                                    <Button Content="Abrir PDF" Padding="5,2" Margin="5" Command="{Binding DataContext.OpenPdfCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
