@@ -1,5 +1,4 @@
-﻿// En: TuClinica.Services.Tests/PatientsViewModelTests.cs
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Linq.Expressions;
@@ -11,7 +10,8 @@ using TuClinica.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
 using TuClinica.Core.Enums;
-using System.Threading; // Necesario para CancellationToken
+using System.Threading;
+using System.Collections.Generic; // Necesario para List<>
 
 namespace TuClinica.Services.Tests
 {
@@ -22,7 +22,7 @@ namespace TuClinica.Services.Tests
         private Mock<IPatientRepository> _patientRepoMock;
         private Mock<IValidationService> _validationServiceMock;
         private Mock<IServiceScopeFactory> _scopeFactoryMock;
-        private PatientFileViewModel _patientFileVM_Instance; // Objeto real, pero con dependencias mockeadas
+        private PatientFileViewModel _patientFileVM_Instance;
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
 
@@ -34,10 +34,8 @@ namespace TuClinica.Services.Tests
         private Mock<ITreatmentRepository> _treatmentRepoMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
-
-        // --- INICIO DE MODIFICACIÓN (Añadir mock de Alertas) ---
         private Mock<IPatientAlertRepository> _alertRepoMock;
-        
+
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -60,23 +58,20 @@ namespace TuClinica.Services.Tests
             _treatmentRepoMock = new Mock<ITreatmentRepository>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
             _pdfServiceMock = new Mock<IPdfService>();
-
-            
-            _alertRepoMock = new Mock<IPatientAlertRepository>(); // <-- Inicializar el nuevo mock
-            
-
+            _alertRepoMock = new Mock<IPatientAlertRepository>();
 
             // 2. Creamos la instancia de PatientFileViewModel
-            // --- INICIO DE MODIFICACIÓN (Constructor de 6 argumentos) ---
+            // *** CORRECCIÓN: AÑADIDO EL ÚLTIMO ARGUMENTO _pdfServiceMock.Object ***
             _patientFileVM_Instance = new PatientFileViewModel(
                 _authServiceMock.Object,            // 1. IAuthService
                 _dialogServiceMock.Object,          // 2. IDialogService
                 _scopeFactoryMock.Object,           // 3. IServiceScopeFactory
                 _fileDialogServiceMock.Object,      // 4. IFileDialogService
                 _validationServiceMock.Object,      // 5. IValidationService
-                _alertRepoMock.Object               // 6. IPatientAlertRepository (Argumento añadido)
+                _alertRepoMock.Object,              // 6. IPatientAlertRepository
+                _pdfServiceMock.Object              // 7. IPdfService (¡ESTE FALTABA!)
             );
-            
+
 
             // 3. Creamos el ViewModel pasándole los Mocks
             _viewModel = new PatientsViewModel(
@@ -88,18 +83,15 @@ namespace TuClinica.Services.Tests
                 _dialogServiceMock.Object
             );
 
-            // --- INICIO DE MODIFICACIÓN (Setup para Alertas) ---
-            // Configurar el mock de alertas para que devuelva una lista vacía y no falle
+            // Configurar el mock de alertas para que devuelva una lista vacía y no falle en la carga inicial
             _alertRepoMock.Setup(r => r.GetActiveAlertsForPatientAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                           .ReturnsAsync(new List<PatientAlert>());
-            
         }
 
         [TestMethod]
         public void Comandos_SetNewPatientFormCommand_DebeHabilitarFormulario()
         {
             // Arrange
-            // Ponemos el ViewModel en un estado "sucio"
             _viewModel.IsFormEnabled = false;
             _viewModel.SelectedPatient = new Patient { Id = 1, Name = "Test" };
 
@@ -124,7 +116,6 @@ namespace TuClinica.Services.Tests
 
             // Assert
             Assert.IsTrue(_viewModel.IsFormEnabled, "El formulario no se habilitó.");
-            // Comprobamos que es una COPIA, no la misma instancia
             Assert.AreNotSame(paciente, _viewModel.PatientFormModel, "El modelo del formulario es la misma instancia que el seleccionado.");
             Assert.AreEqual("Juan", _viewModel.PatientFormModel.Name, "El nombre no se copió al formulario.");
             Assert.AreEqual(123, _viewModel.PatientFormModel.Id, "El Id no se copió al formulario.");
@@ -134,13 +125,10 @@ namespace TuClinica.Services.Tests
         public async Task SavePatientAsync_NoDebeGuardar_SiDocumentoEsInvalido()
         {
             // Arrange
-            // 1. Configuramos el Mock de validación para que devuelva 'false'
-            //    usando el NUEVO método IsValidDocument
             _validationServiceMock
                 .Setup(v => v.IsValidDocument(It.IsAny<string>(), It.IsAny<PatientDocumentType>()))
                 .Returns(false);
 
-            // 2. Preparamos un paciente nuevo
             _viewModel.SetNewPatientFormCommand.Execute(null);
             _viewModel.PatientFormModel.DocumentNumber = "DNI_INVALIDO";
             _viewModel.PatientFormModel.DocumentType = PatientDocumentType.DNI;
@@ -149,7 +137,6 @@ namespace TuClinica.Services.Tests
             await _viewModel.SavePatientCommand.ExecuteAsync(null);
 
             // Assert
-            // 3. Verificamos que el repositorio NUNCA fue llamado para añadir algo
             _patientRepoMock.Verify(
                 repo => repo.AddAsync(It.IsAny<Patient>()),
                 Times.Never,
@@ -164,26 +151,21 @@ namespace TuClinica.Services.Tests
             var pacienteConHistorial = new Patient { Id = 123, Name = "Paciente Antiguo", IsActive = true };
             _viewModel.SelectedPatient = pacienteConHistorial;
 
-            // 1. SIMULAMOS QUE EL USUARIO PRESIONA "SÍ"
             _dialogServiceMock
                 .Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(TuClinica.Core.Interfaces.Services.DialogResult.Yes);
 
-            // 2. Configuramos el Mock para que devuelva que SÍ tiene historial
             _patientRepoMock
                 .Setup(repo => repo.HasHistoryAsync(123))
                 .ReturnsAsync(true);
 
-            // 3. Necesitamos que GetByIdAsync devuelva al paciente para poder "archivarlo"
             _patientRepoMock
                 .Setup(repo => repo.GetByIdAsync(123))
                 .ReturnsAsync(pacienteConHistorial);
 
-            // 4. (Simular las llamadas de saldo que ahora hace DeletePatientAsync)
             _clinicalEntryRepoMock.Setup(r => r.GetTotalChargedForPatientAsync(123)).ReturnsAsync(0);
             _paymentRepoMock.Setup(r => r.GetTotalPaidForPatientAsync(123)).ReturnsAsync(0);
 
-            // 5. Simular la creación de scope
             var scopeMock = new Mock<IServiceScope>();
             var serviceProviderMock = new Mock<IServiceProvider>();
             scopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
@@ -196,16 +178,13 @@ namespace TuClinica.Services.Tests
             await _viewModel.DeletePatientAsyncCommand.ExecuteAsync(null);
 
             // Assert
-            // 6. Verificamos que el paciente se marcó como Inactivo
             Assert.IsFalse(pacienteConHistorial.IsActive, "El paciente no se marcó como IsActive = false.");
 
-            // 7. Verificamos que NO se llamó a Remove (Hard-Delete)
             _patientRepoMock.Verify(
                 repo => repo.Remove(It.IsAny<Patient>()),
                 Times.Never,
                 "Se llamó a Remove() en un paciente con historial (debía ser Soft-Delete).");
 
-            // 8. Verificamos que SÍ se guardaron los cambios (para el IsActive = false)
             _patientRepoMock.Verify(
                 repo => repo.SaveChangesAsync(),
                 Times.Once,

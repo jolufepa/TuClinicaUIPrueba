@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.Json; // System.Text.Json
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using TuClinica.Core.Enums;
@@ -31,10 +31,30 @@ namespace TuClinica.UI.ViewModels
         public Brush ColorIndicator { get; set; } = Brushes.Transparent;
     }
 
-    // DTO para guardar todo el estado junto
+    // --- DTO LIMPIO PARA SERIALIZACIÓN ---
+    // Usamos este objeto simple para asegurar que 'ToothNumber' y los estados se guarden correctamente
+    public class ToothStateDto
+    {
+        public int ToothNumber { get; set; }
+        public ToothCondition FullCondition { get; set; }
+        public ToothCondition OclusalCondition { get; set; }
+        public ToothCondition MesialCondition { get; set; }
+        public ToothCondition DistalCondition { get; set; }
+        public ToothCondition VestibularCondition { get; set; }
+        public ToothCondition LingualCondition { get; set; }
+
+        public ToothRestoration FullRestoration { get; set; }
+        public ToothRestoration OclusalRestoration { get; set; }
+        public ToothRestoration MesialRestoration { get; set; }
+        public ToothRestoration DistalRestoration { get; set; }
+        public ToothRestoration VestibularRestoration { get; set; }
+        public ToothRestoration LingualRestoration { get; set; }
+    }
+
     public class OdontogramPersistenceWrapper
     {
-        public List<ToothViewModel> Teeth { get; set; } = new();
+        // Cambiamos la lista para usar el DTO en lugar del ViewModel
+        public List<ToothStateDto> Teeth { get; set; } = new();
         public List<DentalConnector> Connectors { get; set; } = new();
     }
 
@@ -65,7 +85,6 @@ namespace TuClinica.UI.ViewModels
             WeakReferenceMessenger.Default.Register<SurfaceClickedMessage>(this);
         }
 
-        // Método de carga mejorado para soportar persistencia de puentes
         public void LoadState(ObservableCollection<ToothViewModel> masterOdontogram, ObservableCollection<DentalConnector> masterConnectors, Patient? currentPatient)
         {
             _currentPatient = currentPatient;
@@ -74,7 +93,7 @@ namespace TuClinica.UI.ViewModels
             Odontogram.Clear();
             Connectors.Clear();
 
-            // 1. Cargar Dientes (Clonación)
+            // 1. Cargar Dientes
             foreach (var tooth in masterOdontogram)
             {
                 var copy = new ToothViewModel(tooth.ToothNumber)
@@ -95,7 +114,7 @@ namespace TuClinica.UI.ViewModels
                 Odontogram.Add(copy);
             }
 
-            // 2. Cargar Conectores (Clonación)
+            // 2. Cargar Conectores
             if (masterConnectors != null)
             {
                 foreach (var conn in masterConnectors)
@@ -151,7 +170,6 @@ namespace TuClinica.UI.ViewModels
                         Type = SelectedTool == OdontogramTool.Ortodoncia ? ConnectorType.Ortodoncia : ConnectorType.Puente,
                         ToothSequence = sequence,
                         ColorHex = SelectedTool == OdontogramTool.Ortodoncia ? "#2ECC71" : "#3498DB",
-                        // CORRECCIÓN VISUAL: Grosor más fino y realista
                         Thickness = 2.0
                     };
                     Connectors.Add(connector);
@@ -244,27 +262,53 @@ namespace TuClinica.UI.ViewModels
         [RelayCommand] private void ClearAllConnectors() { if (_dialogService.ShowConfirmation("¿Borrar puentes?", "Confirma") == CoreDialogResult.Yes) { Connectors.Clear(); UpdateSummary(); } }
         [RelayCommand] private void Accept() => DialogResult = true;
         [RelayCommand] private void Cancel() => DialogResult = false;
+
         [RelayCommand]
         private async Task Print()
         {
             if (_currentPatient == null) return;
+            // Generamos el string serializado CORRECTAMENTE antes de enviarlo al PDF
             string path = await _pdfService.GenerateOdontogramPdfAsync(_currentPatient, GetSerializedState());
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
 
-        // --- CORRECCIÓN PERSISTENCIA: Guardar Dientes Y Conectores ---
+        // --- CORRECCIÓN PRINCIPAL AQUÍ ---
         public string GetSerializedState()
         {
             try
             {
+                // Mapeamos manualmente los ViewModel a los DTOs
+                // Esto asegura que propiedades como ToothNumber (que es ReadOnly en el ViewModel)
+                // se copien y serialicen correctamente en el JSON.
+                var teethDtos = Odontogram.Select(t => new ToothStateDto
+                {
+                    ToothNumber = t.ToothNumber,
+                    FullCondition = t.FullCondition,
+                    OclusalCondition = t.OclusalCondition,
+                    MesialCondition = t.MesialCondition,
+                    DistalCondition = t.DistalCondition,
+                    VestibularCondition = t.VestibularCondition,
+                    LingualCondition = t.LingualCondition,
+                    FullRestoration = t.FullRestoration,
+                    OclusalRestoration = t.OclusalRestoration,
+                    MesialRestoration = t.MesialRestoration,
+                    DistalRestoration = t.DistalRestoration,
+                    VestibularRestoration = t.VestibularRestoration,
+                    LingualRestoration = t.LingualRestoration
+                }).ToList();
+
                 var wrapper = new OdontogramPersistenceWrapper
                 {
-                    Teeth = Odontogram.ToList(),
+                    Teeth = teethDtos,
                     Connectors = Connectors.ToList()
                 };
+
                 return JsonSerializer.Serialize(wrapper);
             }
-            catch { return ""; }
+            catch
+            {
+                return "";
+            }
         }
 
         private bool IsGlobalTool(OdontogramTool t) => t == OdontogramTool.Ausente || t == OdontogramTool.Extraccion || t == OdontogramTool.Corona || t == OdontogramTool.Implante || t == OdontogramTool.Endodoncia || t == OdontogramTool.Borrador;

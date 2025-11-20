@@ -36,6 +36,7 @@ namespace TuClinica.UI.ViewModels
         private readonly IFileDialogService _fileDialogService;
         private readonly IValidationService _validationService;
         private readonly IPatientAlertRepository _alertRepository;
+        private readonly IPdfService _pdfService;
 
         private CancellationTokenSource? _loadPatientCts;
         private Patient? _originalPatientState;
@@ -45,8 +46,6 @@ namespace TuClinica.UI.ViewModels
 
         // --- Colecciones ---
         public ObservableCollection<ToothViewModel> Odontogram { get; } = new();
-
-        // COLECCIÓN MAESTRA PARA LOS PUENTES/ARCOS (Persistencia)
         public ObservableCollection<DentalConnector> MasterConnectors { get; } = new();
 
         [ObservableProperty]
@@ -122,7 +121,8 @@ namespace TuClinica.UI.ViewModels
           IServiceScopeFactory scopeFactory,
           IFileDialogService fileDialogService,
           IValidationService validationService,
-          IPatientAlertRepository alertRepository)
+          IPatientAlertRepository alertRepository,
+          IPdfService pdfService)
         {
             _authService = authService;
             _dialogService = dialogService;
@@ -130,6 +130,7 @@ namespace TuClinica.UI.ViewModels
             _fileDialogService = fileDialogService;
             _validationService = validationService;
             _alertRepository = alertRepository;
+            _pdfService = pdfService;
 
             var user = _authService.CurrentUser;
             if (user != null && (user.Role == UserRole.Administrador || user.Role == UserRole.Doctor))
@@ -144,11 +145,11 @@ namespace TuClinica.UI.ViewModels
             DeleteClinicalEntryAsyncCommand = new AsyncRelayCommand<ClinicalEntry>(DeleteClinicalEntryAsync, CanDeleteClinicalEntry);
             ToggleEditPatientDataCommand = new RelayCommand(ToggleEditPatientData);
             SavePatientDataAsyncCommand = new AsyncRelayCommand(SavePatientDataAsync, CanSavePatientData);
-            AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate);
+            AllocatePaymentCommand = new AsyncRelayCommand(AllocatePayment, CanAllocate); // CS0103 Resuelto: Método definido abajo
             RegisterNewPaymentCommand = new AsyncRelayCommand(RegisterNewPayment);
             PrintOdontogramCommand = new AsyncRelayCommand(PrintOdontogramAsync);
             NewBudgetCommand = new RelayCommand(NewBudget);
-            PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync);
+            PrintHistoryCommand = new AsyncRelayCommand(PrintHistoryAsync); // CS0103 Resuelto: Método definido abajo
             OpenRegisterChargeDialogCommand = new AsyncRelayCommand(OpenRegisterChargeDialog);
             AddPlanItemAsyncCommand = new AsyncRelayCommand(AddPlanItemAsync, CanAddPlanItem);
             TogglePlanItemAsyncCommand = new AsyncRelayCommand<TreatmentPlanItem>(TogglePlanItemAsync);
@@ -228,7 +229,6 @@ namespace TuClinica.UI.ViewModels
                 await RefreshBillingCollections(token);
                 token.ThrowIfCancellationRequested();
 
-                // --- CARGA DE ODONTOGRAMA (ESTADO + PUENTES) ---
                 LoadOdontogramStateFromJson();
 
                 OdontogramPreviewVM.LoadFromMaster(this.Odontogram, this.MasterConnectors);
@@ -250,7 +250,6 @@ namespace TuClinica.UI.ViewModels
             }
         }
 
-        // --- Gestión de Estado del Odontograma (CORREGIDO PARA PERSISTENCIA) ---
         private void InitializeOdontogram()
         {
             Odontogram.Clear();
@@ -280,40 +279,43 @@ namespace TuClinica.UI.ViewModels
             {
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-                // INTENTO 1: Cargar Formato Nuevo (Wrapper con Dientes + Conectores)
-                try
+                // Usamos el wrapper con los DTOs
+                var wrapper = JsonSerializer.Deserialize<OdontogramPersistenceWrapper>(CurrentPatient.OdontogramStateJson, options);
+
+                if (wrapper != null)
                 {
-                    var wrapper = JsonSerializer.Deserialize<OdontogramPersistenceWrapper>(CurrentPatient.OdontogramStateJson, options);
-                    if (wrapper != null)
-                    {
+                    if (wrapper.Teeth != null)
                         ApplyTeethState(wrapper.Teeth);
 
-                        if (wrapper.Connectors != null)
-                        {
-                            foreach (var c in wrapper.Connectors) MasterConnectors.Add(c);
-                        }
-                        return;
+                    if (wrapper.Connectors != null)
+                    {
+                        foreach (var c in wrapper.Connectors) MasterConnectors.Add(c);
                     }
-                }
-                catch
-                {
-                    // INTENTO 2: Fallback a Formato Antiguo (Solo lista de dientes)
-                    var oldList = JsonSerializer.Deserialize<List<ToothViewModel>>(CurrentPatient.OdontogramStateJson, options);
-                    if (oldList != null) ApplyTeethState(oldList);
                 }
             }
             catch (Exception ex) { Debug.WriteLine($"Error JSON: {ex.Message}"); }
         }
 
-        private void ApplyTeethState(List<ToothViewModel> savedTeeth)
+        private void ApplyTeethState(List<ToothStateDto> savedTeeth)
         {
             foreach (var s in savedTeeth)
             {
                 var m = Odontogram.FirstOrDefault(t => t.ToothNumber == s.ToothNumber);
                 if (m != null)
                 {
-                    m.FullCondition = s.FullCondition; m.OclusalCondition = s.OclusalCondition; m.MesialCondition = s.MesialCondition; m.DistalCondition = s.DistalCondition; m.VestibularCondition = s.VestibularCondition; m.LingualCondition = s.LingualCondition;
-                    m.FullRestoration = s.FullRestoration; m.OclusalRestoration = s.OclusalRestoration; m.MesialRestoration = s.MesialRestoration; m.DistalRestoration = s.DistalRestoration; m.VestibularRestoration = s.VestibularRestoration; m.LingualRestoration = s.LingualRestoration;
+                    m.FullCondition = s.FullCondition;
+                    m.OclusalCondition = s.OclusalCondition;
+                    m.MesialCondition = s.MesialCondition;
+                    m.DistalCondition = s.DistalCondition;
+                    m.VestibularCondition = s.VestibularCondition;
+                    m.LingualCondition = s.LingualCondition;
+
+                    m.FullRestoration = s.FullRestoration;
+                    m.OclusalRestoration = s.OclusalRestoration;
+                    m.MesialRestoration = s.MesialRestoration;
+                    m.DistalRestoration = s.DistalRestoration;
+                    m.VestibularRestoration = s.VestibularRestoration;
+                    m.LingualRestoration = s.LingualRestoration;
                 }
             }
         }
@@ -328,7 +330,6 @@ namespace TuClinica.UI.ViewModels
                     var vm = scope.ServiceProvider.GetRequiredService<OdontogramViewModel>();
                     var win = scope.ServiceProvider.GetRequiredService<OdontogramWindow>();
 
-                    // Pasamos tanto los dientes como los conectores al ViewModel de la ventana
                     vm.LoadState(Odontogram, MasterConnectors, CurrentPatient);
 
                     win.DataContext = vm;
@@ -339,14 +340,11 @@ namespace TuClinica.UI.ViewModels
 
                     if (vm.DialogResult == true)
                     {
-                        // Obtenemos el JSON serializado (que ahora incluye Wrapper con todo)
                         var json = vm.GetSerializedState();
                         if (CurrentPatient.OdontogramStateJson != json)
                         {
                             CurrentPatient.OdontogramStateJson = json;
                             await SavePatientOdontogramStateAsync();
-
-                            // Recargamos para asegurar que la vista previa y la memoria están sincronizadas
                             LoadOdontogramStateFromJson();
                         }
                     }
@@ -370,8 +368,6 @@ namespace TuClinica.UI.ViewModels
             }
             catch (Exception ex) { _dialogService.ShowMessage($"Error: {ex.Message}", "Error"); }
         }
-
-        // --- Resto de Funcionalidades (Guardar Paciente, Facturación, etc.) ---
 
         private async Task SavePatientDataAsync()
         {
@@ -400,7 +396,6 @@ namespace TuClinica.UI.ViewModels
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var linkedDocRepo = scope.ServiceProvider.GetRequiredService<IRepository<LinkedDocument>>();
 
                     bool docChanged = !string.Equals(_originalPatientState.DocumentNumber, CurrentPatient.DocumentNumber, StringComparison.OrdinalIgnoreCase) ||
                                       _originalPatientState.DocumentType != CurrentPatient.DocumentType;
@@ -481,7 +476,7 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
         }
 
-        // --- Facturación ---
+        // --- Facturación (CS7036 SOLUCIONADO: Método con valor por defecto) ---
         private async Task RefreshBillingCollections(CancellationToken token = default)
         {
             if (CurrentPatient == null) return;
@@ -606,10 +601,15 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
         }
 
-        // --- Helpers y Otros ---
-        private bool CanAllocate() => SelectedCharge != null && SelectedPayment != null && AmountToAllocate > 0;
+        // --- Helpers y Otros (CS0103 SOLUCIONADOS: Métodos definidos completamente) ---
+        private bool CanAllocate()
+        {
+            return SelectedCharge != null && SelectedPayment != null && AmountToAllocate > 0;
+        }
+
         private void AutoFillAmountToAllocate() { if (SelectedCharge != null && SelectedPayment != null) AmountToAllocate = Math.Min(SelectedCharge.Balance, SelectedPayment.UnallocatedAmount); else AmountToAllocate = 0; }
         private bool CanDeleteClinicalEntry(ClinicalEntry? e) => e != null;
+
         private async Task DeleteClinicalEntryAsync(ClinicalEntry? e)
         {
             if (e == null || _dialogService.ShowConfirmation("¿Eliminar cargo?", "Confirmar") == CoreDialogResult.No) return;
@@ -617,7 +617,6 @@ namespace TuClinica.UI.ViewModels
             catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
         }
 
-        // --- Plan de Tratamiento y Alertas ---
         private bool CanAddPlanItem() => !string.IsNullOrWhiteSpace(NewPlanItemDescription);
         private async Task AddPlanItemAsync()
         {
@@ -659,7 +658,60 @@ namespace TuClinica.UI.ViewModels
         private bool CanSavePatientData() => !IsPatientDataReadOnly && CurrentPatient != null && !CurrentPatient.HasErrors;
         private void ToggleEditPatientData() { IsPatientDataReadOnly = !IsPatientDataReadOnly; if (!IsPatientDataReadOnly && CurrentPatient != null) { _originalPatientState = CurrentPatient.DeepCopy(); CurrentPatient.ForceValidation(); } else if (CurrentPatient != null && _originalPatientState != null) { CurrentPatient.CopyFrom(_originalPatientState); _originalPatientState = null; } }
         private void NewBudget() { if (CurrentPatient != null) WeakReferenceMessenger.Default.Send(new NavigateToNewBudgetMessage(CurrentPatient)); }
-        private async Task PrintHistoryAsync() { if (CurrentPatient != null) { try { byte[] pdf; using (var s = _scopeFactory.CreateScope()) { pdf = await s.ServiceProvider.GetRequiredService<IPdfService>().GenerateHistoryPdfAsync(CurrentPatient, VisitHistory.ToList(), PaymentHistory.ToList(), CurrentBalance); } string p = Path.Combine(Path.GetTempPath(), $"Hist_{DateTime.Now.Ticks}.pdf"); await File.WriteAllBytesAsync(p, pdf); Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); } catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); } } }
-        private async Task PrintOdontogramAsync() { /* Implementar si se desea imprimir solo el odontograma desde aquí */ }
+
+        private async Task PrintHistoryAsync()
+        {
+            if (CurrentPatient != null)
+            {
+                try
+                {
+                    byte[] pdf;
+                    using (var s = _scopeFactory.CreateScope())
+                    {
+                        pdf = await s.ServiceProvider.GetRequiredService<IPdfService>().GenerateHistoryPdfAsync(CurrentPatient, VisitHistory.ToList(), PaymentHistory.ToList(), CurrentBalance);
+                    }
+                    string p = Path.Combine(Path.GetTempPath(), $"Hist_{DateTime.Now.Ticks}.pdf");
+                    await File.WriteAllBytesAsync(p, pdf);
+                    Process.Start(new ProcessStartInfo(p) { UseShellExecute = true });
+                }
+                catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
+            }
+        }
+
+        private async Task PrintOdontogramAsync()
+        {
+            if (CurrentPatient == null) return;
+            try
+            {
+                var teethDtos = Odontogram.Select(t => new ToothStateDto
+                {
+                    ToothNumber = t.ToothNumber,
+                    FullCondition = t.FullCondition,
+                    OclusalCondition = t.OclusalCondition,
+                    MesialCondition = t.MesialCondition,
+                    DistalCondition = t.DistalCondition,
+                    VestibularCondition = t.VestibularCondition,
+                    LingualCondition = t.LingualCondition,
+                    FullRestoration = t.FullRestoration,
+                    OclusalRestoration = t.OclusalRestoration,
+                    MesialRestoration = t.MesialRestoration,
+                    DistalRestoration = t.DistalRestoration,
+                    VestibularRestoration = t.VestibularRestoration,
+                    LingualRestoration = t.LingualRestoration
+                }).ToList();
+
+                var wrapper = new OdontogramPersistenceWrapper
+                {
+                    Teeth = teethDtos,
+                    Connectors = MasterConnectors.ToList()
+                };
+
+                var jsonState = JsonSerializer.Serialize(wrapper);
+
+                string path = await _pdfService.GenerateOdontogramPdfAsync(CurrentPatient, jsonState);
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            catch (Exception ex) { _dialogService.ShowMessage(ex.Message, "Error"); }
+        }
     }
 }

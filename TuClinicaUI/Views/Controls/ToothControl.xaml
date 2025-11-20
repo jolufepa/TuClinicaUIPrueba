@@ -22,7 +22,7 @@
             <converters:EndodonciaToVisibilityConverter x:Key="EndoToVisConverter"/>
             <converters:ToothCenterConverter x:Key="ToothCenterConverter"/>
 
-            <DrawingBrush x:Key="AbsentPattern" TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+            <DrawingBrush x:Key="MissingPattern" TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                 <DrawingBrush.Drawing>
                     <GeometryDrawing>
                         <GeometryDrawing.Geometry>
@@ -32,7 +32,23 @@
                             </GeometryGroup>
                         </GeometryDrawing.Geometry>
                         <GeometryDrawing.Pen>
-                            <Pen Brush="#C0392B" Thickness="1" />
+                            <Pen Brush="#333333" Thickness="1" />
+                        </GeometryDrawing.Pen>
+                    </GeometryDrawing>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
+
+            <DrawingBrush x:Key="ExtractionPattern" TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+                <DrawingBrush.Drawing>
+                    <GeometryDrawing>
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <LineGeometry StartPoint="0,0" EndPoint="8,8" />
+                                <LineGeometry StartPoint="0,8" EndPoint="8,0" />
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="#E74C3C" Thickness="1.5" />
                         </GeometryDrawing.Pen>
                     </GeometryDrawing>
                 </DrawingBrush.Drawing>
@@ -51,9 +67,15 @@
                     </Trigger>
 
                     <DataTrigger Binding="{Binding FullCondition}" Value="Ausente">
-                        <Setter Property="Fill" Value="{StaticResource AbsentPattern}"/>
-                        <Setter Property="Stroke" Value="#C0392B"/>
+                        <Setter Property="Fill" Value="{StaticResource MissingPattern}"/>
+                        <Setter Property="Stroke" Value="#333333"/>
                     </DataTrigger>
+
+                    <DataTrigger Binding="{Binding FullCondition}" Value="ExtraccionIndicada">
+                        <Setter Property="Fill" Value="{StaticResource ExtractionPattern}"/>
+                        <Setter Property="Stroke" Value="#E74C3C"/>
+                    </DataTrigger>
+
                 </Style.Triggers>
             </Style>
         </ResourceDictionary>
