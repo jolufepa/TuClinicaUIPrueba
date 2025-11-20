@@ -260,7 +260,9 @@
                                     Command="{Binding AddAlertCommand}"
                                     Style="{DynamicResource MahApps.Styles.Button.Square.Accent}" />
                         </Grid>
-                        <ComboBox SelectedItem="{Binding NewAlertLevel}" Margin="0,5,0,0">
+                        <ComboBox ItemsSource="{Binding AlertLevels}" 
+                                      SelectedItem="{Binding NewAlertLevel}" 
+                                      Margin="0,5,0,0"> 
                         </ComboBox>
                     </StackPanel>
                 </Grid>
