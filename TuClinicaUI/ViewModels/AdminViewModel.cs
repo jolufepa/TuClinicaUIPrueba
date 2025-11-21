@@ -13,7 +13,7 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.Views;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-using System.Security.Cryptography;
+
 
 namespace TuClinica.UI.ViewModels
 {
@@ -68,7 +68,8 @@ namespace TuClinica.UI.ViewModels
         // --- INICIO DE LA MODIFICACIÓN ---
         public IAsyncRelayCommand SaveSettingsCommand { get; }
         // --- FIN DE LA MODIFICACIÓN ---
-
+        public IAsyncRelayCommand CreateBackupCommand { get; } // Antes Export
+        public IAsyncRelayCommand RestoreBackupCommand { get; }
 
         public AdminViewModel(
             IUserRepository userRepository,
@@ -102,7 +103,8 @@ namespace TuClinica.UI.ViewModels
             // --- INICIO DE LA MODIFICACIÓN ---
             SaveSettingsCommand = new AsyncRelayCommand(SaveSettingsAsync);
             // --- FIN DE LA MODIFICACIÓN ---
-
+            CreateBackupCommand = new AsyncRelayCommand(CreateBackupAsync);
+            RestoreBackupCommand = new AsyncRelayCommand(RestoreBackupAsync);
 
             // Carga inicial de datos
             _ = LoadUsersAsync();
@@ -414,45 +416,7 @@ namespace TuClinica.UI.ViewModels
 
         // --- Métodos de Backup (Sin cambios) ---
 
-        [RelayCommand]
-        private async Task ExportBackupAsync()
-        {
-            try
-            {
-                var (passOk, password) = _dialogService.ShowPasswordPrompt();
-                if (!passOk || string.IsNullOrWhiteSpace(password))
-                {
-                    return;
-                }
-
-                var (fileOk, filePath) = _fileDialogService.ShowSaveDialog(
-                    filter: "Backup Files (*.bak)|*.bak",
-                    title: "Guardar Copia de Seguridad",
-                    defaultFileName: $"TuClinicaBackup_{DateTime.Now:yyyyMMdd_HHmm}.bak"
-                );
-
-                if (!fileOk)
-                {
-                    return;
-                }
-
-                bool success = await _backupService.ExportBackupAsync(filePath, password);
-
-                if (success)
-                {
-                    _dialogService.ShowMessage($"Copia guardada:\n{filePath}", "Éxito");
-                }
-                else
-                {
-                    _dialogService.ShowMessage("Error al exportar. La operación fue cancelada.", "Error");
-                }
-            }
-            catch (Exception ex)
-            {
-                _dialogService.ShowMessage($"Error inesperado al exportar la copia:\n\n{ex.Message}", "Error Crítico");
-            }
-        }
-
+        
         private async Task ExportLogsAsync()
         {
             var (ok, filePath) = _fileDialogService.ShowSaveDialog(
@@ -499,60 +463,74 @@ namespace TuClinica.UI.ViewModels
                 }
             }
         }
-
-        [RelayCommand]
-        private async Task ImportBackupAsync()
+        private async Task CreateBackupAsync()
         {
-            try
+            // 1. Pedir Contraseña al usuario para encriptar
+            var (passOk, password) = _dialogService.ShowPasswordPrompt();
+            if (!passOk || string.IsNullOrWhiteSpace(password))
             {
-                var (fileOk, filePath) = _fileDialogService.ShowOpenDialog(
-                    filter: "Backup Files (*.bak)|*.bak",
-                    title: "Abrir Copia de Seguridad"
-                );
+                // Si cancela o la deja vacía, abortamos por seguridad
+                return;
+            }
 
-                if (!fileOk)
+            // 2. Diálogo guardar archivo (ahora sugerimos extensión .bak para denotar que es backup cifrado, aunque puede ser .zip.enc)
+            // Mantenemos .zip por familiaridad, pero el contenido estará cifrado.
+            var (fileOk, filePath) = _fileDialogService.ShowSaveDialog(
+                filter: "Copia Segura TuClinica (*.zip)|*.zip",
+                title: "Guardar Copia de Seguridad Encriptada",
+                defaultFileName: $"TuClinica_Backup_Seguro_{DateTime.Now:yyyyMMdd}.zip"
+            );
+
+            if (fileOk)
+            {
+                try
                 {
-                    return;
+                    // 3. Llamar al servicio CON contraseña
+                    await _backupService.CreateBackupAsync(filePath, password);
+                    _dialogService.ShowMessage($"Copia de seguridad ENCRIPTADA guardada en:\n{filePath}", "Seguridad");
                 }
-
-                var confirmation = _dialogService.ShowConfirmation(
-                    "ADVERTENCIA: Esto BORRARÁ TODOS LOS DATOS ACTUALES.\n\n¿Continuar?",
-                    "Confirmar Importación"
-                );
-
-                if (confirmation == CoreDialogResult.No)
+                catch (Exception ex)
                 {
-                    return;
+                    _dialogService.ShowMessage($"Error al crear el backup:\n{ex.Message}", "Error");
                 }
+            }
+        }
 
+        private async Task RestoreBackupAsync()
+        {
+            var confirmation = _dialogService.ShowConfirmation(
+                "PELIGRO: Esta acción BORRARÁ TODOS LOS DATOS ACTUALES.\n\nSe requerirá la contraseña de la copia para desencriptarla.\n\n¿Continuar?",
+                "Restauración Segura"
+            );
+
+            if (confirmation == CoreDialogResult.No) return;
+
+            var (fileOk, filePath) = _fileDialogService.ShowOpenDialog(
+                filter: "Copia Segura TuClinica (*.zip; *.bak)|*.zip;*.bak",
+                title: "Seleccionar Copia Encriptada"
+            );
+
+            if (fileOk)
+            {
+                // 1. Pedir contraseña de desencriptado
                 var (passOk, password) = _dialogService.ShowPasswordPrompt();
                 if (!passOk || string.IsNullOrWhiteSpace(password))
                 {
-                    _dialogService.ShowMessage("Se requiere una contraseña.", "Error");
+                    _dialogService.ShowMessage("Se requiere contraseña para restaurar.", "Seguridad");
                     return;
                 }
 
-                bool success = await _backupService.ImportBackupAsync(filePath, password);
-
-                if (success)
+                try
                 {
-                    _dialogService.ShowMessage("Importación completada.\nRecargando datos.", "Éxito");
-                    await LoadUsersAsync();
-                    await LoadLogsAsync();
+                    // 2. Restaurar CON contraseña
+                    await _backupService.RestoreBackupAsync(filePath, password);
                 }
-                else
+                catch (Exception ex)
                 {
-                    _dialogService.ShowMessage("Error al importar.", "Error");
+                    _dialogService.ShowMessage($"Error al restaurar (Verifique su contraseña):\n{ex.Message}", "Error Crítico");
                 }
-            }
-            catch (CryptographicException)
-            {
-                _dialogService.ShowMessage("Error al importar.\nContraseña incorrecta o archivo corrupto.", "Error de Importación");
-            }
-            catch (Exception ex)
-            {
-                _dialogService.ShowMessage($"Error inesperado al importar la copia:\n\n{ex.Message}\n\nInnerException:\n{ex.InnerException?.Message}", "Error Crítico");
             }
         }
+
     }
 }

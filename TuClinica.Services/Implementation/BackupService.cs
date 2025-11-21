@@ -1,242 +1,175 @@
-﻿// En: TuClinica.Services/Implementation/BackupService.cs
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.IO.Compression;
 using System.Threading.Tasks;
-using TuClinica.Core.Interfaces.Repositories;
+using System.Windows; // Para Application.Current
 using TuClinica.Core.Interfaces.Services;
-using TuClinica.Core.Models;
-using TuClinica.DataAccess;
+using TuClinica.Core.Enums; // Para DialogResult si fuera necesario, aunque usaremos defaults
 
 namespace TuClinica.Services.Implementation
 {
     public class BackupService : IBackupService
     {
-        private readonly IPatientRepository _patientRepository;
-        private readonly ITreatmentRepository _treatmentRepository;
-        private readonly IBudgetRepository _budgetRepository;
-        private readonly IUserRepository _userRepository;
-        private readonly AppDbContext _context;
+        private readonly string _sourceDataPath;
         private readonly ICryptoService _cryptoService;
+        private readonly IDialogService _dialogService; // <-- NUEVA DEPENDENCIA
 
-        private class BackupData
+        // Inyectamos IDialogService
+        public BackupService(ICryptoService cryptoService, IDialogService dialogService)
         {
-            public List<Patient> Patients { get; set; } = new();
-            public List<Treatment> Treatments { get; set; } = new();
-            public List<Budget> Budgets { get; set; } = new();
-            public List<User> Users { get; set; } = new();
-            public List<ClinicalEntry> ClinicalEntries { get; set; } = new();
-            public List<Payment> Payments { get; set; } = new();
-            public List<PaymentAllocation> PaymentAllocations { get; set; } = new();
-            public List<Dosage> Dosages { get; set; } = new();
-            public List<Medication> Medications { get; set; } = new();
-            public List<Prescription> Prescriptions { get; set; } = new();
-        }
-
-        private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            ReferenceHandler = ReferenceHandler.Preserve
-        };
-
-        public BackupService(
-            IPatientRepository patientRepository,
-            ITreatmentRepository treatmentRepository,
-            IBudgetRepository budgetRepository,
-            IUserRepository userRepository,
-            AppDbContext context,
-            ICryptoService cryptoService)
-        {
-            _patientRepository = patientRepository;
-            _treatmentRepository = treatmentRepository;
-            _budgetRepository = budgetRepository;
-            _userRepository = userRepository;
-            _context = context;
             _cryptoService = cryptoService;
+            _dialogService = dialogService;
+            string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
+            _sourceDataPath = Path.Combine(appData, "Data");
         }
 
-        // --- EXPORT (REFACTORIZADO PARA STREAMING REAL) ---
-        public async Task<bool> ExportBackupAsync(string filePath, string password)
+        public async Task CreateBackupAsync(string destinationPath, string password)
         {
-            if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(password))
+            string? directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            string tempFolder = Path.Combine(Path.GetTempPath(), $"TuClinicaBackupTemp_{Guid.NewGuid()}");
+            string tempZipPath = Path.Combine(Path.GetTempPath(), $"TuClinicaIntermediate_{Guid.NewGuid()}.zip");
+
+            await Task.Run(async () =>
             {
-                return false;
-            }
-
-            // 1. Recolectar TODOS los datos
-            // (Esta parte sigue necesitando cargar todo en RAM para que
-            // ReferenceHandler.Preserve funcione. La descripción en el README
-            // es idealista pero difícil de implementar con EF Core y referencias).
-            // Mantenemos la lógica de carga en RAM, pero eliminamos el MemoryStream
-            // intermedio para reducir el pico de uso de memoria a la mitad.
-
-            // La debilidad real no es el streaming (CryptoService lo hace),
-            // es la serialización a MemoryStream.
-
-            var data = new BackupData
-            {
-                Patients = await _context.Patients.ToListAsync(),
-                Treatments = await _context.Treatments.ToListAsync(),
-                Users = await _context.Users.ToListAsync(),
-                Dosages = await _context.Dosages.ToListAsync(),
-                Medications = await _context.Medications.ToListAsync(),
-                Budgets = await _context.Budgets
-                    .Include(b => b.Items)
-                    .Include(b => b.Patient)
-                    .ToListAsync(),
-                Prescriptions = await _context.Prescriptions
-                    .Include(p => p.Items)
-                    .Include(p => p.Patient)
-                    .ToListAsync(),
-                Payments = await _context.Payments
-                    .Include(p => p.Patient)
-                    .ToListAsync(),
-                ClinicalEntries = await _context.ClinicalEntries
-                    .Include(c => c.TreatmentsPerformed)
-                        .ThenInclude(t => t.Treatment)
-                    .Include(c => c.Patient)
-                    .Include(c => c.Doctor)
-                    .ToListAsync(),
-                PaymentAllocations = await _context.PaymentAllocations
-                    .Include(pa => pa.Payment)
-                    .Include(pa => pa.ClinicalEntry)
-                    .ToListAsync()
-            };
-
-            // --- INICIO DE LA MODIFICACIÓN (Eliminar MemoryStream) ---
-
-            // 1. Creamos un stream temporal en disco. Es más lento que la RAM
-            //    pero evita el OutOfMemoryException.
-            string tempJsonPath = Path.GetTempFileName();
-
-            try
-            {
-                // 2. Serializa el objeto 'data' (grande) directamente al archivo temporal en disco.
-                await using (var tempJsonStream = new FileStream(tempJsonPath, FileMode.Create, FileAccess.Write))
+                try
                 {
-                    await JsonSerializer.SerializeAsync(tempJsonStream, data, _jsonOptions);
-                } // El archivo temporal ahora contiene el JSON gigante.
+                    if (File.Exists(destinationPath)) File.Delete(destinationPath);
 
-                // 3. Hacemos streaming desde el archivo temporal (Disco) al archivo final (Disco),
-                //    aplicando la encriptación en el proceso.
-                await using (var tempJsonStream = new FileStream(tempJsonPath, FileMode.Open, FileAccess.Read))
-                await using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-                {
-                    // CryptoService SÍ hace streaming correctamente (lee de tempJsonStream, escribe en fileStream)
-                    await _cryptoService.EncryptAsync(tempJsonStream, fileStream, password);
+                    CopyDirectory(_sourceDataPath, tempFolder);
+                    ZipFile.CreateFromDirectory(tempFolder, tempZipPath, CompressionLevel.Optimal, false);
+
+                    await using (var sourceStream = new FileStream(tempZipPath, FileMode.Open, FileAccess.Read))
+                    await using (var destStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
+                    {
+                        await _cryptoService.EncryptAsync(sourceStream, destStream, password);
+                    }
                 }
-
-                return true;
-            }
-            finally
-            {
-                // 4. Nos aseguramos de borrar el archivo JSON temporal
-                if (File.Exists(tempJsonPath))
+                catch (Exception ex)
                 {
-                    File.Delete(tempJsonPath);
+                    throw new Exception($"Error de seguridad al crear backup: {ex.Message}", ex);
                 }
-            }
-            // --- FIN DE LA MODIFICACIÓN ---
+                finally
+                {
+                    if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
+                    if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+                }
+            });
         }
 
-
-        // --- IMPORT (REFACTORIZADO PARA MANEJAR REFERENCIAS) ---
-        public async Task<bool> ImportBackupAsync(string filePath, string password)
+        public async Task RestoreBackupAsync(string sourceEncryptedPath, string password)
         {
-            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath) || string.IsNullOrWhiteSpace(password))
+            if (!File.Exists(sourceEncryptedPath)) throw new FileNotFoundException("No se encuentra el archivo de backup.");
+
+            await Task.Run(async () =>
             {
-                return false;
-            }
+                string tempZipPath = Path.Combine(Path.GetTempPath(), $"TuClinicaRestore_{Guid.NewGuid()}.zip");
+                string tempExtractFolder = Path.Combine(Path.GetTempPath(), $"TuClinicaRestore_{Guid.NewGuid()}");
 
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
-            try
-            {
-                await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                await using var jsonStream = new MemoryStream();
-
-                await _cryptoService.DecryptAsync(fileStream, jsonStream, password);
-                jsonStream.Seek(0, SeekOrigin.Begin);
-
-                BackupData? data = await JsonSerializer.DeserializeAsync<BackupData>(jsonStream, _jsonOptions);
-
-                if (data == null)
+                try
                 {
-                    await transaction.RollbackAsync();
-                    return false;
+                    // 1. Desencriptar
+                    await using (var sourceStream = new FileStream(sourceEncryptedPath, FileMode.Open, FileAccess.Read))
+                    await using (var destStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write))
+                    {
+                        await _cryptoService.DecryptAsync(sourceStream, destStream, password);
+                    }
+
+                    // 2. Extraer
+                    Directory.CreateDirectory(tempExtractFolder);
+                    ZipFile.ExtractToDirectory(tempZipPath, tempExtractFolder);
+
+                    // 3. Validar
+                    if (!File.Exists(Path.Combine(tempExtractFolder, "DentalClinic.db")) &&
+                        !Directory.Exists(Path.Combine(tempExtractFolder, "PatientFiles")))
+                    {
+                        throw new Exception("El backup desencriptado no contiene datos válidos.");
+                    }
+
+                    // 4. Ejecutar restauración y AVISAR
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        // --- AQUÍ ESTÁ LA MEJORA PROFESIONAL ---
+                        _dialogService.ShowMessage(
+                            "La copia de seguridad se ha verificado y preparado correctamente.\n\nLa aplicación se cerrará ahora y se reiniciará automáticamente para aplicar los cambios.",
+                            "Restauración Exitosa");
+
+                        PerformSafeRestore(tempExtractFolder);
+                    });
                 }
+                catch (System.Security.Cryptography.CryptographicException)
+                {
+                    throw new Exception("Contraseña incorrecta o archivo dañado.");
+                }
+                catch (Exception)
+                {
+                    if (Directory.Exists(tempExtractFolder)) Directory.Delete(tempExtractFolder, true);
+                    throw;
+                }
+                finally
+                {
+                    if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+                }
+            });
+        }
 
-                // --- 6. Borrar datos existentes (¡El orden importa!) ---
-                _context.PaymentAllocations.RemoveRange(_context.PaymentAllocations);
-                _context.ToothTreatments.RemoveRange(_context.ToothTreatments);
-                _context.PrescriptionItems.RemoveRange(_context.PrescriptionItems);
-                _context.BudgetLineItems.RemoveRange(_context.BudgetLineItems);
-                await _context.SaveChangesAsync();
+        private void PerformSafeRestore(string newContentPath)
+        {
+            string batPath = Path.Combine(Path.GetTempPath(), "restore_tuclinica.bat");
+            string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+            string dataDir = _sourceDataPath.TrimEnd(Path.DirectorySeparatorChar);
 
-                _context.ClinicalEntries.RemoveRange(_context.ClinicalEntries);
-                _context.Payments.RemoveRange(_context.Payments);
-                _context.Prescriptions.RemoveRange(_context.Prescriptions);
-                _context.Budgets.RemoveRange(_context.Budgets);
-                await _context.SaveChangesAsync();
+            string script = $@"
+@echo off
+timeout /t 2 /nobreak > NUL
+echo Restaurando datos seguros...
+rmdir /S /Q ""{dataDir}""
+mkdir ""{dataDir}""
+xcopy ""{newContentPath}\*.*"" ""{dataDir}\"" /E /H /C /I /Y
+rmdir /S /Q ""{newContentPath}""
+start """" ""{exePath}""
+del ""%~f0""
+";
+            File.WriteAllText(batPath, script);
 
-                _context.Patients.RemoveRange(_context.Patients);
-                _context.Treatments.RemoveRange(_context.Treatments);
-                _context.Users.RemoveRange(_context.Users);
-                _context.Dosages.RemoveRange(_context.Dosages);
-                _context.Medications.RemoveRange(_context.Medications);
-                // ¡NO guardamos aquí!
-
-                // --- 7. Insertar datos importados (¡CORREGIDO!) ---
-
-                // Poner IDs a 0
-                data.Users.ForEach(u => u.Id = 0);
-                data.Patients.ForEach(p => p.Id = 0);
-                data.Treatments.ForEach(t => t.Id = 0);
-                data.Dosages.ForEach(d => d.Id = 0);
-                data.Medications.ForEach(m => m.Id = 0);
-                data.Budgets.ForEach(b => { b.Id = 0; b.Items?.ToList().ForEach(i => i.Id = 0); });
-                data.Prescriptions.ForEach(p => { p.Id = 0; p.Items?.ToList().ForEach(i => i.Id = 0); });
-                data.ClinicalEntries.ForEach(c => { c.Id = 0; c.TreatmentsPerformed?.ToList().ForEach(t => t.Id = 0); });
-                data.Payments.ForEach(p => p.Id = 0);
-                data.PaymentAllocations.ForEach(pa => pa.Id = 0);
-
-                await _context.Users.AddRangeAsync(data.Users);
-                await _context.Patients.AddRangeAsync(data.Patients);
-                await _context.Treatments.AddRangeAsync(data.Treatments);
-                await _context.Dosages.AddRangeAsync(data.Dosages);
-                await _context.Medications.AddRangeAsync(data.Medications);
-                await _context.Budgets.AddRangeAsync(data.Budgets);
-                await _context.Prescriptions.AddRangeAsync(data.Prescriptions);
-                await _context.Payments.AddRangeAsync(data.Payments);
-                await _context.ClinicalEntries.AddRangeAsync(data.ClinicalEntries);
-                await _context.PaymentAllocations.AddRangeAsync(data.PaymentAllocations);
-
-                await _context.SaveChangesAsync();
-
-                // 8. Commit
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (JsonException jsonEx)
+            new Process
             {
-                await transaction.RollbackAsync();
-                throw new Exception($"Error al leer el archivo de backup (JSON): {jsonEx.Message}", jsonEx);
-            }
-            catch (CryptographicException cryptEx)
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = batPath,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                }
+            }.Start();
+
+            Application.Current.Shutdown();
+        }
+
+        private void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            var dir = new DirectoryInfo(sourceDir);
+            if (!dir.Exists)
             {
-                await transaction.RollbackAsync();
-                throw new Exception("Contraseña incorrecta o archivo de backup corrupto.", cryptEx);
+                Directory.CreateDirectory(destinationDir);
+                return;
             }
-            catch (Exception ex)
+
+            DirectoryInfo[] dirs = dir.GetDirectories();
+            Directory.CreateDirectory(destinationDir);
+
+            foreach (FileInfo file in dir.GetFiles())
             {
-                await transaction.RollbackAsync();
-                throw;
+                string targetFilePath = Path.Combine(destinationDir, file.Name);
+                file.CopyTo(targetFilePath, true);
+            }
+
+            foreach (DirectoryInfo subDir in dirs)
+            {
+                string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                CopyDirectory(subDir.FullName, newDestinationDir);
             }
         }
     }

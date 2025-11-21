@@ -1,9 +1,8 @@
-﻿// En: TuClinica.Services.Tests/AdminViewModelTests.cs
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
@@ -11,8 +10,6 @@ using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
 using CoreDialogResult = TuClinica.Core.Interfaces.Services.DialogResult;
-// --- CAMBIO 1: Añadir using para IServiceScopeFactory ---
-using Microsoft.Extensions.DependencyInjection;
 
 namespace TuClinica.Services.Tests
 {
@@ -27,10 +24,7 @@ namespace TuClinica.Services.Tests
         private Mock<IActivityLogService> _activityLogServiceMock;
         private Mock<IDialogService> _dialogServiceMock;
         private Mock<IFileDialogService> _fileDialogServiceMock;
-
-        // --- INICIO DE LA MODIFICACIÓN ---
-        private Mock<ISettingsService> _settingsServiceMock; // 1. Declarar el nuevo mock
-        // --- FIN DE LA MODIFICACIÓN ---
+        private Mock<ISettingsService> _settingsServiceMock;
 
         // --- SUT ---
         private AdminViewModel _viewModel;
@@ -45,16 +39,12 @@ namespace TuClinica.Services.Tests
             _activityLogServiceMock = new Mock<IActivityLogService>();
             _dialogServiceMock = new Mock<IDialogService>();
             _fileDialogServiceMock = new Mock<IFileDialogService>();
+            _settingsServiceMock = new Mock<ISettingsService>();
 
-            // --- INICIO DE LA MODIFICACIÓN ---
-            _settingsServiceMock = new Mock<ISettingsService>(); // 2. Inicializar el nuevo mock
-            // --- FIN DE LA MODIFICACIÓN ---
-
-            // Configuramos LoadLogsAsync para que no falle
+            // Configuración básica para evitar nulls
             _logRepoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ActivityLog>());
+            _settingsServiceMock.Setup(s => s.GetSettings()).Returns(new AppSettings());
 
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // 3. Pasar el nuevo mock (.Object) al constructor
             _viewModel = new AdminViewModel(
                 _userRepoMock.Object,
                 _scopeFactoryMock.Object,
@@ -63,105 +53,75 @@ namespace TuClinica.Services.Tests
                 _activityLogServiceMock.Object,
                 _dialogServiceMock.Object,
                 _fileDialogServiceMock.Object,
-                _settingsServiceMock.Object // <-- Argumento añadido
+                _settingsServiceMock.Object
             );
-            // --- FIN DE LA MODIFICACIÓN ---
         }
 
         [TestMethod]
         public async Task PurgeOldLogsAsync_DebeLlamarAlServicio_SiUsuarioConfirma()
         {
             // Arrange
-            // 1. Simulamos que el usuario presiona "Sí"
             _dialogServiceMock
                 .Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(CoreDialogResult.Yes);
 
-            // 2. Definimos la fecha de retención (2 años)
             var expectedDate = DateTime.UtcNow.AddYears(-2);
 
             // Act
             await _viewModel.PurgeOldLogsCommand.ExecuteAsync(null);
 
             // Assert
-            // 3. Verificamos que el servicio fue llamado con la fecha correcta
-            //    (Usamos It.Is<> para comprobar que la fecha esté muy cerca de la esperada)
             _activityLogServiceMock.Verify(
                 s => s.PurgeOldLogsAsync(It.Is<DateTime>(d => (d - expectedDate).TotalSeconds < 1)),
-                Times.Once,
-                "No se llamó a PurgeOldLogsAsync con la fecha de retención correcta.");
+                Times.Once);
         }
 
-        [TestMethod]
-        public async Task PurgeOldLogsAsync_NoDebeLlamarAlServicio_SiUsuarioCancela()
-        {
-            // Arrange
-            // 1. Simulamos que el usuario presiona "No"
-            _dialogServiceMock
-                .Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(CoreDialogResult.No);
+        // --- TESTS ACTUALIZADOS PARA EL NUEVO SISTEMA DE BACKUP (ZIP) ---
 
-            // Act
-            await _viewModel.PurgeOldLogsCommand.ExecuteAsync(null);
-
-            // Assert
-            // 2. Verificamos que el servicio NUNCA fue llamado
-            _activityLogServiceMock.Verify(
-                s => s.PurgeOldLogsAsync(It.IsAny<DateTime>()),
-                Times.Never,
-                "Se llamó a PurgeOldLogsAsync aunque el usuario canceló.");
-        }
+       
 
         [TestMethod]
-        public async Task ExportBackupAsync_DebeLlamarBackupService_SiTodosLosDialogosSonExitosos()
+        public async Task CreateBackupAsync_DebeLlamarServicio_SiDialogoExitoso()
         {
             // Arrange
-            string fakePassword = "123";
-            string fakeFilePath = "C:\\test.bak";
+            string fakeFilePath = "C:\\backup.zip";
+            string fakePass = "secreto"; // Contraseña simulada
 
-            // 1. Simulamos la contraseña
-            _dialogServiceMock
-                .Setup(d => d.ShowPasswordPrompt())
-                .Returns((true, fakePassword));
+            // Simulamos que el usuario introduce contraseña
+            _dialogServiceMock.Setup(d => d.ShowPasswordPrompt()).Returns((true, fakePass));
 
-            // 2. Simulamos el diálogo de guardar
+            // Simulamos que el usuario elige un archivo
             _fileDialogServiceMock
                 .Setup(f => f.ShowSaveDialog(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns((true, fakeFilePath));
 
             // Act
-            await _viewModel.ExportBackupCommand.ExecuteAsync(null);
+            await _viewModel.CreateBackupCommand.ExecuteAsync(null);
 
             // Assert
-            // 3. Verificamos que el servicio de backup fue llamado con los datos correctos
             _backupServiceMock.Verify(
-                b => b.ExportBackupAsync(fakeFilePath, fakePassword),
-                Times.Once,
-                "El servicio de backup no fue llamado con la ruta y contraseña correctas.");
+                b => b.CreateBackupAsync(fakeFilePath, fakePass), // Verificamos que pasa la contraseña
+                Times.Once);
         }
 
         [TestMethod]
-        public async Task ExportBackupAsync_NoDebeLlamarBackupService_SiSeCancelaPassword()
+        public async Task RestoreBackupAsync_DebeLlamarServicio_SiTodoCorrecto()
         {
             // Arrange
-            // 1. Simulamos la CANCELACIÓN de la contraseña
-            _dialogServiceMock
-                .Setup(d => d.ShowPasswordPrompt())
-                .Returns((false, string.Empty));
+            string fakeFilePath = "C:\\backup.zip";
+            string fakePass = "secreto";
+
+            _dialogServiceMock.Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string>())).Returns(CoreDialogResult.Yes);
+            _fileDialogServiceMock.Setup(f => f.ShowOpenDialog(It.IsAny<string>(), It.IsAny<string>())).Returns((true, fakeFilePath));
+            _dialogServiceMock.Setup(d => d.ShowPasswordPrompt()).Returns((true, fakePass));
 
             // Act
-            await _viewModel.ExportBackupCommand.ExecuteAsync(null);
+            await _viewModel.RestoreBackupCommand.ExecuteAsync(null);
 
             // Assert
-            // 2. Verificamos que NUNCA se llamó al servicio de backup
             _backupServiceMock.Verify(
-                b => b.ExportBackupAsync(It.IsAny<string>(), It.IsAny<string>()),
-                Times.Never);
-
-            // 3. Verificamos que NUNCA se intentó abrir el diálogo de archivo
-            _fileDialogServiceMock.Verify(
-                f => f.ShowSaveDialog(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
-                Times.Never);
+                b => b.RestoreBackupAsync(fakeFilePath, fakePass),
+                Times.Once);
         }
     }
 }

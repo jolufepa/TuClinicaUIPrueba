@@ -39,8 +39,8 @@
                     <Button Content="Refrescar Lista"
                             Command="{Binding LoadUsersCommand}"
                             Margin="20,0,0,0"/>
-                    <Button Content="Exportar Copia" Command="{Binding ExportBackupCommand}" Margin="30,0,0,0"/>
-                    <Button Content="Importar Copia" Command="{Binding ImportBackupCommand}" Margin="10,0,0,0"/>
+                    <Button Content="Exportar Copia" Command="{Binding CreateBackupCommand}" Margin="30,0,0,0"/>
+                    <Button Content="Importar Copia" Command="{Binding RestoreBackupCommand}" Margin="10,0,0,0"/>
                 </StackPanel>
 
                 <DataGrid Grid.Row="1"

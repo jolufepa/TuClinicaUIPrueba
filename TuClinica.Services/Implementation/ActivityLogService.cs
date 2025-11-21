@@ -1,11 +1,13 @@
-﻿// En: TuClinica.Services/Implementation/ActivityLogService.cs
-using System;
+﻿using System;
+using System.Collections.Generic; // Para IEnumerable si fuera necesario
+using System.IO; // <--- ESTA ES LA LÍNEA QUE FALTABA
+using System.Linq; // Para OrderBy
 using System.Text;
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces;
-using TuClinica.Core.Interfaces.Repositories; // Para IRepository
-using TuClinica.Core.Interfaces.Services;   // Para IAuthService y IActivityLogService
-using TuClinica.Core.Models;                  // Para ActivityLog
+using TuClinica.Core.Interfaces.Repositories;
+using TuClinica.Core.Interfaces.Services;
+using TuClinica.Core.Models;
 
 namespace TuClinica.Services.Implementation
 {
@@ -47,6 +49,7 @@ namespace TuClinica.Services.Implementation
         {
             await LogAsync("Access", entityType, entityId, details);
         }
+
         public async Task<string> ExportLogsAsCsvAsync(string filePath)
         {
             // 1. Obtiene todos los logs
@@ -68,9 +71,11 @@ namespace TuClinica.Services.Implementation
             }
 
             // 4. Escribe el contenido al archivo
+            // Ahora 'File' funcionará porque hemos añadido 'using System.IO;' arriba
             await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
             return filePath;
         }
+
         public async Task<int> PurgeOldLogsAsync(DateTime retentionDateLimit)
         {
             // 1. Encuentra logs más antiguos que la fecha límite
@@ -86,7 +91,5 @@ namespace TuClinica.Services.Implementation
             }
             return 0; // No se borró nada
         }
-
-
     }
 }
