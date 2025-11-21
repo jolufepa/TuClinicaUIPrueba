@@ -187,21 +187,32 @@ namespace TuClinica.UI
         {
             await AppHost!.StartAsync();
             base.OnStartup(e);
+
             try { AppHost.Services.GetRequiredService<IInactivityService>().OnInactivity += PerformLogout; } catch { }
 
+            // --- BLOQUE ACTUALIZADO: USANDO EL INITIALIZER ---
             try
             {
                 using (var scope = AppHost.Services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    if (!db.Users.Any()) { db.Users.Add(new User { Username = "admin", HashedPassword = BCrypt.Net.BCrypt.HashPassword("admin123"), Role = UserRole.Administrador, IsActive = true, Name = "Admin" }); db.SaveChanges(); }
+
+                    // Instanciamos la lógica extraída (o podrías inyectarla si la registras en DI)
+                    var initializer = new DatabaseInitializer(db);
+                    initializer.Initialize();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error crítico de inicio de base de datos: {ex.Message}", "Error Fatal", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            // -------------------------------------------------
 
             var licenseSvc = AppHost.Services.GetRequiredService<ILicenseService>();
-            if (licenseSvc.IsLicenseValid()) AppHost.Services.GetRequiredService<LoginWindow>().ShowDialog();
-            else AppHost.Services.GetRequiredService<LicenseWindow>().ShowDialog();
+            if (licenseSvc.IsLicenseValid())
+                AppHost.Services.GetRequiredService<LoginWindow>().ShowDialog();
+            else
+                AppHost.Services.GetRequiredService<LicenseWindow>().ShowDialog();
         }
 
         private void PerformLogout()

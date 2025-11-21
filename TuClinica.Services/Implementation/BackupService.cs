@@ -5,7 +5,6 @@ using System.IO.Compression;
 using System.Threading.Tasks;
 using System.Windows; // Para Application.Current
 using TuClinica.Core.Interfaces.Services;
-using TuClinica.Core.Enums; // Para DialogResult si fuera necesario, aunque usaremos defaults
 
 namespace TuClinica.Services.Implementation
 {
@@ -13,9 +12,8 @@ namespace TuClinica.Services.Implementation
     {
         private readonly string _sourceDataPath;
         private readonly ICryptoService _cryptoService;
-        private readonly IDialogService _dialogService; // <-- NUEVA DEPENDENCIA
+        private readonly IDialogService _dialogService;
 
-        // Inyectamos IDialogService
         public BackupService(ICryptoService cryptoService, IDialogService dialogService)
         {
             _cryptoService = cryptoService;
@@ -88,12 +86,14 @@ namespace TuClinica.Services.Implementation
                         throw new Exception("El backup desencriptado no contiene datos válidos.");
                     }
 
-                    // 4. Ejecutar restauración y AVISAR
+                    // 4. Ejecutar restauración (SIN INTENTAR REINICIAR AUTOMÁTICAMENTE)
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        // --- AQUÍ ESTÁ LA MEJORA PROFESIONAL ---
+                        // MENSAJE ACTUALIZADO PARA EL USUARIO
                         _dialogService.ShowMessage(
-                            "La copia de seguridad se ha verificado y preparado correctamente.\n\nLa aplicación se cerrará ahora y se reiniciará automáticamente para aplicar los cambios.",
+                            "Copia de seguridad verificada correctamente.\n\n" +
+                            "La aplicación se cerrará ahora para aplicar los cambios.\n\n" +
+                            "IMPORTANTE: Cuando se cierre, espere 5 segundos y vuelva a abrirla manualmente.",
                             "Restauración Exitosa");
 
                         PerformSafeRestore(tempExtractFolder);
@@ -118,18 +118,19 @@ namespace TuClinica.Services.Implementation
         private void PerformSafeRestore(string newContentPath)
         {
             string batPath = Path.Combine(Path.GetTempPath(), "restore_tuclinica.bat");
-            string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+
+            // Obtenemos la ruta de datos sin barra final
             string dataDir = _sourceDataPath.TrimEnd(Path.DirectorySeparatorChar);
 
+            // --- CAMBIO CLAVE: Eliminada la línea 'start ...' ---
+            // El script solo copia los archivos y borra el temporal. No intenta abrir el .exe
             string script = $@"
 @echo off
 timeout /t 2 /nobreak > NUL
-echo Restaurando datos seguros...
 rmdir /S /Q ""{dataDir}""
 mkdir ""{dataDir}""
 xcopy ""{newContentPath}\*.*"" ""{dataDir}\"" /E /H /C /I /Y
 rmdir /S /Q ""{newContentPath}""
-start """" ""{exePath}""
 del ""%~f0""
 ";
             File.WriteAllText(batPath, script);
@@ -145,6 +146,7 @@ del ""%~f0""
                 }
             }.Start();
 
+            // Cierra la aplicación limpiamente
             Application.Current.Shutdown();
         }
 
