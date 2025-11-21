@@ -19,6 +19,7 @@
     <InstallUrl>C:\Publish\</InstallUrl>
     <UpdateUrl>C:\Publish\</UpdateUrl>
     <PublishReadyToRun>true</PublishReadyToRun>
+    <UserSecretsId>02c47efa-8c9a-4d78-b150-53e11f00a889</UserSecretsId>
   </PropertyGroup>
 
 

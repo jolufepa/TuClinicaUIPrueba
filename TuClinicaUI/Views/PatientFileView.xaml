@@ -390,7 +390,8 @@
                         </Grid>
 
                         <GroupBox Grid.Column="1" Header="Vista Rápida Odontograma" Margin="10,0,0,0" Padding="10">
-                            <controls:OdontogramPreviewControl DataContext="{Binding DataContext.OdontogramPreviewVM, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <controls:OdontogramPreviewControl 
+                                DataContext="{Binding DataContext.PatientOdontogramVM.OdontogramPreviewVM, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                         </GroupBox>
                     </Grid>
                 </mah:MetroTabItem>

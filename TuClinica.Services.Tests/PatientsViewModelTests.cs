@@ -1,17 +1,17 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
-using System.Linq.Expressions;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.Core.Models;
 using TuClinica.UI.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
-using System.Threading.Tasks;
-using TuClinica.Core.Enums;
-using System.Threading;
-using System.Collections.Generic; // Necesario para List<>
 
 namespace TuClinica.Services.Tests
 {
@@ -35,7 +35,6 @@ namespace TuClinica.Services.Tests
         private Mock<IFileDialogService> _fileDialogServiceMock;
         private Mock<IPdfService> _pdfServiceMock;
         private Mock<IPatientAlertRepository> _alertRepoMock;
-
 
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
@@ -97,20 +96,25 @@ namespace TuClinica.Services.Tests
                  _dialogServiceMock.Object
             );
 
+            // Crear el hijo Odontograma
+            var patientOdontogramVM = new PatientOdontogramViewModel(
+                _scopeFactoryMock.Object,
+                _dialogServiceMock.Object,
+                _pdfServiceMock.Object
+            );
+
             // 2. Creamos la instancia del Padre (PatientFileViewModel)
             // Ahora le pasamos TODOS los hijos requeridos
             _patientFileVM_Instance = new PatientFileViewModel(
-                _authServiceMock.Object,
                 _dialogServiceMock.Object,
                 _scopeFactoryMock.Object,
-                _fileDialogServiceMock.Object,
-                _pdfServiceMock.Object,
                 // Hijos inyectados:
                 patientInfoVM,
                 patientDocsVM,
                 patientAlertsVM,
                 patientFinancialVM,
-                patientTreatmentPlanVM // <--- ¡ARGUMENTO FINAL!
+                patientTreatmentPlanVM,
+                patientOdontogramVM // <-- ¡ARGUMENTO FINAL!
             );
 
 

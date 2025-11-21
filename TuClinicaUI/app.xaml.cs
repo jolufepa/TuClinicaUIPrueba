@@ -138,29 +138,29 @@ namespace TuClinica.UI
                     services.AddSingleton<HomeViewModel>();
                     services.AddTransient<FinancialSummaryViewModel>();
 
-                    // Sub-ViewModels
+                    // Sub-ViewModels (Los 6 jinetes)
                     services.AddTransient<PatientInfoViewModel>();
-                    
                     services.AddTransient<PatientDocumentsViewModel>();
                     services.AddTransient<PatientAlertsViewModel>();
                     services.AddTransient<PatientFinancialViewModel>();
                     services.AddTransient<PatientTreatmentPlanViewModel>();
+                    services.AddTransient<PatientOdontogramViewModel>();
 
-                    // ViewModel Padre (Conductor) - INYECCIÓN ACTUALIZADA
+                    // --- AQUÍ ESTABA EL ERROR ---
+                    // ViewModel Padre (Conductor) - Inyección corregida (8 argumentos)
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
-                            sp.GetRequiredService<IAuthService>(),
-                            sp.GetRequiredService<IDialogService>(),
-                            sp.GetRequiredService<IServiceScopeFactory>(),
-                            sp.GetRequiredService<IFileDialogService>(),
-                            sp.GetRequiredService<IPdfService>(),
-                            // Hijos
-                            sp.GetRequiredService<PatientInfoViewModel>(),
-                            sp.GetRequiredService<PatientDocumentsViewModel>(),
-                            sp.GetRequiredService<PatientAlertsViewModel>(),
-                            sp.GetRequiredService<PatientFinancialViewModel>(),
-                            sp.GetRequiredService<PatientTreatmentPlanViewModel>()
+                            sp.GetRequiredService<IDialogService>(),       // 1
+                            sp.GetRequiredService<IServiceScopeFactory>(), // 2
+                                                                           // Hijos
+                            sp.GetRequiredService<PatientInfoViewModel>(),          // 3
+                            sp.GetRequiredService<PatientDocumentsViewModel>(),     // 4
+                            sp.GetRequiredService<PatientAlertsViewModel>(),        // 5
+                            sp.GetRequiredService<PatientFinancialViewModel>(),     // 6
+                            sp.GetRequiredService<PatientTreatmentPlanViewModel>(), // 7
+                            sp.GetRequiredService<PatientOdontogramViewModel>()     // 8
                         ));
+                    // ---------------------------
 
                     // Vistas
                     services.AddSingleton<MainWindow>();
@@ -183,7 +183,6 @@ namespace TuClinica.UI
             base.OnStartup(e);
             try { AppHost.Services.GetRequiredService<IInactivityService>().OnInactivity += PerformLogout; } catch { }
 
-            // Init básico y Login
             try
             {
                 using (var scope = AppHost.Services.CreateScope())
