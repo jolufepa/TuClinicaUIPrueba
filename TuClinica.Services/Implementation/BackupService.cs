@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Threading.Tasks;
-using System.Windows; // Para Application.Current
+using System.Windows;
+using Microsoft.Data.Sqlite;
+using System.Security.Cryptography;
+using System.Text;
 using TuClinica.Core.Interfaces.Services;
 
 namespace TuClinica.Services.Implementation
@@ -11,126 +13,165 @@ namespace TuClinica.Services.Implementation
     public class BackupService : IBackupService
     {
         private readonly string _sourceDataPath;
-        private readonly ICryptoService _cryptoService;
+        private readonly string _dbFilePath;
+        private readonly string _keyFilePath;
         private readonly IDialogService _dialogService;
 
         public BackupService(ICryptoService cryptoService, IDialogService dialogService)
         {
-            _cryptoService = cryptoService;
             _dialogService = dialogService;
+
             string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
             _sourceDataPath = Path.Combine(appData, "Data");
+            _dbFilePath = Path.Combine(_sourceDataPath, "DentalClinic.db");
+            _keyFilePath = Path.Combine(_sourceDataPath, "db.key");
         }
 
-        public async Task CreateBackupAsync(string destinationPath, string password)
+        // --------------------------------------------------------------------------------------------
+        // CREAR BACKUP: SystemKey (Tu PC) -> UserPassword (Portable)
+        // --------------------------------------------------------------------------------------------
+        public async Task CreateBackupAsync(string destinationPath, string portablePassword)
         {
-            string? directory = Path.GetDirectoryName(destinationPath);
-            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            if (!File.Exists(_dbFilePath)) throw new FileNotFoundException("No se encuentra la base de datos.");
 
-            string tempFolder = Path.Combine(Path.GetTempPath(), $"TuClinicaBackupTemp_{Guid.NewGuid()}");
-            string tempZipPath = Path.Combine(Path.GetTempPath(), $"TuClinicaIntermediate_{Guid.NewGuid()}.zip");
+            // 1. Leemos la clave interna de TU PC actual (db.key)
+            string systemPassword = GetSystemDatabasePassword();
 
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
+                // 2. Copiamos la BD a un temporal para trabajar seguros
+                string tempDbPath = Path.Combine(Path.GetTempPath(), $"TempBackup_{Guid.NewGuid()}.db");
+                File.Copy(_dbFilePath, tempDbPath, true);
+
                 try
                 {
-                    if (File.Exists(destinationPath)) File.Delete(destinationPath);
-
-                    CopyDirectory(_sourceDataPath, tempFolder);
-                    ZipFile.CreateFromDirectory(tempFolder, tempZipPath, CompressionLevel.Optimal, false);
-
-                    await using (var sourceStream = new FileStream(tempZipPath, FileMode.Open, FileAccess.Read))
-                    await using (var destStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
+                    // 3. Abrimos la copia usando la contraseña del SISTEMA
+                    var connectionString = new SqliteConnectionStringBuilder
                     {
-                        await _cryptoService.EncryptAsync(sourceStream, destStream, password);
+                        DataSource = tempDbPath,
+                        Password = systemPassword,
+                        Mode = SqliteOpenMode.ReadWrite,
+                        Pooling = false // INTENTO 1: Desactivar pooling para este backup
+                    }.ToString();
+
+                    using (var connection = new SqliteConnection(connectionString))
+                    {
+                        connection.Open();
+
+                        // 4. REKEY: Cambiamos la llave maestra a la contraseña del usuario
+                        using (var command = connection.CreateCommand())
+                        {
+                            string safePassword = portablePassword.Replace("'", "''");
+                            command.CommandText = $"PRAGMA rekey = '{safePassword}';";
+                            command.ExecuteNonQuery();
+                        }
+
+                        // --- CORRECCIÓN CRÍTICA AQUÍ ---
+                        // Cerramos explícitamente y limpiamos el pool para soltar el archivo
+                        connection.Close();
+                        SqliteConnection.ClearPool(connection);
+                        // -------------------------------
                     }
+
+                    // Pequeña pausa de seguridad para asegurar que el SO libera el handler
+                    System.Threading.Thread.Sleep(100);
+
+                    // 5. Copiamos al destino final
+                    File.Copy(tempDbPath, destinationPath, true);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error de seguridad al crear backup: {ex.Message}", ex);
+                    throw new Exception($"Error al exportar backup portable: {ex.Message}", ex);
                 }
                 finally
                 {
-                    if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
-                    if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+                    // Intentamos borrar el temporal. Si falla por bloqueo, no rompemos la app, 
+                    // el SO lo limpiará eventualmente.
+                    try
+                    {
+                        if (File.Exists(tempDbPath)) File.Delete(tempDbPath);
+                    }
+                    catch { /* Ignorar error de borrado temporal */ }
                 }
             });
         }
 
-        public async Task RestoreBackupAsync(string sourceEncryptedPath, string password)
+        // --------------------------------------------------------------------------------------------
+        // RESTAURAR: UserPassword (Portable) -> SystemKey (Nuevo PC)
+        // --------------------------------------------------------------------------------------------
+        public async Task RestoreBackupAsync(string sourceBackupPath, string portablePassword)
         {
-            if (!File.Exists(sourceEncryptedPath)) throw new FileNotFoundException("No se encuentra el archivo de backup.");
+            if (!File.Exists(sourceBackupPath)) throw new FileNotFoundException("No se encuentra el archivo.");
 
-            await Task.Run(async () =>
+            // 1. Obtenemos la contraseña del sistema del NUEVO PC
+            string currentSystemPassword = GetSystemDatabasePassword();
+
+            await Task.Run(() =>
             {
-                string tempZipPath = Path.Combine(Path.GetTempPath(), $"TuClinicaRestore_{Guid.NewGuid()}.zip");
-                string tempExtractFolder = Path.Combine(Path.GetTempPath(), $"TuClinicaRestore_{Guid.NewGuid()}");
+                // 2. Copiamos el backup a un temporal
+                string tempDbPath = Path.Combine(Path.GetTempPath(), $"TempRestore_{Guid.NewGuid()}.db");
+                File.Copy(sourceBackupPath, tempDbPath, true);
 
                 try
                 {
-                    // 1. Desencriptar
-                    await using (var sourceStream = new FileStream(sourceEncryptedPath, FileMode.Open, FileAccess.Read))
-                    await using (var destStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write))
+                    // 3. Abrimos el backup usando la contraseña PORTABLE
+                    var connectionString = new SqliteConnectionStringBuilder
                     {
-                        await _cryptoService.DecryptAsync(sourceStream, destStream, password);
+                        DataSource = tempDbPath,
+                        Password = portablePassword,
+                        Mode = SqliteOpenMode.ReadWrite,
+                        Pooling = false // Desactivamos pooling también aquí
+                    }.ToString();
+
+                    using (var connection = new SqliteConnection(connectionString))
+                    {
+                        connection.Open();
+
+                        // 4. REKEY INVERSO: Cambiamos a la contraseña del SISTEMA
+                        using (var command = connection.CreateCommand())
+                        {
+                            string safePassword = currentSystemPassword.Replace("'", "''");
+                            command.CommandText = $"PRAGMA rekey = '{safePassword}';";
+                            command.ExecuteNonQuery();
+                        }
+
+                        // CORRECCIÓN CRÍTICA: Soltar archivo
+                        connection.Close();
+                        SqliteConnection.ClearPool(connection);
                     }
 
-                    // 2. Extraer
-                    Directory.CreateDirectory(tempExtractFolder);
-                    ZipFile.ExtractToDirectory(tempZipPath, tempExtractFolder);
+                    System.Threading.Thread.Sleep(100);
 
-                    // 3. Validar
-                    if (!File.Exists(Path.Combine(tempExtractFolder, "DentalClinic.db")) &&
-                        !Directory.Exists(Path.Combine(tempExtractFolder, "PatientFiles")))
-                    {
-                        throw new Exception("El backup desencriptado no contiene datos válidos.");
-                    }
-
-                    // 4. Ejecutar restauración (SIN INTENTAR REINICIAR AUTOMÁTICAMENTE)
+                    // 5. Reemplazo seguro
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        // MENSAJE ACTUALIZADO PARA EL USUARIO
                         _dialogService.ShowMessage(
-                            "Copia de seguridad verificada correctamente.\n\n" +
-                            "La aplicación se cerrará ahora para aplicar los cambios.\n\n" +
-                            "IMPORTANTE: Cuando se cierre, espere 5 segundos y vuelva a abrirla manualmente.",
+                            "Copia validada y adaptada a este equipo.\n\nLa aplicación se reiniciará.",
                             "Restauración Exitosa");
 
-                        PerformSafeRestore(tempExtractFolder);
+                        PerformSafeRestore(tempDbPath);
                     });
                 }
-                catch (System.Security.Cryptography.CryptographicException)
+                catch (SqliteException ex)
                 {
-                    throw new Exception("Contraseña incorrecta o archivo dañado.");
-                }
-                catch (Exception)
-                {
-                    if (Directory.Exists(tempExtractFolder)) Directory.Delete(tempExtractFolder, true);
-                    throw;
-                }
-                finally
-                {
-                    if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+                    if (ex.Message.Contains("file is not a database") || ex.SqliteErrorCode == 26)
+                        throw new Exception("La contraseña proporcionada no es válida para este backup.");
+                    else
+                        throw;
                 }
             });
         }
 
-        private void PerformSafeRestore(string newContentPath)
+        private void PerformSafeRestore(string newDbFileSource)
         {
-            string batPath = Path.Combine(Path.GetTempPath(), "restore_tuclinica.bat");
+            string batPath = Path.Combine(Path.GetTempPath(), "restore_rekey.bat");
+            string targetFolder = _sourceDataPath.TrimEnd(Path.DirectorySeparatorChar);
 
-            // Obtenemos la ruta de datos sin barra final
-            string dataDir = _sourceDataPath.TrimEnd(Path.DirectorySeparatorChar);
-
-            // --- CAMBIO CLAVE: Eliminada la línea 'start ...' ---
-            // El script solo copia los archivos y borra el temporal. No intenta abrir el .exe
             string script = $@"
 @echo off
 timeout /t 2 /nobreak > NUL
-rmdir /S /Q ""{dataDir}""
-mkdir ""{dataDir}""
-xcopy ""{newContentPath}\*.*"" ""{dataDir}\"" /E /H /C /I /Y
-rmdir /S /Q ""{newContentPath}""
+copy /Y ""{newDbFileSource}"" ""{targetFolder}\DentalClinic.db""
+del ""{newDbFileSource}""
 del ""%~f0""
 ";
             File.WriteAllText(batPath, script);
@@ -146,32 +187,26 @@ del ""%~f0""
                 }
             }.Start();
 
-            // Cierra la aplicación limpiamente
             Application.Current.Shutdown();
         }
 
-        private void CopyDirectory(string sourceDir, string destinationDir)
+        private string GetSystemDatabasePassword()
         {
-            var dir = new DirectoryInfo(sourceDir);
-            if (!dir.Exists)
+            if (!File.Exists(_keyFilePath))
             {
-                Directory.CreateDirectory(destinationDir);
-                return;
+                throw new Exception("Error Crítico: No se encuentra 'db.key'. La aplicación debe iniciarse correctamente al menos una vez.");
             }
 
-            DirectoryInfo[] dirs = dir.GetDirectories();
-            Directory.CreateDirectory(destinationDir);
-
-            foreach (FileInfo file in dir.GetFiles())
+            try
             {
-                string targetFilePath = Path.Combine(destinationDir, file.Name);
-                file.CopyTo(targetFilePath, true);
+                byte[] entropy = Encoding.UTF8.GetBytes("TuClinicaSalt");
+                byte[] encryptedData = File.ReadAllBytes(_keyFilePath);
+                byte[] decryptedData = ProtectedData.Unprotect(encryptedData, entropy, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(decryptedData);
             }
-
-            foreach (DirectoryInfo subDir in dirs)
+            catch
             {
-                string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
-                CopyDirectory(subDir.FullName, newDestinationDir);
+                throw new Exception("No se pudo leer la llave de seguridad (db.key).");
             }
         }
     }

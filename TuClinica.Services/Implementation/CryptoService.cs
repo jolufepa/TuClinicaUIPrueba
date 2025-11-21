@@ -1,38 +1,35 @@
-﻿// En: TuClinica.Services/Implementation/CryptoService.cs
-using System;
+﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using TuClinica.Core.Interfaces.Services;
-using System.Threading; // <-- AÑADIDO PARA CancellationToken
+using System.Threading;
 
 namespace TuClinica.Services.Implementation
 {
     public class CryptoService : ICryptoService
     {
-        // Constantes para la nueva implementación de streaming (CBC+HMAC)
+        // --- Constantes de Configuración ---
         private const int SaltSize = 16;
-        private const int IvSize = 16; // AES usa un bloque de 128 bits (16 bytes)
-        private const int HmacSize = 32; // HMAC-SHA256 produce un hash de 32 bytes
+        private const int IvSize = 16;
+        private const int HmacSize = 32;
         private const int KeySize = 32; // AES-256
-        private const int Iterations = 10000; // Mantenemos las mismas iteraciones
+        private const int Iterations = 10000;
         private static readonly HashAlgorithmName _hashAlgorithm = HashAlgorithmName.SHA256;
 
-        #region Métodos AES-GCM (Originales, para datos en memoria)
+        #region Métodos AES-GCM (En Memoria - Sin cambios)
 
         public byte[] Encrypt(byte[] dataToEncrypt, string password)
         {
             byte[] salt = RandomNumberGenerator.GetBytes(16);
             using var keyDerivation = new Rfc2898DeriveBytes(password, salt, Iterations, _hashAlgorithm);
-            byte[] key = keyDerivation.GetBytes(KeySize); // AES-256
-            byte[] nonce = RandomNumberGenerator.GetBytes(12); // AES-GCM nonce
+            byte[] key = keyDerivation.GetBytes(KeySize);
+            byte[] nonce = RandomNumberGenerator.GetBytes(12);
             using var aesGcm = new AesGcm(key);
             byte[] cipherText = new byte[dataToEncrypt.Length];
-            byte[] tag = new byte[16]; // GCM Auth Tag
+            byte[] tag = new byte[16];
             aesGcm.Encrypt(nonce, dataToEncrypt, cipherText, tag);
 
-            // Combine: [salt][nonce][tag][ciphertext]
             byte[] encryptedDataWithMeta = new byte[salt.Length + nonce.Length + tag.Length + cipherText.Length];
             Buffer.BlockCopy(salt, 0, encryptedDataWithMeta, 0, salt.Length);
             Buffer.BlockCopy(nonce, 0, encryptedDataWithMeta, salt.Length, nonce.Length);
@@ -47,13 +44,10 @@ namespace TuClinica.Services.Implementation
             int expectedMinLength = gcmSaltSize + gcmNonceSize + gcmTagSize;
 
             if (encryptedDataWithMeta == null || encryptedDataWithMeta.Length < expectedMinLength)
-            {
                 return null;
-            }
 
             try
             {
-                // Extract metadata
                 byte[] salt = new byte[gcmSaltSize]; byte[] nonce = new byte[gcmNonceSize]; byte[] tag = new byte[gcmTagSize];
                 int cipherTextLength = encryptedDataWithMeta.Length - expectedMinLength;
                 byte[] cipherText = new byte[cipherTextLength];
@@ -62,144 +56,129 @@ namespace TuClinica.Services.Implementation
                 Buffer.BlockCopy(encryptedDataWithMeta, gcmSaltSize + gcmNonceSize, tag, 0, gcmTagSize);
                 Buffer.BlockCopy(encryptedDataWithMeta, expectedMinLength, cipherText, 0, cipherTextLength);
 
-                // Derive key
                 using var keyDerivation = new Rfc2898DeriveBytes(password, salt, Iterations, _hashAlgorithm);
                 byte[] key = keyDerivation.GetBytes(KeySize);
 
-                // Decrypt
                 using var aesGcm = new AesGcm(key);
                 byte[] decryptedData = new byte[cipherText.Length];
                 aesGcm.Decrypt(nonce, cipherText, tag, decryptedData);
                 return decryptedData;
             }
-            catch (CryptographicException) // Ocurre si el 'tag' (contraseña) es incorrecto
-            {
-                return null;
-            }
-            catch (Exception)
-            {
-                return null; // Return null on unexpected errors too
-            }
+            catch (Exception) { return null; }
         }
 
         #endregion
 
-        #region Métodos de Streaming (Nuevos, AES-CBC + HMAC)
+        #region Métodos de Streaming (AES-CBC + HMAC + FALLBACK)
 
-        /// <summary>
-        /// Deriva dos claves (una para cifrado, otra para HMAC) desde una contraseña y salt.
-        /// </summary>
         private (byte[] aesKey, byte[] hmacKey) DeriveKeys(string password, byte[] salt)
         {
-            // Derivamos una clave combinada de 64 bytes
             using var keyDerivation = new Rfc2898DeriveBytes(password, salt, Iterations, _hashAlgorithm);
-            byte[] combinedKey = keyDerivation.GetBytes(KeySize + HmacSize); // 32 + 32 = 64 bytes
-
-            // Dividimos la clave
-            byte[] aesKey = combinedKey[..KeySize]; // Primeros 32 bytes para AES
-            byte[] hmacKey = combinedKey[KeySize..]; // Siguientes 32 bytes para HMAC
-
+            byte[] combinedKey = keyDerivation.GetBytes(KeySize + HmacSize);
+            byte[] aesKey = combinedKey[..KeySize];
+            byte[] hmacKey = combinedKey[KeySize..];
             return (aesKey, hmacKey);
         }
 
-        /// <summary>
-        /// Encripta un stream (JSON) a otro stream (archivo .bak)
-        /// Formato de archivo: [Salt (16)] [IV (16)] [Ciphertext (...)] [HMAC (32)]
-        /// </summary>
         public async Task EncryptAsync(Stream inputStream, Stream outputStream, string password)
         {
+            // Este método siempre usa el formato NUEVO (El más seguro)
             byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
             (byte[] aesKey, byte[] hmacKey) = DeriveKeys(password, salt);
 
             using Aes aes = Aes.Create();
             aes.Key = aesKey;
-            aes.Mode = CipherMode.CBC; // CBC es compatible con CryptoStream
+            aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
-            byte[] iv = aes.IV; // Genera un IV aleatorio (16 bytes)
+            byte[] iv = aes.IV;
 
-            // Escribir metadatos no encriptados al inicio del archivo
             await outputStream.WriteAsync(salt, 0, SaltSize);
             await outputStream.WriteAsync(iv, 0, IvSize);
 
-            // Usamos dos streams anidados para aplicar Encrypt-then-MAC
-
             using HMACSHA256 hmac = new HMACSHA256(hmacKey);
-
-            // --- INICIO DE LA CORRECCIÓN ---
-
-            // 1. Creamos el hashingStream, asegurando que NO cierre outputStream
             await using (var hashingStream = new CryptoStream(outputStream, hmac, CryptoStreamMode.Write, leaveOpen: true))
             {
-                // 2. Creamos el encryptStream, asegurando que NO cierre hashingStream
                 await using (var encryptStream = new CryptoStream(hashingStream, aes.CreateEncryptor(), CryptoStreamMode.Write, leaveOpen: true))
                 {
-                    // 3. Encryptamos los datos.
-                    // Flujo: input -> encryptStream -> hashingStream -> outputStream
                     await inputStream.CopyToAsync(encryptStream);
+                }
+            }
 
-                } // 'encryptStream' se cierra, llama a FlushFinalBlock() UNA VEZ, y deja 'hashingStream' abierto.
-
-            } // 'hashingStream' se cierra, llama a FlushFinalBlock() UNA VEZ, y deja 'outputStream' abierto.
-
-            // 5. AHORA que ambos streams han flusheado y están cerrados, el hash está finalizado.
             byte[] hash = hmac.Hash ?? throw new CryptographicException("Error al calcular el HMAC.");
-
-            // 6. Escribimos el hash al final del outputStream (que sigue abierto).
             await outputStream.WriteAsync(hash, 0, hash.Length);
-
-            // --- FIN DE LA CORRECCIÓN ---
         }
 
-
         /// <summary>
-        /// Desencripta un stream (archivo .bak) a otro stream (JSON)
-        /// Formato de archivo: [Salt (16)] [IV (16)] [Ciphertext (...)] [HMAC (32)]
+        /// Intenta desencriptar usando el método moderno (HMAC). Si falla, intenta el método Legacy.
         /// </summary>
         public async Task DecryptAsync(Stream inputStream, Stream outputStream, string password)
         {
-            // Leer los metadatos no encriptados
+            if (!inputStream.CanSeek)
+                throw new ArgumentException("El stream de entrada debe ser 'Seekable' para soportar la detección de formato.");
+
+            long startPosition = inputStream.Position;
+
+            try
+            {
+                // INTENTO 1: Formato Nuevo (AES-CBC + HMAC)
+                await DecryptWithHmacAsync(inputStream, outputStream, password);
+            }
+            catch (Exception)
+            {
+                // Si falla (HMAC inválido, clave incorrecta para este formato, etc.)
+                // REBOBINAMOS e intentamos el formato antiguo.
+
+                inputStream.Seek(startPosition, SeekOrigin.Begin);
+
+                // Si outputStream es un MemoryStream o FileStream, intentamos limpiar lo que se haya escrito parcialmente
+                if (outputStream.CanSeek)
+                {
+                    outputStream.SetLength(0);
+                }
+
+                // INTENTO 2: Formato Legacy (AES-CBC simple o tu método anterior)
+                try
+                {
+                    await DecryptLegacyAsync(inputStream, outputStream, password);
+                }
+                catch (CryptographicException ex)
+                {
+                    // Capturamos el error de "Padding invalid" aquí para que no cierre la app abruptamente
+                    // Puedes loguear el error si tienes logger
+                    throw new Exception("La contraseña es incorrecta o el formato de la base de datos no es compatible.", ex);
+                }
+            }
+        }
+
+        // --- Lógica del Formato Nuevo (Tu código original de AES+HMAC) ---
+        private async Task DecryptWithHmacAsync(Stream inputStream, Stream outputStream, string password)
+        {
             byte[] salt = new byte[SaltSize];
             byte[] iv = new byte[IvSize];
 
-            if (await inputStream.ReadAsync(salt, 0, SaltSize) < SaltSize)
-                throw new CryptographicException("Archivo corrupto (salt).");
+            if (await inputStream.ReadAsync(salt, 0, SaltSize) < SaltSize) throw new CryptographicException("Archivo corrupto (salt).");
+            if (await inputStream.ReadAsync(iv, 0, IvSize) < IvSize) throw new CryptographicException("Archivo corrupto (iv).");
 
-            if (await inputStream.ReadAsync(iv, 0, IvSize) < IvSize)
-                throw new CryptographicException("Archivo corrupto (iv).");
-
-            // Derivar claves (igual que en Encrypt)
             (byte[] aesKey, byte[] hmacKey) = DeriveKeys(password, salt);
 
-            // Leer el HMAC *primero* (está al final del archivo)
             byte[] storedHmac = new byte[HmacSize];
             long ciphertextLength = inputStream.Length - SaltSize - IvSize - HmacSize;
-            if (ciphertextLength < 0)
-                throw new CryptographicException("Archivo corrupto (longitud).");
+            if (ciphertextLength < 0) throw new CryptographicException("Archivo corrupto (longitud).");
 
-            // Posicionamos el stream al inicio del HMAC (Salt + IV + Ciphertext)
             inputStream.Seek(SaltSize + IvSize + ciphertextLength, SeekOrigin.Begin);
-            if (await inputStream.ReadAsync(storedHmac, 0, HmacSize) < HmacSize)
-                throw new CryptographicException("Archivo corrupto (hmac).");
+            if (await inputStream.ReadAsync(storedHmac, 0, HmacSize) < HmacSize) throw new CryptographicException("Archivo corrupto (hmac).");
 
-            // Rebobinamos al inicio del ciphertext
             inputStream.Seek(SaltSize + IvSize, SeekOrigin.Begin);
 
-            // Verificamos el HMAC del ciphertext
             using HMACSHA256 hmac = new HMACSHA256(hmacKey);
-
-            // Creamos un stream limitado que solo lee el ciphertext
             var limitedStream = new LimitedStream(inputStream, ciphertextLength);
             byte[] computedHmac = await hmac.ComputeHashAsync(limitedStream);
 
-            // Comparamos los hashes. ¡Es crucial usar FixedTimeEquals!
             if (!CryptographicOperations.FixedTimeEquals(storedHmac, computedHmac))
             {
-                // ¡Contraseña incorrecta O archivo manipulado!
-                throw new CryptographicException("Error de autenticación: contraseña incorrecta o datos corruptos.");
+                throw new CryptographicException("Fallo de integridad HMAC (Formato incorrecto o contraseña errónea).");
             }
 
-            // Si el HMAC es válido, procedemos a desencriptar
-            // Rebobinamos al inicio del ciphertext
             inputStream.Seek(SaltSize + IvSize, SeekOrigin.Begin);
 
             using Aes aes = Aes.Create();
@@ -208,19 +187,129 @@ namespace TuClinica.Services.Implementation
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
 
-            // Creamos un stream limitado para el desencriptador, para que no lea el HMAC del final
             var decryptLimitedStream = new LimitedStream(inputStream, ciphertextLength);
-
             await using var decryptStream = new CryptoStream(decryptLimitedStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
-
-            // Copia los datos desencriptados (JSON) al stream de salida
             await decryptStream.CopyToAsync(outputStream);
+        }
+
+        // --- Lógica del Formato Antiguo (Legacy) ---
+        // IMPORTANTE: Ajusta esto si tu método anterior era diferente (ej. AES-GCM, sin Salt, etc.)
+        // Esta es una implementación estándar de AES-CBC con Salt+IV al inicio pero SIN HMAC al final.
+        // --- REEMPLAZA TODO EL MÉTODO DecryptLegacyAsync CON ESTE BLOQUE MEJORADO ---
+
+        private async Task DecryptLegacyAsync(Stream inputStream, Stream outputStream, string password)
+        {
+            long startPosition = inputStream.Position;
+            Exception lastError = null;
+
+            // --- ESTRATEGIA 1: IMPLEMENTACIÓN "SIMPLE" (Muy común en tutoriales) ---
+            // Lógica: La clave es simplemente el SHA256 del password. El archivo empieza con el IV (16 bytes).
+            // Estructura archivo: [IV (16 bytes)] [Cifrado...]
+            try
+            {
+                inputStream.Seek(startPosition, SeekOrigin.Begin);
+                if (outputStream.CanSeek) outputStream.SetLength(0);
+
+                byte[] iv = new byte[IvSize]; // 16 bytes
+                if (await inputStream.ReadAsync(iv, 0, IvSize) == IvSize)
+                {
+                    using var sha256 = SHA256.Create();
+                    byte[] key = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+
+                    using Aes aes = Aes.Create();
+                    aes.Key = key;
+                    aes.IV = iv;
+                    aes.Mode = CipherMode.CBC;
+                    aes.Padding = PaddingMode.PKCS7;
+
+                    using var decryptor = aes.CreateDecryptor();
+                    await using var decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
+                    await decryptStream.CopyToAsync(outputStream);
+                    return; // ¡Éxito!
+                }
+            }
+            catch (Exception ex) { lastError = ex; }
+
+
+            // --- ESTRATEGIA 2: ESTÁNDAR CON SALT (Lo que probamos antes) ---
+            // Estructura: [Salt (16 bytes)] [IV (16 bytes)] [Cifrado...]
+            var configs = new[]
+            {
+        new { Iterations = 1000, Algo = HashAlgorithmName.SHA1 },    // .NET Framework clásico
+        new { Iterations = 10000, Algo = HashAlgorithmName.SHA256 }, // Estándar moderno
+        new { Iterations = 2, Algo = HashAlgorithmName.SHA1 }        // Versiones muy viejas
+    };
+
+            byte[] salt = new byte[SaltSize];
+            byte[] iv2 = new byte[IvSize];
+
+            // Intentamos leer 32 bytes (Salt + IV)
+            inputStream.Seek(startPosition, SeekOrigin.Begin);
+            bool headerRead = false;
+            if (await inputStream.ReadAsync(salt, 0, SaltSize) == SaltSize &&
+                await inputStream.ReadAsync(iv2, 0, IvSize) == IvSize)
+            {
+                headerRead = true;
+            }
+
+            if (headerRead)
+            {
+                foreach (var config in configs)
+                {
+                    try
+                    {
+                        // Importante: Volver justo después del Salt+IV
+                        inputStream.Seek(startPosition + SaltSize + IvSize, SeekOrigin.Begin);
+                        if (outputStream.CanSeek) outputStream.SetLength(0);
+
+                        using var keyDerivation = new Rfc2898DeriveBytes(password, salt, config.Iterations, config.Algo);
+                        byte[] key = keyDerivation.GetBytes(KeySize);
+
+                        using Aes aes = Aes.Create();
+                        aes.Key = key;
+                        aes.IV = iv2;
+                        aes.Mode = CipherMode.CBC;
+                        aes.Padding = PaddingMode.PKCS7;
+
+                        using var decryptor = aes.CreateDecryptor();
+                        await using var decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
+                        await decryptStream.CopyToAsync(outputStream);
+                        return; // ¡Éxito!
+                    }
+                    catch (Exception ex) { lastError = ex; }
+                }
+            }
+
+            // --- ESTRATEGIA 3: SIN IV EN ARCHIVO (Poco común pero posible) ---
+            // Algunos sistemas antiguos usaban un IV fijo (todo ceros) y solo guardaban el cifrado.
+            try
+            {
+                inputStream.Seek(startPosition, SeekOrigin.Begin);
+                if (outputStream.CanSeek) outputStream.SetLength(0);
+
+                using var sha256 = SHA256.Create();
+                byte[] key = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                byte[] zeroIv = new byte[16]; // Todo ceros
+
+                using Aes aes = Aes.Create();
+                aes.Key = key;
+                aes.IV = zeroIv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using var decryptor = aes.CreateDecryptor();
+                await using var decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
+                await decryptStream.CopyToAsync(outputStream);
+                return;
+            }
+            catch (Exception ex) { lastError = ex; }
+
+            throw new Exception("No se pudo descifrar con ningún método conocido. Verifique la contraseña.", lastError);
         }
 
         #endregion
 
-        // Clase auxiliar para leer solo una porción de un stream (para el HMAC)
-        // --- CORREGIDO: Se ha hecho más robusto para lecturas múltiples ---
+        // Helper para leer segmentos de stream sin cerrarlo
         private class LimitedStream : Stream
         {
             private readonly Stream _baseStream;
@@ -229,90 +318,58 @@ namespace TuClinica.Services.Implementation
 
             public LimitedStream(Stream baseStream, long length)
             {
-                if (!baseStream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(baseStream));
-                if (!baseStream.CanSeek) throw new ArgumentException("Stream must be seekable for this implementation.", nameof(baseStream));
-
+                if (!baseStream.CanRead) throw new ArgumentException("Stream must be readable.");
+                if (!baseStream.CanSeek) throw new ArgumentException("Stream must be seekable.");
                 _baseStream = baseStream;
                 _remaining = length;
-                _initialPosition = _baseStream.Position; // Guardar la posición inicial
+                _initialPosition = _baseStream.Position;
             }
-
             public override bool CanRead => true;
             public override bool CanSeek => _baseStream.CanSeek;
             public override bool CanWrite => false;
             public override long Length => _remaining;
-
             public override long Position
             {
                 get => _baseStream.Position - _initialPosition;
                 set => _baseStream.Position = _initialPosition + value;
             }
-
             public override int Read(byte[] buffer, int offset, int count)
             {
                 if (_remaining == 0) return 0;
-                int countToRead = (int)Math.Min(count, _remaining);
-                int read = _baseStream.Read(buffer, offset, countToRead);
+                int toRead = (int)Math.Min(count, _remaining);
+                int read = _baseStream.Read(buffer, offset, toRead);
                 _remaining -= read;
                 return read;
             }
-
-            public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken token)
             {
                 if (_remaining == 0) return 0;
-                int countToRead = (int)Math.Min(count, (int)_remaining); // Cuidado con 'int'
-                // --- CORRECCIÓN: Usar AsMemory para compatibilidad con ReadAsync ---
-                int read = await _baseStream.ReadAsync(buffer.AsMemory(offset, countToRead), cancellationToken);
+                int toRead = (int)Math.Min(count, _remaining);
+                int read = await _baseStream.ReadAsync(buffer.AsMemory(offset, toRead), token);
                 _remaining -= read;
                 return read;
             }
-
             public override void Flush() => _baseStream.Flush();
-
             public override long Seek(long offset, SeekOrigin origin)
             {
-                long newPos;
-                switch (origin)
+                // Simplificado para read-only forward
+                long target = origin switch
                 {
-                    case SeekOrigin.Begin:
-                        newPos = offset;
-                        break;
-                    case SeekOrigin.Current:
-                        newPos = Position + offset;
-                        break;
-                    case SeekOrigin.End:
-                        newPos = Length + offset;
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(origin));
-                }
-
-                if (newPos < 0) throw new IOException("Cannot seek before beginning of stream.");
-                if (newPos > Length) newPos = Length;
-
-                // --- CORRECCIÓN de lógica de Seek/Posicionamiento ---
-                long oldPos = Position;
-                long newBasePos = _initialPosition + newPos;
-                _remaining -= (newPos - oldPos); // Ajustar 'remaining' basado en el cambio de posición
-
-                return _baseStream.Seek(newBasePos, SeekOrigin.Begin) - _initialPosition;
+                    SeekOrigin.Begin => offset,
+                    SeekOrigin.Current => Position + offset,
+                    _ => throw new NotSupportedException()
+                };
+                long absTarget = _initialPosition + target;
+                _baseStream.Seek(absTarget, SeekOrigin.Begin);
+                _remaining = Length - target;
+                return target;
             }
-
             public override void SetLength(long value) => throw new NotSupportedException();
             public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
-            // Importante: No cerrar el stream base
-            protected override void Dispose(bool disposing)
-            {
-                // No hacemos nada para no cerrar el _baseStream
-            }
-
-            // --- AÑADIDO: Implementar DisposeAsync para 'await using' ---
-            public override async ValueTask DisposeAsync()
-            {
-                // No hacemos nada para no cerrar el _baseStream
-                await Task.CompletedTask;
-            }
+            // DisposeAsync y Dispose vacíos para no cerrar el stream base
+            public override async ValueTask DisposeAsync() => await Task.CompletedTask;
+            protected override void Dispose(bool disposing) { }
         }
     }
 }

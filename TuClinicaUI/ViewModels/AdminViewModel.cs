@@ -475,10 +475,12 @@ namespace TuClinica.UI.ViewModels
 
             // 2. Diálogo guardar archivo (ahora sugerimos extensión .bak para denotar que es backup cifrado, aunque puede ser .zip.enc)
             // Mantenemos .zip por familiaridad, pero el contenido estará cifrado.
+            // En AdminViewModel.cs
+
             var (fileOk, filePath) = _fileDialogService.ShowSaveDialog(
-                filter: "Copia Segura TuClinica (*.zip)|*.zip",
-                title: "Guardar Copia de Seguridad Encriptada",
-                defaultFileName: $"TuClinica_Backup_Seguro_{DateTime.Now:yyyyMMdd}.zip"
+                filter: "Copia de Seguridad (*.db)|*.db", // Cambiado a .db
+                title: "Guardar Copia de Seguridad Portable",
+                defaultFileName: $"TuClinica_Backup_{DateTime.Now:yyyyMMdd}.db" // Cambiado a .db
             );
 
             if (fileOk)
@@ -506,9 +508,9 @@ namespace TuClinica.UI.ViewModels
             if (confirmation == CoreDialogResult.No) return;
 
             var (fileOk, filePath) = _fileDialogService.ShowOpenDialog(
-                filter: "Copia Segura TuClinica (*.zip; *.bak)|*.zip;*.bak",
-                title: "Seleccionar Copia Encriptada"
-            );
+                    filter: "Copia de Seguridad (*.db)|*.db", // Cambiado a .db
+                    title: "Seleccionar Copia de Seguridad"
+                );
 
             if (fileOk)
             {
