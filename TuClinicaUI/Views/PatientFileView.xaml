@@ -233,6 +233,13 @@
                             Foreground="{StaticResource PrimaryBrandForeground}"
                             mah:ControlsHelper.FocusBorderBrush="White"
                             mah:ControlsHelper.MouseOverBorderBrush="White"/>
+                    <Button Content="Justificante Asistencia" 
+                            Command="{Binding PrintAttendanceProofCommand}"
+                            Style="{DynamicResource MahApps.Styles.Button.Flat}"
+                            Foreground="{StaticResource PrimaryBrandForeground}"
+                            mah:ControlsHelper.FocusBorderBrush="White"
+                            mah:ControlsHelper.MouseOverBorderBrush="White"
+                            Margin="0,0,10,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,10">
@@ -390,8 +397,10 @@
                         </Grid>
 
                         <GroupBox Grid.Column="1" Header="Vista Rápida Odontograma" Margin="10,0,0,0" Padding="10">
+
                             <controls:OdontogramPreviewControl 
-                                DataContext="{Binding DataContext.PatientOdontogramVM.OdontogramPreviewVM, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            DataContext="{Binding DataContext.OdontogramPreviewVM, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
                         </GroupBox>
                     </Grid>
                 </mah:MetroTabItem>
@@ -400,25 +409,62 @@
                     <mah:MetroTabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconModern Kind="Link" VerticalAlignment="Center" Margin="0,0,5,0" />
-                            <TextBlock Text="Documentos Vinculados" />
+                            <TextBlock Text="Documentación" />
                         </StackPanel>
                     </mah:MetroTabItem.Header>
+
                     <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <DataGrid Grid.Row="0" ItemsSource="{Binding LinkedDocuments}" SelectedItem="{Binding SelectedLinkedDocument}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="#EEEEEE" HeadersVisibility="Column" SelectionMode="Single">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Tipo" Binding="{Binding DocumentType}" Width="Auto"/>
-                                <DataGridTextColumn Header="Número de Documento" Binding="{Binding DocumentNumber}" Width="*"/>
-                                <DataGridTextColumn Header="Notas" Binding="{Binding Notes}" Width="2*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Visibility="{Binding CanManageDocuments, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <Button Content="Añadir Documento" Command="{Binding AddLinkedDocumentCommand}" Style="{DynamicResource MahApps.Styles.Button.Square.Accent}" Margin="0,0,10,0"/>
-                            <Button Content="Eliminar Vinculado" Command="{Binding DeleteLinkedDocumentCommand}" Background="IndianRed" Foreground="White"/>
-                        </StackPanel>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1.5*" />
+                        </Grid.ColumnDefinitions>
+
+                        <GroupBox Grid.Column="0" Header="Otros Identificadores" Margin="0,0,5,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <DataGrid Grid.Row="0" ItemsSource="{Binding LinkedDocuments}" SelectedItem="{Binding SelectedLinkedDocument}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Tipo" Binding="{Binding DocumentType}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Número" Binding="{Binding DocumentNumber}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <Button Grid.Row="1" Content="Añadir ID" Command="{Binding AddLinkedDocumentCommand}" HorizontalAlignment="Right" Margin="0,5,0,0"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Grid.Column="1" Header="Archivos Firmados y Adjuntos" Margin="5,0,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <DataGrid Grid.Row="0" ItemsSource="{Binding PatientFiles}" SelectedItem="{Binding SelectedFile}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Fecha" Binding="{Binding UploadDate, StringFormat=dd/MM/yyyy}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Nombre Archivo" Binding="{Binding FileName}" Width="*"/>
+                                        <DataGridTextColumn Header="Categoría" Binding="{Binding Category}" Width="Auto"/>
+                                        <DataGridTemplateColumn Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="Abrir" Command="{Binding DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" Margin="0,0,5,0" Style="{StaticResource MahApps.Styles.Button.Square.Accent}" Padding="5,2"/>
+                                                        <Button Content="X" Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" Background="IndianRed" Foreground="White" Padding="5,2"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button Content="Adjuntar Documento (PDF/IMG)..." Command="{Binding AddFileCommand}" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
                     </Grid>
                 </mah:MetroTabItem>
 

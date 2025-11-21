@@ -1,11 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Generic; // Necesario para List<>
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
@@ -36,6 +35,11 @@ namespace TuClinica.Services.Tests
         private Mock<IPdfService> _pdfServiceMock;
         private Mock<IPatientAlertRepository> _alertRepoMock;
 
+        // --- NUEVOS MOCKS (Requeridos por los cambios recientes) ---
+        private Mock<IFileStorageService> _fileStorageServiceMock;
+        private Mock<IRepository<PatientFile>> _patientFileRepoMock;
+
+
         // --- Objeto a Probar ---
         private PatientsViewModel _viewModel;
 
@@ -59,6 +63,10 @@ namespace TuClinica.Services.Tests
             _pdfServiceMock = new Mock<IPdfService>();
             _alertRepoMock = new Mock<IPatientAlertRepository>();
 
+            // --- Inicializar los nuevos mocks ---
+            _fileStorageServiceMock = new Mock<IFileStorageService>();
+            _patientFileRepoMock = new Mock<IRepository<PatientFile>>();
+
             // Configurar el mock de alertas para que devuelva una lista vacía
             _alertRepoMock.Setup(r => r.GetActiveAlertsForPatientAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                           .ReturnsAsync(new List<PatientAlert>());
@@ -71,10 +79,13 @@ namespace TuClinica.Services.Tests
                 _validationServiceMock.Object
             );
 
+            // --- AQUÍ ESTABA EL ERROR 1: Actualizar constructor de PatientDocumentsViewModel ---
             var patientDocsVM = new PatientDocumentsViewModel(
                 _scopeFactoryMock.Object,
                 _dialogServiceMock.Object,
-                _authServiceMock.Object
+                _authServiceMock.Object,
+                _fileDialogServiceMock.Object, // Nuevo argumento 1
+                _fileStorageServiceMock.Object // Nuevo argumento 2
             );
 
             var patientAlertsVM = new PatientAlertsViewModel(
@@ -96,25 +107,20 @@ namespace TuClinica.Services.Tests
                  _dialogServiceMock.Object
             );
 
-            // Crear el hijo Odontograma
-            var patientOdontogramVM = new PatientOdontogramViewModel(
-                _scopeFactoryMock.Object,
-                _dialogServiceMock.Object,
-                _pdfServiceMock.Object
-            );
-
             // 2. Creamos la instancia del Padre (PatientFileViewModel)
-            // Ahora le pasamos TODOS los hijos requeridos
+            // --- AQUÍ ESTABA EL ERROR 2: Actualizar constructor de PatientFileViewModel ---
             _patientFileVM_Instance = new PatientFileViewModel(
+                _authServiceMock.Object,
                 _dialogServiceMock.Object,
                 _scopeFactoryMock.Object,
+                _fileDialogServiceMock.Object,
+                _pdfServiceMock.Object,
                 // Hijos inyectados:
                 patientInfoVM,
                 patientDocsVM,
                 patientAlertsVM,
-                patientFinancialVM,
-                patientTreatmentPlanVM,
-                patientOdontogramVM // <-- ¡ARGUMENTO FINAL!
+                patientFinancialVM, // <-- Este faltaba en tu error anterior
+                patientTreatmentPlanVM
             );
 
 

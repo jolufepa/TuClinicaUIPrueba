@@ -1,0 +1,46 @@
+﻿<mah:MetroWindow x:Class="TuClinica.UI.Views.DocumentDetailsDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                 xmlns:enums="clr-namespace:TuClinica.Core.Enums;assembly=TuClinica.Core"
+                 Title="Detalles del Documento" 
+                 Height="280" Width="450"
+                 WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+                 WindowStyle="ToolWindow" ShowInTaskbar="False"
+                 GlowBrush="{DynamicResource MahApps.Brushes.Accent}">
+
+    <Window.Resources>
+        <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="FileCategoryProvider">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="enums:FileCategory" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Confirme los datos del archivo a adjuntar:" FontWeight="Bold" Margin="0,0,0,15"/>
+
+        <Label Grid.Row="1" Content="Nombre del Archivo (Visible en ficha):" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="2" x:Name="FileNameTextBox" Margin="0,0,0,15" mah:TextBoxHelper.SelectAllOnFocus="True"/>
+
+        <Label Grid.Row="3" Content="Categoría / Tipo de Documento:" FontWeight="SemiBold"/>
+        <ComboBox Grid.Row="4" x:Name="CategoryComboBox" 
+                  ItemsSource="{Binding Source={StaticResource FileCategoryProvider}}"
+                  Margin="0,0,0,0" VerticalAlignment="Top"/>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Adjuntar" IsDefault="True" Click="AcceptButton_Click" Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}" Margin="0,0,10,0"/>
+            <Button Content="Cancelar" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

@@ -36,6 +36,8 @@ namespace TuClinica.Core.Interfaces.Services
         void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK);
         DialogResult ShowConfirmation(string message, string title);
         (bool Ok, string Password) ShowPasswordPrompt();
+        (bool Ok, DateTime Start, DateTime End) ShowTimeSelectionDialog();
+        (bool Ok, string FileName, FileCategory Category) ShowDocumentDetailsDialog(string defaultName);
 
         // --- FIRMA MODIFICADA ---
         (bool Ok, decimal Amount, string Method, string Observaciones, DateTime? Date) ShowNewPaymentDialog();

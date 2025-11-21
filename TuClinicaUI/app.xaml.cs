@@ -104,6 +104,7 @@ namespace TuClinica.UI
                     services.AddScoped<IRepository<TreatmentPackItem>, Repository<TreatmentPackItem>>();
                     services.AddScoped<IPatientAlertRepository, PatientAlertRepository>();
                     services.AddScoped<IRepository<LinkedDocument>, Repository<LinkedDocument>>();
+                    services.AddScoped<IRepository<PatientFile>, Repository<PatientFile>>();
 
                     // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
@@ -122,6 +123,9 @@ namespace TuClinica.UI
                     services.AddSingleton<IFileDialogService, FileDialogService>();
                     services.AddSingleton<ICryptoService, CryptoService>();
                     services.AddSingleton<IFileSystemService, FileSystemService>();
+                    services.AddScoped<IFileStorageService, FileStorageService>();
+               
+                    services.AddTransient<TimeSelectionDialog>();
 
                     // ViewModels
                     services.AddTransient<PatientsViewModel>();
@@ -150,15 +154,17 @@ namespace TuClinica.UI
                     // ViewModel Padre (Conductor) - Inyección corregida (8 argumentos)
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
-                            sp.GetRequiredService<IDialogService>(),       // 1
-                            sp.GetRequiredService<IServiceScopeFactory>(), // 2
-                                                                           // Hijos
-                            sp.GetRequiredService<PatientInfoViewModel>(),          // 3
-                            sp.GetRequiredService<PatientDocumentsViewModel>(),     // 4
-                            sp.GetRequiredService<PatientAlertsViewModel>(),        // 5
-                            sp.GetRequiredService<PatientFinancialViewModel>(),     // 6
-                            sp.GetRequiredService<PatientTreatmentPlanViewModel>(), // 7
-                            sp.GetRequiredService<PatientOdontogramViewModel>()     // 8
+                            sp.GetRequiredService<IAuthService>(),
+                            sp.GetRequiredService<IDialogService>(),
+                            sp.GetRequiredService<IServiceScopeFactory>(),
+                            sp.GetRequiredService<IFileDialogService>(),
+                            sp.GetRequiredService<IPdfService>(), // <-- Asegúrate de que esta línea esté aquí
+                                                                  // Hijos
+                            sp.GetRequiredService<PatientInfoViewModel>(),
+                            sp.GetRequiredService<PatientDocumentsViewModel>(),
+                            sp.GetRequiredService<PatientAlertsViewModel>(),
+                            sp.GetRequiredService<PatientFinancialViewModel>(), // <-- Este es el que te faltaba según el error
+                            sp.GetRequiredService<PatientTreatmentPlanViewModel>()     // 8
                         ));
                     // ---------------------------
 

@@ -1,10 +1,9 @@
-﻿// En: TuClinicaUI/Services/DialogService.cs
-using System.Windows;
+﻿using System.Windows;
 using TuClinica.Core.Interfaces.Services;
 using TuClinica.UI.Views;
 using TuClinica.Core.Enums;
 using System.Collections.Generic;
-using TuClinica.Core.Models;      
+using TuClinica.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
@@ -45,8 +44,6 @@ namespace TuClinica.UI.Services
             }
         }
 
-
-        // --- MÉTODO MODIFICADO ---
         public (bool Ok, decimal Amount, string Method, string Observaciones, DateTime? Date) ShowNewPaymentDialog()
         {
             var dialog = new NewPaymentDialog();
@@ -61,13 +58,10 @@ namespace TuClinica.UI.Services
 
             if (result == true)
             {
-                // Devolvemos los nuevos valores
                 return (true, dialog.Amount, dialog.PaymentMethod, dialog.Observaciones, dialog.SelectedDate);
             }
-            // Devolvemos valores por defecto para los nuevos campos
             return (false, 0, string.Empty, string.Empty, null);
         }
-        // --- FIN MÉTODO MODIFICADO ---
 
         public void ShowMessage(string message, string title, DialogResult buttonType = DialogResult.OK)
         {
@@ -85,9 +79,22 @@ namespace TuClinica.UI.Services
                 _ => DialogResult.No
             };
         }
+        public (bool Ok, string FileName, FileCategory Category) ShowDocumentDetailsDialog(string defaultName)
+        {
+            // Instanciamos la ventana pasándole el nombre original del archivo
+            var dialog = new Views.DocumentDetailsDialog(defaultName);
 
-        // Ahora este método es válido porque los usings de arriba
-        // le permiten encontrar 'ManualChargeResult' y 'Treatment'
+            if (Application.Current.MainWindow != null)
+                dialog.Owner = Application.Current.MainWindow;
+
+            if (dialog.ShowDialog() == true)
+            {
+                return (true, dialog.ResultFileName, dialog.ResultCategory);
+            }
+
+            // Retorno por defecto si cancela
+            return (false, string.Empty, FileCategory.Otro);
+        }
         public (bool Ok, ManualChargeResult? Data) ShowManualChargeDialog(IEnumerable<Treatment> availableTreatments)
         {
             var dialog = new ManualChargeDialog();
@@ -108,19 +115,18 @@ namespace TuClinica.UI.Services
                     UnitPrice = dialog.UnitPrice,
                     Quantity = dialog.Quantity,
                     TreatmentId = dialog.SelectedTreatment?.Id,
-
                     Observaciones = dialog.Observaciones,
                     SelectedDate = dialog.SelectedDate
-                    
                 };
                 return (true, resultData);
             }
 
             return (false, null);
         }
+
         public (bool Ok, PatientDocumentType DocumentType, string DocumentNumber, string Notes) ShowLinkedDocumentDialog()
         {
-            // Usamos el ServiceProvider para crear la nueva ventana
+            // Usamos el ServiceProvider para obtener la ventana (DI)
             var dialog = App.AppHost!.Services.GetRequiredService<LinkedDocumentDialog>();
 
             Window? owner = Application.Current.MainWindow;
@@ -135,6 +141,27 @@ namespace TuClinica.UI.Services
             }
 
             return (false, PatientDocumentType.Otro, string.Empty, string.Empty);
+        }
+
+        // --- MÉTODO NUEVO ADAPTADO A DI ---
+        public (bool Ok, DateTime Start, DateTime End) ShowTimeSelectionDialog()
+        {
+            // Recuperamos la instancia desde el contenedor de inyección de dependencias
+            // Esto funciona gracias a: services.AddTransient<TimeSelectionDialog>(); en App.xaml.cs
+            var dialog = App.AppHost!.Services.GetRequiredService<TimeSelectionDialog>();
+
+            Window? owner = Application.Current.MainWindow;
+            if (owner != null && owner != dialog)
+            {
+                dialog.Owner = owner;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                return (true, dialog.SelectedStart, dialog.SelectedEnd);
+            }
+
+            return (false, DateTime.Now, DateTime.Now);
         }
     }
 }

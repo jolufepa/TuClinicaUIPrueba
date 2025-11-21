@@ -43,9 +43,10 @@ namespace TuClinica.DataAccess
         // --- NUEVA TABLA DE PACKS (DE LA MEJORA ANTERIOR) ---
         public DbSet<TreatmentPackItem> TreatmentPackItems { get; set; }
 
-        // --- NUEVA TABLA DE ALERTAS (ESTA ES LA QUE FALTA) ---
+     
         public DbSet<PatientAlert> PatientAlerts { get; set; }
-        // --- FIN DE LA MODIFICACIÓN ---
+        public DbSet<PatientFile> PatientFiles { get; set; }
+       
 
 
         // --- CONSTRUCTOR MODIFICADO ---

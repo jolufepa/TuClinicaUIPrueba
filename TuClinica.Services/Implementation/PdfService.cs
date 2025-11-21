@@ -73,6 +73,7 @@ namespace TuClinica.Services.Implementation
         private static readonly string ColorTableBorder = "#9BC2E6";
         private static readonly string ColorTotalsBg = "#F2F2F2";
 
+
         public PdfService(AppSettings settings, string baseBudgetsPath, string basePrescriptionsPath, IPatientRepository patientRepository)
         {
             _settings = settings;
@@ -89,7 +90,90 @@ namespace TuClinica.Services.Implementation
             _patientRepository = patientRepository;
             QuestPDF.Settings.License = LicenseType.Community;
         }
+        public async Task<string> GenerateAttendanceProofAsync(Patient patient, DateTime checkIn, DateTime checkOut)
+        {
+            string tempFolder = Path.Combine(Path.GetTempPath(), "TuClinica_Justificantes");
+            Directory.CreateDirectory(tempFolder);
+            string fileName = $"Justificante_{patient.Surname}_{DateTime.Now:yyyyMMddHHmm}.pdf";
+            string filePath = Path.Combine(tempFolder, fileName);
 
+            string logoPath = !string.IsNullOrEmpty(_settings.ClinicLogoPath)
+                ? Path.Combine(AppContext.BaseDirectory, _settings.ClinicLogoPath)
+                : string.Empty;
+
+            await Task.Run(() =>
+            {
+                QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        // A5 Apaisado
+                        page.Size(PageSizes.A5.Landscape());
+                        // MÁRGENES REDUCIDOS para asegurar 1 página
+                        page.Margin(1.0f, Unit.Centimetre);
+                        page.DefaultTextStyle(ts => ts.FontSize(10).FontFamily(Fonts.Calibri));
+
+                        // --- CABECERA ---
+                        page.Header().Row(row =>
+                        {
+                            if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+                                row.ConstantItem(50).MaxHeight(1.5f, Unit.Centimetre).Image(logoPath);
+
+                            row.RelativeItem().AlignRight().Column(col =>
+                            {
+                                col.Item().Text(_settings.ClinicName).Bold().FontSize(12);
+                                col.Item().Text(_settings.ClinicAddress).FontSize(8);
+                                col.Item().Text($"CIF: {_settings.ClinicCif} - Tel: {_settings.ClinicPhone}").FontSize(8);
+                            });
+                        });
+
+                        // --- CONTENIDO ---
+                        page.Content().PaddingVertical(10).Column(col =>
+                        {
+                            // Título
+                            col.Item().AlignCenter().Text("JUSTIFICANTE DE ASISTENCIA").FontSize(14).Bold().Underline();
+
+                            // Texto Principal (Espaciado reducido)
+                            col.Item().PaddingTop(15).Text(text =>
+                            {
+                                text.Span("Por medio del presente documento, se HACE CONSTAR que:\n\n");
+
+                                text.Span("D./Dña. ").SemiBold();
+                                text.Span($"{patient.Name} {patient.Surname}").Bold().FontSize(12);
+                                // Sin DNI, como pediste
+
+                                text.Span("\n\nHa acudido a consulta en este centro sanitario el día ");
+                                text.Span($"{checkIn:dd/MM/yyyy}").Bold();
+                                text.Span(".\n\nPermaneciendo en el mismo en la franja horaria comprendida entre las ");
+                                text.Span($"{checkIn:HH:mm}").Bold();
+                                text.Span(" y las ");
+                                text.Span($"{checkOut:HH:mm}").Bold();
+                                text.Span(" horas.");
+                            });
+
+                            col.Item().PaddingTop(10).Text("Se expide el presente justificante a petición del interesado/a para los efectos oportunos.");
+
+                            // Firma (Espacio controlado)
+                            col.Item().PaddingTop(20).Row(row =>
+                            {
+                                row.RelativeItem().Column(sig =>
+                                {
+                                    sig.Item().Text($"En L'Hospitalet de Llobregat, a {DateTime.Now:dd 'de' MMMM 'de' yyyy}");
+                                    // Línea de firma
+                                    sig.Item().PaddingTop(25).BorderBottom(1).BorderColor(Colors.Black).Width(150);
+                                    sig.Item().PaddingTop(2).Text("Fdo: La Dirección / Facultativo").FontSize(8);
+                                });
+                            });
+                        });
+
+                        // --- PIE DE PÁGINA ---
+                        page.Footer().AlignCenter().Text("Este documento no informa sobre el estado de salud del paciente por motivos de confidencialidad (LOPD).").FontSize(7).FontColor(Colors.Grey.Medium);
+                    });
+                }).GeneratePdf(filePath);
+            });
+
+            return filePath;
+        }
         private static string GetDataFolderPath()
         {
             string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
