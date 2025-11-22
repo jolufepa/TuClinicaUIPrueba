@@ -10,145 +10,149 @@
              d:DataContext="{d:DesignInstance Type=viewmodels:AdminViewModel}"
              d:DesignHeight="600" d:DesignWidth="800">
 
-    <mah:MetroTabControl Margin="10">
+    <Grid>
+        <mah:MetroTabControl Margin="10">
 
-        <mah:MetroTabItem Header="Gestión de Usuarios">
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <mah:MetroTabItem Header="Gestión de Usuarios">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-                    <Button Content="Nuevo Usuario"
-                         Command="{Binding AddNewUserCommand}"
-                            Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
-                    <Button Content="Editar Usuario"
-                            Command="{Binding EditUserCommand}"
-                            Margin="10,0,0,0"/>
-                    <Button Content="Activar/Desactivar"
-                            Command="{Binding ToggleUserActivationCommand}"
-                            Margin="10,0,0,0"/>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
+                        <Button Content="Nuevo Usuario"
+                             Command="{Binding AddNewUserCommand}"
+                                Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
+                        <Button Content="Editar Usuario"
+                                Command="{Binding EditUserCommand}"
+                                Margin="10,0,0,0"/>
+                        <Button Content="Activar/Desactivar"
+                                Command="{Binding ToggleUserActivationCommand}"
+                                Margin="10,0,0,0"/>
 
-                    <Button Content="Eliminar Usuario"
-                            Command="{Binding DeleteUserAsyncCommand}"
-                            Margin="10,0,0,0"
-                            Background="IndianRed"
-                            Foreground="White"/>
+                        <Button Content="Eliminar Usuario"
+                                Command="{Binding DeleteUserAsyncCommand}"
+                                Margin="10,0,0,0"
+                                Background="IndianRed"
+                                Foreground="White"/>
 
-                    <Button Content="Refrescar Lista"
-                            Command="{Binding LoadUsersCommand}"
-                            Margin="20,0,0,0"/>
-                    <Button Content="Exportar Copia" Command="{Binding CreateBackupCommand}" Margin="30,0,0,0"/>
-                    <Button Content="Importar Copia" Command="{Binding RestoreBackupCommand}" Margin="10,0,0,0"/>
-                </StackPanel>
+                        <Button Content="Refrescar Lista"
+                                Command="{Binding LoadUsersCommand}"
+                                Margin="20,0,0,0"/>
+                        <Button Content="Exportar Copia" Command="{Binding CreateBackupCommand}" Margin="30,0,0,0"/>
+                        <Button Content="Importar Copia" Command="{Binding RestoreBackupCommand}" Margin="10,0,0,0"/>
+                    </StackPanel>
 
-                <DataGrid Grid.Row="1"
-                           ItemsSource="{Binding Users}"
-                          SelectedItem="{Binding SelectedUser, Mode=TwoWay}"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False" CanUserDeleteRows="False"
-                           IsReadOnly="True"
-                          FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray"
-                          SelectionMode="Single">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
-                        <DataGridTextColumn Header="Nombre de Usuario" Binding="{Binding Username}" Width="2*"/>
-                        <DataGridTextColumn Header="Rol" Binding="{Binding Role}" Width="*"/>
-                        <DataGridCheckBoxColumn Header="Activo" Binding="{Binding IsActive}" Width="Auto"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </mah:MetroTabItem>
+                    <DataGrid Grid.Row="1"
+                               ItemsSource="{Binding Users}"
+                              SelectedItem="{Binding SelectedUser, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                               IsReadOnly="True"
+                              FontSize="14" GridLinesVisibility="Vertical" VerticalGridLinesBrush="LightGray"
+                              SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
+                            <DataGridTextColumn Header="Nombre de Usuario" Binding="{Binding Username}" Width="2*"/>
+                            <DataGridTextColumn Header="Rol" Binding="{Binding Role}" Width="*"/>
+                            <DataGridCheckBoxColumn Header="Activo" Binding="{Binding IsActive}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </mah:MetroTabItem>
 
-        <mah:MetroTabItem Header="Registro de Actividad (Logs)">
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <mah:MetroTabItem Header="Registro de Actividad (Logs)">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
 
-                    <Button Content="Refrescar Logs" 
+                        <Button Content="Refrescar Logs" 
                             Command="{Binding LoadLogsCommand}" 
                             Style="{StaticResource MahApps.Styles.Button.Square.Accent}"/>
 
-                    <Button Content="Exportar Logs (CSV)" 
+                        <Button Content="Exportar Logs (CSV)" 
                             Command="{Binding ExportLogsCommand}" 
                             Margin="10,0,0,0"/>
 
-                    <Button Content="Purgar Logs Antiguos" 
+                        <Button Content="Purgar Logs Antiguos" 
                             Command="{Binding PurgeOldLogsCommand}" 
                             Margin="10,0,0,0"
                             Background="IndianRed" 
                             Foreground="White"/>
-                </StackPanel>
+                    </StackPanel>
 
-                <DataGrid Grid.Row="1"
+                    <DataGrid Grid.Row="1"
                           ItemsSource="{Binding ActivityLogs}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           CanUserAddRows="False" CanUserDeleteRows="False"
                           FontSize="14"
                           SelectionMode="Single">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Fecha y Hora (UTC)" Binding="{Binding Timestamp, StringFormat='dd/MM/yy HH:mm:ss'}" Width="Auto"/>
-                        <DataGridTextColumn Header="Usuario" Binding="{Binding Username}" Width="Auto"/>
-                        <DataGridTextColumn Header="Acción" Binding="{Binding ActionType}" Width="Auto"/>
-                        <DataGridTextColumn Header="Entidad" Binding="{Binding EntityType}" Width="Auto"/>
-                        <DataGridTextColumn Header="ID Entidad" Binding="{Binding EntityId}" Width="Auto"/>
-                        <DataGridTextColumn Header="Detalles" Binding="{Binding Details}" Width="*"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </mah:MetroTabItem>
-
-        <mah:MetroTabItem Header="Configuración de la Clínica">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <Grid Margin="15">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Label Grid.Row="0" Grid.Column="0" Content="Nombre Clínica:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ClinicName, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
-
-                    <Label Grid.Row="1" Grid.Column="0" Content="CIF:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ClinicCif, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
-
-                    <Label Grid.Row="2" Grid.Column="0" Content="Dirección:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ClinicAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
-
-                    <Label Grid.Row="3" Grid.Column="0" Content="Teléfono:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ClinicPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
-
-                    <Label Grid.Row="4" Grid.Column="0" Content="Email:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ClinicEmail, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
-
-                    <Label Grid.Row="5" Grid.Column="0" Content="Ruta del Logo:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ClinicLogoPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"
-                             mah:TextBoxHelper.Watermark="Ej: Assets/logo.png"/>
-
-                    <Button Grid.Row="7" Grid.Column="1" 
-                            Content="Guardar Configuración"
-                            Command="{Binding SaveSettingsCommand}"
-                            Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
-                            HorizontalAlignment="Right"
-                            Margin="0,20,0,0"/>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Fecha y Hora (UTC)" Binding="{Binding Timestamp, StringFormat='dd/MM/yy HH:mm:ss'}" Width="Auto"/>
+                            <DataGridTextColumn Header="Usuario" Binding="{Binding Username}" Width="Auto"/>
+                            <DataGridTextColumn Header="Acción" Binding="{Binding ActionType}" Width="Auto"/>
+                            <DataGridTextColumn Header="Entidad" Binding="{Binding EntityType}" Width="Auto"/>
+                            <DataGridTextColumn Header="ID Entidad" Binding="{Binding EntityId}" Width="Auto"/>
+                            <DataGridTextColumn Header="Detalles" Binding="{Binding Details}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
-            </ScrollViewer>
-        </mah:MetroTabItem>
-    </mah:MetroTabControl>
+            </mah:MetroTabItem>
+
+            <mah:MetroTabItem Header="Configuración de la Clínica">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Label Grid.Row="0" Grid.Column="0" Content="Nombre Clínica:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ClinicName, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                        <Label Grid.Row="1" Grid.Column="0" Content="CIF:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ClinicCif, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                        <Label Grid.Row="2" Grid.Column="0" Content="Dirección:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ClinicAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                        <Label Grid.Row="3" Grid.Column="0" Content="Teléfono:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ClinicPhone, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                        <Label Grid.Row="4" Grid.Column="0" Content="Email:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ClinicEmail, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"/>
+
+                        <Label Grid.Row="5" Grid.Column="0" Content="Ruta del Logo:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ClinicLogoPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,5"
+                                 mah:TextBoxHelper.Watermark="Ej: Assets/logo.png"/>
+
+                        <Button Grid.Row="7" Grid.Column="1" 
+                                Content="Guardar Configuración"
+                                Command="{Binding SaveSettingsCommand}"
+                                Style="{StaticResource MahApps.Styles.Button.Dialogs.Accent}"
+                                HorizontalAlignment="Right"
+                                Margin="0,20,0,0"/>
+                    </Grid>
+                </ScrollViewer>
+            </mah:MetroTabItem>
+        </mah:MetroTabControl>
+
+        <mah:ProgressRing IsActive="{Binding IsBusy}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
 </UserControl>

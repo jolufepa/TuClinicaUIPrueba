@@ -2,12 +2,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Windows;
-using TuClinica.Core.Enums;
 using TuClinica.Core.Interfaces;
 using TuClinica.Core.Interfaces.Repositories;
 using TuClinica.Core.Interfaces.Services;
@@ -25,7 +26,6 @@ namespace TuClinica.UI
     {
         public static IHost? AppHost { get; private set; }
 
-        #region Métodos Estáticos (Rutas y Claves)
         public static string GetAppDataFolderPath()
         {
             string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
@@ -73,7 +73,6 @@ namespace TuClinica.UI
                 return newPassword;
             }
         }
-        #endregion
 
         public App()
         {
@@ -89,7 +88,6 @@ namespace TuClinica.UI
                         options.UseSqlite($"Data Source={GetDatabasePath()};Password={dbPassword}");
                     });
 
-                    // Repositorios
                     services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
                     services.AddScoped<IPatientRepository, PatientRepository>();
                     services.AddScoped<IUserRepository, UserRepository>();
@@ -106,7 +104,6 @@ namespace TuClinica.UI
                     services.AddScoped<IRepository<LinkedDocument>, Repository<LinkedDocument>>();
                     services.AddScoped<IRepository<PatientFile>, Repository<PatientFile>>();
 
-                    // Servicios
                     services.AddSingleton<IValidationService, ValidationService>();
                     services.AddSingleton<IAuthService, AuthService>();
                     services.AddSingleton<ILicenseService, LicenseService>();
@@ -124,10 +121,9 @@ namespace TuClinica.UI
                     services.AddSingleton<ICryptoService, CryptoService>();
                     services.AddSingleton<IFileSystemService, FileSystemService>();
                     services.AddScoped<IFileStorageService, FileStorageService>();
-               
+
                     services.AddTransient<TimeSelectionDialog>();
 
-                    // ViewModels
                     services.AddTransient<PatientsViewModel>();
                     services.AddTransient<LoginViewModel>();
                     services.AddTransient<MainWindowViewModel>();
@@ -142,7 +138,6 @@ namespace TuClinica.UI
                     services.AddSingleton<HomeViewModel>();
                     services.AddTransient<FinancialSummaryViewModel>();
 
-                    // Sub-ViewModels (Los 6 jinetes)
                     services.AddTransient<PatientInfoViewModel>();
                     services.AddTransient<PatientDocumentsViewModel>();
                     services.AddTransient<PatientAlertsViewModel>();
@@ -150,25 +145,20 @@ namespace TuClinica.UI
                     services.AddTransient<PatientTreatmentPlanViewModel>();
                     services.AddTransient<PatientOdontogramViewModel>();
 
-                    // --- AQUÍ ESTABA EL ERROR ---
-                    // ViewModel Padre (Conductor) - Inyección corregida (8 argumentos)
                     services.AddSingleton<PatientFileViewModel>(sp =>
                         new PatientFileViewModel(
                             sp.GetRequiredService<IAuthService>(),
                             sp.GetRequiredService<IDialogService>(),
                             sp.GetRequiredService<IServiceScopeFactory>(),
                             sp.GetRequiredService<IFileDialogService>(),
-                            sp.GetRequiredService<IPdfService>(), // <-- Asegúrate de que esta línea esté aquí
-                                                                  // Hijos
+                            sp.GetRequiredService<IPdfService>(),
                             sp.GetRequiredService<PatientInfoViewModel>(),
                             sp.GetRequiredService<PatientDocumentsViewModel>(),
                             sp.GetRequiredService<PatientAlertsViewModel>(),
-                            sp.GetRequiredService<PatientFinancialViewModel>(), // <-- Este es el que te faltaba según el error
-                            sp.GetRequiredService<PatientTreatmentPlanViewModel>()     // 8
+                            sp.GetRequiredService<PatientFinancialViewModel>(),
+                            sp.GetRequiredService<PatientTreatmentPlanViewModel>()
                         ));
-                    // ---------------------------
 
-                    // Vistas
                     services.AddSingleton<MainWindow>();
                     services.AddTransient<LoginWindow>();
                     services.AddTransient<PatientSelectionDialog>();
@@ -183,44 +173,125 @@ namespace TuClinica.UI
                 .Build();
         }
 
-        protected override async void OnStartup(StartupEventArgs e)
+        private void PerformSafeRestore(string[] args)
         {
-            await AppHost!.StartAsync();
-            base.OnStartup(e);
+            if (args.Length < 7) return;
 
-            try { AppHost.Services.GetRequiredService<IInactivityService>().OnInactivity += PerformLogout; } catch { }
+            string sourceDb = args[1];
+            string targetDb = args[2];
+            string sourceFiles = args[3];
+            string targetFiles = args[4];
+            string sourceSettings = args[5];
+            string targetSettings = args[6];
 
-            // --- BLOQUE ACTUALIZADO: USANDO EL INITIALIZER ---
             try
             {
+                Thread.Sleep(2000);
+
+                if (File.Exists(sourceDb)) File.Copy(sourceDb, targetDb, true);
+
+                if (Directory.Exists(sourceFiles))
+                {
+                    if (!Directory.Exists(targetFiles)) Directory.CreateDirectory(targetFiles);
+                    foreach (var file in Directory.GetFiles(targetFiles, "*.*", SearchOption.AllDirectories))
+                        File.Delete(file);
+                    foreach (var dir in Directory.GetDirectories(targetFiles, "*", SearchOption.AllDirectories))
+                        Directory.Delete(dir, true);
+                    CopyDirectory(sourceFiles, targetFiles);
+                }
+
+                if (File.Exists(sourceSettings))
+                {
+                    File.Copy(sourceSettings, targetSettings, true);
+                }
+
+                string tempDir = Path.GetDirectoryName(sourceDb) ?? string.Empty;
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+            catch (IOException ex)
+            {
+                MessageBox.Show($"Error de I/O al copiar: {ex.Message}", "Restauración Fallida", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error crítico: {ex.Message}", "Restauración Fallida", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException();
+                Process.Start(new ProcessStartInfo { FileName = exePath, UseShellExecute = false });
+            }
+        }
+
+        protected override async void OnStartup(StartupEventArgs e)
+        {
+            if (e.Args.Length > 0 && e.Args[0] == "--restore")
+            {
+                PerformSafeRestore(e.Args);
+                return;
+            }
+
+            base.OnStartup(e);
+
+            try
+            {
+                await AppHost!.StartAsync();
+
                 using (var scope = AppHost.Services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                    // Instanciamos la lógica extraída (o podrías inyectarla si la registras en DI)
                     var initializer = new DatabaseInitializer(db);
                     initializer.Initialize();
+                }
+
+                try { AppHost.Services.GetRequiredService<IInactivityService>().OnInactivity += PerformLogout; } catch { }
+                var licenseSvc = AppHost.Services.GetRequiredService<ILicenseService>();
+
+                if (licenseSvc.IsLicenseValid())
+                {
+                    AppHost.Services.GetRequiredService<LoginWindow>().Show();
+                }
+                else
+                {
+                    AppHost.Services.GetRequiredService<LicenseWindow>().ShowDialog();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error crítico de inicio de base de datos: {ex.Message}", "Error Fatal", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"ERROR CRÍTICO EN EL ARRANQUE:\n\n{ex.Message}\n\nDetalle: {ex.InnerException?.Message}",
+                                "Fallo al Iniciar TuClinica", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
             }
-            // -------------------------------------------------
+        }
 
-            var licenseSvc = AppHost.Services.GetRequiredService<ILicenseService>();
-            if (licenseSvc.IsLicenseValid())
-                AppHost.Services.GetRequiredService<LoginWindow>().ShowDialog();
-            else
-                AppHost.Services.GetRequiredService<LicenseWindow>().ShowDialog();
+        private void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            var dir = new DirectoryInfo(sourceDir);
+            if (!dir.Exists) return;
+            Directory.CreateDirectory(destinationDir);
+            foreach (FileInfo file in dir.GetFiles())
+            {
+                string targetFilePath = Path.Combine(destinationDir, file.Name);
+                file.CopyTo(targetFilePath, true);
+            }
+            foreach (DirectoryInfo subDir in dir.GetDirectories())
+            {
+                string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                CopyDirectory(subDir.FullName, newDestinationDir);
+            }
         }
 
         private void PerformLogout()
         {
-            var auth = AppHost!.Services.GetRequiredService<IAuthService>();
-            auth.Logout();
-            Application.Current.Windows.OfType<MainWindow>().FirstOrDefault()?.Close();
-            AppHost!.Services.GetRequiredService<LoginWindow>().Show();
+            try
+            {
+                var auth = AppHost!.Services.GetRequiredService<IAuthService>();
+                auth.Logout();
+                Application.Current.Windows.OfType<MainWindow>().FirstOrDefault()?.Close();
+                AppHost!.Services.GetRequiredService<LoginWindow>().Show();
+            }
+            catch { }
         }
 
         protected override async void OnExit(ExitEventArgs e)

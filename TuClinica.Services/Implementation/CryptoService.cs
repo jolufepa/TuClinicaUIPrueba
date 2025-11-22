@@ -9,11 +9,10 @@ namespace TuClinica.Services.Implementation
 {
     public class CryptoService : ICryptoService
     {
-        // --- Constantes de Configuración ---
         private const int SaltSize = 16;
         private const int IvSize = 16;
         private const int HmacSize = 32;
-        private const int KeySize = 32; // AES-256
+        private const int KeySize = 32;
         private const int Iterations = 10000;
         private static readonly HashAlgorithmName _hashAlgorithm = HashAlgorithmName.SHA256;
 
@@ -82,7 +81,6 @@ namespace TuClinica.Services.Implementation
 
         public async Task EncryptAsync(Stream inputStream, Stream outputStream, string password)
         {
-            // Este método siempre usa el formato NUEVO (El más seguro)
             byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
             (byte[] aesKey, byte[] hmacKey) = DeriveKeys(password, salt);
 
@@ -108,9 +106,6 @@ namespace TuClinica.Services.Implementation
             await outputStream.WriteAsync(hash, 0, hash.Length);
         }
 
-        /// <summary>
-        /// Intenta desencriptar usando el método moderno (HMAC). Si falla, intenta el método Legacy.
-        /// </summary>
         public async Task DecryptAsync(Stream inputStream, Stream outputStream, string password)
         {
             if (!inputStream.CanSeek)
@@ -120,37 +115,28 @@ namespace TuClinica.Services.Implementation
 
             try
             {
-                // INTENTO 1: Formato Nuevo (AES-CBC + HMAC)
                 await DecryptWithHmacAsync(inputStream, outputStream, password);
             }
             catch (Exception)
             {
-                // Si falla (HMAC inválido, clave incorrecta para este formato, etc.)
-                // REBOBINAMOS e intentamos el formato antiguo.
-
                 inputStream.Seek(startPosition, SeekOrigin.Begin);
 
-                // Si outputStream es un MemoryStream o FileStream, intentamos limpiar lo que se haya escrito parcialmente
                 if (outputStream.CanSeek)
                 {
                     outputStream.SetLength(0);
                 }
 
-                // INTENTO 2: Formato Legacy (AES-CBC simple o tu método anterior)
                 try
                 {
                     await DecryptLegacyAsync(inputStream, outputStream, password);
                 }
                 catch (CryptographicException ex)
                 {
-                    // Capturamos el error de "Padding invalid" aquí para que no cierre la app abruptamente
-                    // Puedes loguear el error si tienes logger
                     throw new Exception("La contraseña es incorrecta o el formato de la base de datos no es compatible.", ex);
                 }
             }
         }
 
-        // --- Lógica del Formato Nuevo (Tu código original de AES+HMAC) ---
         private async Task DecryptWithHmacAsync(Stream inputStream, Stream outputStream, string password)
         {
             byte[] salt = new byte[SaltSize];
@@ -192,25 +178,17 @@ namespace TuClinica.Services.Implementation
             await decryptStream.CopyToAsync(outputStream);
         }
 
-        // --- Lógica del Formato Antiguo (Legacy) ---
-        // IMPORTANTE: Ajusta esto si tu método anterior era diferente (ej. AES-GCM, sin Salt, etc.)
-        // Esta es una implementación estándar de AES-CBC con Salt+IV al inicio pero SIN HMAC al final.
-        // --- REEMPLAZA TODO EL MÉTODO DecryptLegacyAsync CON ESTE BLOQUE MEJORADO ---
-
         private async Task DecryptLegacyAsync(Stream inputStream, Stream outputStream, string password)
         {
             long startPosition = inputStream.Position;
             Exception lastError = null;
 
-            // --- ESTRATEGIA 1: IMPLEMENTACIÓN "SIMPLE" (Muy común en tutoriales) ---
-            // Lógica: La clave es simplemente el SHA256 del password. El archivo empieza con el IV (16 bytes).
-            // Estructura archivo: [IV (16 bytes)] [Cifrado...]
             try
             {
                 inputStream.Seek(startPosition, SeekOrigin.Begin);
                 if (outputStream.CanSeek) outputStream.SetLength(0);
 
-                byte[] iv = new byte[IvSize]; // 16 bytes
+                byte[] iv = new byte[IvSize];
                 if (await inputStream.ReadAsync(iv, 0, IvSize) == IvSize)
                 {
                     using var sha256 = SHA256.Create();
@@ -225,25 +203,21 @@ namespace TuClinica.Services.Implementation
                     using var decryptor = aes.CreateDecryptor();
                     await using var decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
                     await decryptStream.CopyToAsync(outputStream);
-                    return; // ¡Éxito!
+                    return;
                 }
             }
             catch (Exception ex) { lastError = ex; }
 
-
-            // --- ESTRATEGIA 2: ESTÁNDAR CON SALT (Lo que probamos antes) ---
-            // Estructura: [Salt (16 bytes)] [IV (16 bytes)] [Cifrado...]
             var configs = new[]
             {
-        new { Iterations = 1000, Algo = HashAlgorithmName.SHA1 },    // .NET Framework clásico
-        new { Iterations = 10000, Algo = HashAlgorithmName.SHA256 }, // Estándar moderno
-        new { Iterations = 2, Algo = HashAlgorithmName.SHA1 }        // Versiones muy viejas
-    };
+                new { Iterations = 1000, Algo = HashAlgorithmName.SHA1 },
+                new { Iterations = 10000, Algo = HashAlgorithmName.SHA256 },
+                new { Iterations = 2, Algo = HashAlgorithmName.SHA1 }
+            };
 
             byte[] salt = new byte[SaltSize];
             byte[] iv2 = new byte[IvSize];
 
-            // Intentamos leer 32 bytes (Salt + IV)
             inputStream.Seek(startPosition, SeekOrigin.Begin);
             bool headerRead = false;
             if (await inputStream.ReadAsync(salt, 0, SaltSize) == SaltSize &&
@@ -258,7 +232,6 @@ namespace TuClinica.Services.Implementation
                 {
                     try
                     {
-                        // Importante: Volver justo después del Salt+IV
                         inputStream.Seek(startPosition + SaltSize + IvSize, SeekOrigin.Begin);
                         if (outputStream.CanSeek) outputStream.SetLength(0);
 
@@ -274,14 +247,12 @@ namespace TuClinica.Services.Implementation
                         using var decryptor = aes.CreateDecryptor();
                         await using var decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
                         await decryptStream.CopyToAsync(outputStream);
-                        return; // ¡Éxito!
+                        return;
                     }
                     catch (Exception ex) { lastError = ex; }
                 }
             }
 
-            // --- ESTRATEGIA 3: SIN IV EN ARCHIVO (Poco común pero posible) ---
-            // Algunos sistemas antiguos usaban un IV fijo (todo ceros) y solo guardaban el cifrado.
             try
             {
                 inputStream.Seek(startPosition, SeekOrigin.Begin);
@@ -289,7 +260,7 @@ namespace TuClinica.Services.Implementation
 
                 using var sha256 = SHA256.Create();
                 byte[] key = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-                byte[] zeroIv = new byte[16]; // Todo ceros
+                byte[] zeroIv = new byte[16];
 
                 using Aes aes = Aes.Create();
                 aes.Key = key;
@@ -309,7 +280,6 @@ namespace TuClinica.Services.Implementation
 
         #endregion
 
-        // Helper para leer segmentos de stream sin cerrarlo
         private class LimitedStream : Stream
         {
             private readonly Stream _baseStream;
@@ -352,7 +322,6 @@ namespace TuClinica.Services.Implementation
             public override void Flush() => _baseStream.Flush();
             public override long Seek(long offset, SeekOrigin origin)
             {
-                // Simplificado para read-only forward
                 long target = origin switch
                 {
                     SeekOrigin.Begin => offset,
@@ -367,7 +336,6 @@ namespace TuClinica.Services.Implementation
             public override void SetLength(long value) => throw new NotSupportedException();
             public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
-            // DisposeAsync y Dispose vacíos para no cerrar el stream base
             public override async ValueTask DisposeAsync() => await Task.CompletedTask;
             protected override void Dispose(bool disposing) { }
         }

@@ -89,11 +89,11 @@ namespace TuClinica.UI.ViewModels
         {
             if (CurrentPatient == null || _originalPatientState == null) return;
 
+            // --- VALIDACIONES ---
             CurrentPatient.ForceValidation();
             if (CurrentPatient.HasErrors)
             {
-                var firstError = CurrentPatient.GetErrors().FirstOrDefault()?.ErrorMessage;
-                _dialogService.ShowMessage($"Error de validación: {firstError}", "Datos Inválidos");
+                _dialogService.ShowMessage($"Error: {CurrentPatient.GetErrors().FirstOrDefault()?.ErrorMessage}", "Validación");
                 return;
             }
 
@@ -105,7 +105,7 @@ namespace TuClinica.UI.ViewModels
 
             if (!_validationService.IsValidDocument(CurrentPatient.DocumentNumber, CurrentPatient.DocumentType))
             {
-                _dialogService.ShowMessage("El número de documento no tiene un formato válido.", "Documento Inválido");
+                _dialogService.ShowMessage("Documento no válido.", "Error");
                 return;
             }
 
@@ -118,54 +118,103 @@ namespace TuClinica.UI.ViewModels
                     bool docChanged = !string.Equals(_originalPatientState.DocumentNumber, CurrentPatient.DocumentNumber, StringComparison.OrdinalIgnoreCase) ||
                                       _originalPatientState.DocumentType != CurrentPatient.DocumentType;
 
+                    bool proceedToUpdate = true;
+
                     if (docChanged)
                     {
-                        var duplicate = await context.Patients.AsNoTracking()
-                            .FirstOrDefaultAsync(p => p.Id != CurrentPatient.Id && p.DocumentNumber.ToLower() == CurrentPatient.DocumentNumber.ToLower());
-
-                        if (duplicate == null)
-                        {
-                            var linkedMatch = await context.LinkedDocuments.AsNoTracking().Include(d => d.Patient)
-                                .FirstOrDefaultAsync(d => d.PatientId != CurrentPatient.Id && d.DocumentNumber.ToLower() == CurrentPatient.DocumentNumber.ToLower());
-                            if (linkedMatch != null) duplicate = linkedMatch.Patient;
-                        }
+                        // Detectar duplicado
+                        var duplicate = await context.Patients
+                            .FirstOrDefaultAsync(p => p.Id != CurrentPatient.Id &&
+                                                 p.DocumentNumber.ToLower() == CurrentPatient.DocumentNumber.ToLower());
 
                         if (duplicate != null)
                         {
-                            _dialogService.ShowMessage($"El documento ya existe en el paciente: {duplicate.PatientDisplayInfo}", "Duplicado");
-                            CurrentPatient.DocumentNumber = _originalPatientState.DocumentNumber;
-                            CurrentPatient.DocumentType = _originalPatientState.DocumentType;
-                            return;
+                            var result = _dialogService.ShowConfirmation(
+                                $"El DNI/NIE ya existe en el paciente: {duplicate.Name} {duplicate.Surname} (ID: {duplicate.Id})\n\n" +
+                                "¿CONFIRMAR FUSIÓN BLINDADA?\n" +
+                                "El sistema buscará y moverá AUTOMÁTICAMENTE todos los registros vinculados de todas las tablas.",
+                                "Fusión Definitiva");
+
+                            if (result == CoreDialogResult.Yes)
+                            {
+                                // =======================================================
+                                //  PROTOCOLO OMEGA: FUSIÓN POR REFLEXIÓN Y SQL DIRECTO
+                                // =======================================================
+                                // Esto encuentra CUALQUIER tabla con 'PatientId' y mueve los datos.
+                                // Ya no importa si olvidamos 'PaymentAllocations' o 'ActivityLogs', esto las atrapa a todas.
+
+                                var entityTypes = context.Model.GetEntityTypes();
+                                int tablasMovidas = 0;
+
+                                foreach (var type in entityTypes)
+                                {
+                                    // Ignoramos la tabla de Pacientes (no queremos mover el paciente a sí mismo)
+                                    if (type.ClrType == typeof(TuClinica.Core.Models.Patient)) continue;
+
+                                    // Buscamos si la tabla tiene la propiedad "PatientId"
+                                    var patientIdProp = type.FindProperty("PatientId");
+                                    if (patientIdProp != null)
+                                    {
+                                        // Obtenemos el nombre real de la tabla en la BD
+                                        var tableName = type.GetTableName();
+                                        if (!string.IsNullOrEmpty(tableName))
+                                        {
+                                            // EJECUCIÓN SQL DIRECTA (Rápida y sin chequeos de EF que bloqueen)
+                                            // "UPDATE [Tabla] SET PatientId = [Nuevo] WHERE PatientId = [Viejo]"
+                                            var sql = $"UPDATE \"{tableName}\" SET \"PatientId\" = {CurrentPatient.Id} WHERE \"PatientId\" = {duplicate.Id}";
+                                            await context.Database.ExecuteSqlRawAsync(sql);
+                                            tablasMovidas++;
+                                        }
+                                    }
+                                }
+
+                                // BORRADO FINAL DEL DUPLICADO (VÍA SQL PARA EVITAR BLOQUEOS)
+                                await context.Database.ExecuteSqlRawAsync($"DELETE FROM \"Patients\" WHERE \"Id\" = {duplicate.Id}");
+
+                                _dialogService.ShowMessage($"Fusión completada. Se han procesado {tablasMovidas} tablas del sistema.", "Éxito Total");
+                            }
+                            else
+                            {
+                                // Cancelar
+                                CurrentPatient.DocumentNumber = _originalPatientState.DocumentNumber;
+                                CurrentPatient.DocumentType = _originalPatientState.DocumentType;
+                                proceedToUpdate = false;
+                            }
                         }
 
-                        if (!string.IsNullOrWhiteSpace(_originalPatientState.DocumentNumber))
+                        // Archivado automático
+                        if (proceedToUpdate && !string.IsNullOrWhiteSpace(_originalPatientState.DocumentNumber))
                         {
-                            var oldDoc = new LinkedDocument
+                            if (_originalPatientState.DocumentNumber.ToLower() != CurrentPatient.DocumentNumber.ToLower())
                             {
-                                PatientId = CurrentPatient.Id,
-                                DocumentType = _originalPatientState.DocumentType,
-                                DocumentNumber = _originalPatientState.DocumentNumber,
-                                Notes = $"Archivado el {DateTime.Now:dd/MM/yy}"
-                            };
-                            context.LinkedDocuments.Add(oldDoc);
+                                // Usamos SQL directo también aquí para asegurar consistencia inmediata
+                                var note = $"Documento previo (Archivado el {DateTime.Now:dd/MM/yyyy})";
+                                var sqlArchivado = $"INSERT INTO \"LinkedDocuments\" (\"PatientId\", \"DocumentType\", \"DocumentNumber\", \"Notes\") " +
+                                                   $"VALUES ({CurrentPatient.Id}, {(int)_originalPatientState.DocumentType}, '{_originalPatientState.DocumentNumber}', '{note}')";
+                                await context.Database.ExecuteSqlRawAsync(sqlArchivado);
+                            }
                         }
                     }
 
-                    var patientToUpdate = await context.Patients.FindAsync(CurrentPatient.Id);
-                    if (patientToUpdate != null)
+                    if (proceedToUpdate)
                     {
-                        context.Entry(patientToUpdate).CurrentValues.SetValues(CurrentPatient);
-                        await context.SaveChangesAsync();
+                        // Guardado final de los datos del paciente actual
+                        var patientToUpdate = await context.Patients.FindAsync(CurrentPatient.Id);
+                        if (patientToUpdate != null)
+                        {
+                            context.Entry(patientToUpdate).CurrentValues.SetValues(CurrentPatient);
+                            await context.SaveChangesAsync();
 
-                        _dialogService.ShowMessage("Datos actualizados.", "Éxito");
-                        _originalPatientState = CurrentPatient.DeepCopy();
-                        IsPatientDataReadOnly = true;
+                            _dialogService.ShowMessage("Datos guardados correctamente.", "Éxito");
+                            _originalPatientState = CurrentPatient.DeepCopy();
+                            IsPatientDataReadOnly = true;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error al guardar: {ex.Message}", "Error");
+                _dialogService.ShowMessage($"Error Crítico: {ex.Message}\n{ex.InnerException?.Message}", "Error del Sistema");
             }
         }
     }

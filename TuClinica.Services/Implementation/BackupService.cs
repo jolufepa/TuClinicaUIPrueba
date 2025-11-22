@@ -7,6 +7,8 @@ using Microsoft.Data.Sqlite;
 using System.Security.Cryptography;
 using System.Text;
 using TuClinica.Core.Interfaces.Services;
+using System.Linq;
+using System.IO.Compression;
 
 namespace TuClinica.Services.Implementation
 {
@@ -16,9 +18,11 @@ namespace TuClinica.Services.Implementation
         private readonly string _dbFilePath;
         private readonly string _keyFilePath;
         private readonly IDialogService _dialogService;
+        private readonly ICryptoService _cryptoService;
 
         public BackupService(ICryptoService cryptoService, IDialogService dialogService)
         {
+            _cryptoService = cryptoService;
             _dialogService = dialogService;
 
             string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TuClinicaPD");
@@ -27,174 +31,255 @@ namespace TuClinica.Services.Implementation
             _keyFilePath = Path.Combine(_sourceDataPath, "db.key");
         }
 
-        // --------------------------------------------------------------------------------------------
-        // CREAR BACKUP: SystemKey (Tu PC) -> UserPassword (Portable)
-        // --------------------------------------------------------------------------------------------
         public async Task CreateBackupAsync(string destinationPath, string portablePassword)
         {
             if (!File.Exists(_dbFilePath)) throw new FileNotFoundException("No se encuentra la base de datos.");
 
-            // 1. Leemos la clave interna de TU PC actual (db.key)
             string systemPassword = GetSystemDatabasePassword();
 
-            await Task.Run(() =>
+            string tempWorkDir = Path.Combine(Path.GetTempPath(), $"TC_BKP_{Guid.NewGuid()}");
+            Directory.CreateDirectory(tempWorkDir);
+
+            string tempDbCopy = Path.Combine(tempWorkDir, "DentalClinic.db");
+            string tempFilesPath = Path.Combine(tempWorkDir, "PatientFiles");
+            string tempSettingsPath = Path.Combine(tempWorkDir, "appsettings.json");
+            string rawPackagePath = Path.Combine(tempWorkDir, "RawPackage.dat");
+            string compressedPackagePath = Path.Combine(tempWorkDir, "CompressedPackage.gz");
+
+            try
             {
-                // 2. Copiamos la BD a un temporal para trabajar seguros
-                string tempDbPath = Path.Combine(Path.GetTempPath(), $"TempBackup_{Guid.NewGuid()}.db");
-                File.Copy(_dbFilePath, tempDbPath, true);
-
-                try
+                await Task.Run(async () =>
                 {
-                    // 3. Abrimos la copia usando la contraseña del SISTEMA
-                    var connectionString = new SqliteConnectionStringBuilder
-                    {
-                        DataSource = tempDbPath,
-                        Password = systemPassword,
-                        Mode = SqliteOpenMode.ReadWrite,
-                        Pooling = false // INTENTO 1: Desactivar pooling para este backup
-                    }.ToString();
+                    File.Copy(_dbFilePath, tempDbCopy, true);
+                    RekeyDatabase(tempDbCopy, systemPassword, portablePassword);
 
-                    using (var connection = new SqliteConnection(connectionString))
+                    if (Directory.Exists(Path.Combine(_sourceDataPath, "PatientFiles")))
                     {
-                        connection.Open();
+                        CopyDirectory(Path.Combine(_sourceDataPath, "PatientFiles"), tempFilesPath);
+                    }
+                    else
+                    {
+                        Directory.CreateDirectory(tempFilesPath);
+                    }
 
-                        // 4. REKEY: Cambiamos la llave maestra a la contraseña del usuario
-                        using (var command = connection.CreateCommand())
+                    string sourceSettings = Path.Combine(_sourceDataPath, "appsettings.json");
+                    if (File.Exists(sourceSettings))
+                    {
+                        File.Copy(sourceSettings, tempSettingsPath, true);
+                    }
+
+                    using (var fs = new FileStream(rawPackagePath, FileMode.Create))
+                    using (var writer = new BinaryWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write("TUCLINICA_SECURE_BKP_V1");
+                        writer.Write(1);
+
+                        byte[] dbBytes = File.ReadAllBytes(tempDbCopy);
+                        writer.Write(dbBytes.Length);
+                        writer.Write(dbBytes);
+
+                        var files = Directory.GetFiles(tempFilesPath, "*.*", SearchOption.AllDirectories);
+                        writer.Write(files.Length);
+
+                        foreach (string filePath in files)
                         {
-                            string safePassword = portablePassword.Replace("'", "''");
-                            command.CommandText = $"PRAGMA rekey = '{safePassword}';";
-                            command.ExecuteNonQuery();
+                            string relativePath = Path.GetRelativePath(tempFilesPath, filePath);
+                            byte[] fileBytes = File.ReadAllBytes(filePath);
+
+                            writer.Write(relativePath);
+                            writer.Write(fileBytes.Length);
+                            writer.Write(fileBytes);
                         }
 
-                        // --- CORRECCIÓN CRÍTICA AQUÍ ---
-                        // Cerramos explícitamente y limpiamos el pool para soltar el archivo
-                        connection.Close();
-                        SqliteConnection.ClearPool(connection);
-                        // -------------------------------
+                        if (File.Exists(tempSettingsPath))
+                        {
+                            byte[] settingsBytes = File.ReadAllBytes(tempSettingsPath);
+                            writer.Write(true);
+                            writer.Write(settingsBytes.Length);
+                            writer.Write(settingsBytes);
+                        }
+                        else
+                        {
+                            writer.Write(false);
+                        }
                     }
 
-                    // Pequeña pausa de seguridad para asegurar que el SO libera el handler
-                    System.Threading.Thread.Sleep(100);
-
-                    // 5. Copiamos al destino final
-                    File.Copy(tempDbPath, destinationPath, true);
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"Error al exportar backup portable: {ex.Message}", ex);
-                }
-                finally
-                {
-                    // Intentamos borrar el temporal. Si falla por bloqueo, no rompemos la app, 
-                    // el SO lo limpiará eventualmente.
-                    try
+                    using (var input = new FileStream(rawPackagePath, FileMode.Open))
+                    using (var output = new FileStream(compressedPackagePath, FileMode.Create))
+                    using (var gzip = new GZipStream(output, CompressionMode.Compress))
                     {
-                        if (File.Exists(tempDbPath)) File.Delete(tempDbPath);
+                        await input.CopyToAsync(gzip);
                     }
-                    catch { /* Ignorar error de borrado temporal */ }
+
+                    using (var fsInput = new FileStream(compressedPackagePath, FileMode.Open))
+                    using (var fsOutput = new FileStream(destinationPath, FileMode.Create))
+                    {
+                        await _cryptoService.EncryptAsync(fsInput, fsOutput, portablePassword);
+                    }
+                });
+            }
+            catch (IOException ex)
+            {
+                throw new Exception($"Error de I/O al crear backup: {ex.Message}", ex);
+            }
+            catch (CryptographicException ex)
+            {
+                throw new Exception($"Error de encriptación: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Fallo crítico al crear backup: {ex.Message}", ex);
+            }
+            finally
+            {
+                if (Directory.Exists(tempWorkDir))
+                {
+                    try { Directory.Delete(tempWorkDir, true); } catch { }
                 }
-            });
+            }
         }
 
-        // --------------------------------------------------------------------------------------------
-        // RESTAURAR: UserPassword (Portable) -> SystemKey (Nuevo PC)
-        // --------------------------------------------------------------------------------------------
         public async Task RestoreBackupAsync(string sourceBackupPath, string portablePassword)
         {
             if (!File.Exists(sourceBackupPath)) throw new FileNotFoundException("No se encuentra el archivo.");
 
-            // 1. Obtenemos la contraseña del sistema del NUEVO PC
             string currentSystemPassword = GetSystemDatabasePassword();
 
-            await Task.Run(() =>
+            string tempRestoreDir = Path.Combine(Path.GetTempPath(), $"TC_RST_{Guid.NewGuid()}");
+            Directory.CreateDirectory(tempRestoreDir);
+
+            string compressedPackagePath = Path.Combine(tempRestoreDir, "CompressedPackage.gz");
+            string rawPackagePath = Path.Combine(tempRestoreDir, "RawPackage.dat");
+            string restoredDbPath = Path.Combine(tempRestoreDir, "Restored.db");
+            string restoredFilesPath = Path.Combine(tempRestoreDir, "PatientFiles");
+            string restoredSettingsPath = Path.Combine(tempRestoreDir, "appsettings.json");
+
+            try
             {
-                // 2. Copiamos el backup a un temporal
-                string tempDbPath = Path.Combine(Path.GetTempPath(), $"TempRestore_{Guid.NewGuid()}.db");
-                File.Copy(sourceBackupPath, tempDbPath, true);
-
-                try
+                await Task.Run(async () =>
                 {
-                    // 3. Abrimos el backup usando la contraseña PORTABLE
-                    var connectionString = new SqliteConnectionStringBuilder
+                    using (var fsInput = new FileStream(sourceBackupPath, FileMode.Open))
+                    using (var fsOutput = new FileStream(compressedPackagePath, FileMode.Create))
                     {
-                        DataSource = tempDbPath,
-                        Password = portablePassword,
-                        Mode = SqliteOpenMode.ReadWrite,
-                        Pooling = false // Desactivamos pooling también aquí
-                    }.ToString();
-
-                    using (var connection = new SqliteConnection(connectionString))
-                    {
-                        connection.Open();
-
-                        // 4. REKEY INVERSO: Cambiamos a la contraseña del SISTEMA
-                        using (var command = connection.CreateCommand())
-                        {
-                            string safePassword = currentSystemPassword.Replace("'", "''");
-                            command.CommandText = $"PRAGMA rekey = '{safePassword}';";
-                            command.ExecuteNonQuery();
-                        }
-
-                        // CORRECCIÓN CRÍTICA: Soltar archivo
-                        connection.Close();
-                        SqliteConnection.ClearPool(connection);
+                        await _cryptoService.DecryptAsync(fsInput, fsOutput, portablePassword);
                     }
 
-                    System.Threading.Thread.Sleep(100);
-
-                    // 5. Reemplazo seguro
-                    Application.Current.Dispatcher.Invoke(() =>
+                    using (var input = new FileStream(compressedPackagePath, FileMode.Open))
+                    using (var gzip = new GZipStream(input, CompressionMode.Decompress))
+                    using (var output = new FileStream(rawPackagePath, FileMode.Create))
                     {
-                        _dialogService.ShowMessage(
-                            "Copia validada y adaptada a este equipo.\n\nLa aplicación se reiniciará.",
-                            "Restauración Exitosa");
+                        await gzip.CopyToAsync(output);
+                    }
 
-                        PerformSafeRestore(tempDbPath);
-                    });
-                }
-                catch (SqliteException ex)
-                {
-                    if (ex.Message.Contains("file is not a database") || ex.SqliteErrorCode == 26)
-                        throw new Exception("La contraseña proporcionada no es válida para este backup.");
-                    else
-                        throw;
-                }
-            });
+                    using (var fs = new FileStream(rawPackagePath, FileMode.Open))
+                    using (var reader = new BinaryReader(fs, Encoding.UTF8))
+                    {
+                        string signature = reader.ReadString();
+                        if (signature != "TUCLINICA_SECURE_BKP_V1")
+                            throw new Exception("El archivo no es un backup válido.");
+
+                        int version = reader.ReadInt32();
+                        if (version != 1)
+                            throw new Exception($"Versión no compatible: {version}");
+
+                        int dbSize = reader.ReadInt32();
+                        File.WriteAllBytes(restoredDbPath, reader.ReadBytes(dbSize));
+
+                        int fileCount = reader.ReadInt32();
+                        for (int i = 0; i < fileCount; i++)
+                        {
+                            string relativePath = reader.ReadString();
+                            int fileSize = reader.ReadInt32();
+                            byte[] fileContent = reader.ReadBytes(fileSize);
+
+                            string targetPath = Path.Combine(restoredFilesPath, relativePath);
+                            Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? string.Empty);
+                            File.WriteAllBytes(targetPath, fileContent);
+                        }
+
+                        bool hasSettings = reader.ReadBoolean();
+                        if (hasSettings)
+                        {
+                            int settingsSize = reader.ReadInt32();
+                            File.WriteAllBytes(restoredSettingsPath, reader.ReadBytes(settingsSize));
+                        }
+                    }
+
+                    RekeyDatabase(restoredDbPath, portablePassword, currentSystemPassword);
+
+                    PerformSafeRestore(restoredDbPath, restoredFilesPath, restoredSettingsPath);
+                });
+            }
+            catch (CryptographicException)
+            {
+                throw new Exception("Contraseña incorrecta o archivo dañado.");
+            }
+            catch (IOException ex)
+            {
+                throw new Exception("Error de I/O al restaurar: " + ex.Message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error crítico al restaurar: {ex.Message}");
+            }
         }
 
-        private void PerformSafeRestore(string newDbFileSource)
+        private void PerformSafeRestore(string newDbSource, string newFilesSource, string newSettingsSource)
         {
-            string batPath = Path.Combine(Path.GetTempPath(), "restore_rekey.bat");
-            string targetFolder = _sourceDataPath.TrimEnd(Path.DirectorySeparatorChar);
+            string targetDb = _dbFilePath;
+            string targetFiles = Path.Combine(_sourceDataPath, "PatientFiles");
+            string targetSettings = Path.Combine(_sourceDataPath, "appsettings.json");
 
-            string script = $@"
-@echo off
-timeout /t 2 /nobreak > NUL
-copy /Y ""{newDbFileSource}"" ""{targetFolder}\DentalClinic.db""
-del ""{newDbFileSource}""
-del ""%~f0""
-";
-            File.WriteAllText(batPath, script);
+            string currentExePath = Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException("No se pudo obtener la ruta del ejecutable.");
 
-            new Process
+            string escapedDbSource = newDbSource.Replace("\"", "\\\"");
+            string escapedTargetDb = targetDb.Replace("\"", "\\\"");
+            string escapedFilesSource = newFilesSource.Replace("\"", "\\\"");
+            string escapedTargetFiles = targetFiles.Replace("\"", "\\\"");
+            string escapedSettingsSource = newSettingsSource.Replace("\"", "\\\"");
+            string escapedTargetSettings = targetSettings.Replace("\"", "\\\"");
+
+            string args = $"--restore \"{escapedDbSource}\" \"{escapedTargetDb}\" \"{escapedFilesSource}\" \"{escapedTargetFiles}\" \"{escapedSettingsSource}\" \"{escapedTargetSettings}\"";
+            Process.Start(new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = batPath,
-                    UseShellExecute = true,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                }
-            }.Start();
+                FileName = currentExePath,
+                Arguments = args,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
 
-            Application.Current.Shutdown();
+            Environment.Exit(0);
+        }
+
+        private void RekeyDatabase(string dbPath, string oldPassword, string newPassword)
+        {
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = dbPath,
+                Password = oldPassword,
+                Mode = SqliteOpenMode.ReadWrite,
+                Pooling = false
+            }.ToString();
+
+            using (var connection = new SqliteConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    string safePassword = newPassword.Replace("'", "''");
+                    command.CommandText = $"PRAGMA rekey = '{safePassword}';";
+                    command.ExecuteNonQuery();
+                }
+                connection.Close();
+                SqliteConnection.ClearPool(connection);
+            }
         }
 
         private string GetSystemDatabasePassword()
         {
             if (!File.Exists(_keyFilePath))
             {
-                throw new Exception("Error Crítico: No se encuentra 'db.key'. La aplicación debe iniciarse correctamente al menos una vez.");
+                throw new Exception("Error de Integridad: No se encuentra db.key.");
             }
 
             try
@@ -206,7 +291,24 @@ del ""%~f0""
             }
             catch
             {
-                throw new Exception("No se pudo leer la llave de seguridad (db.key).");
+                throw new Exception("No se puede leer la llave de seguridad de este PC.");
+            }
+        }
+
+        private void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            var dir = new DirectoryInfo(sourceDir);
+            if (!dir.Exists) return;
+            Directory.CreateDirectory(destinationDir);
+            foreach (FileInfo file in dir.GetFiles())
+            {
+                string targetFilePath = Path.Combine(destinationDir, file.Name);
+                file.CopyTo(targetFilePath, true);
+            }
+            foreach (DirectoryInfo subDir in dir.GetDirectories())
+            {
+                string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                CopyDirectory(subDir.FullName, newDestinationDir);
             }
         }
     }
